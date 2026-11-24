@@ -117,6 +117,8 @@ interface ProfileScreenProps {
   onStage: (stage: LevelKey) => void;
   onBatchSize: (size: number) => void;
   onOpenImport: () => void;
+  /** 危险操作：清空所有学习数据（引擎重置），二次确认在 App 的 ConfirmDialog */
+  onOpenResetEngine: () => void;
   onDeleteCustom: () => void;
   onOpenSkin: () => void;
   onOpenCalendar: () => void;
@@ -139,6 +141,7 @@ export function ProfileScreen({
   onStage,
   onBatchSize,
   onOpenImport,
+  onOpenResetEngine,
   onDeleteCustom,
   onOpenSkin,
   onOpenCalendar,
@@ -446,6 +449,20 @@ export function ProfileScreen({
               </div>
               <button type="button" className="btn btn--text" onClick={onOpenMistakes}>
                 {schedulerStats.mistakes > 0 ? `打开 ${schedulerStats.mistakes}` : '打开'}
+              </button>
+            </div>
+          </section>
+
+          <section className="section section--danger-zone">
+            <div className="setting-row">
+              <div>
+                <div className="setting-row__label">清空所有学习数据</div>
+                <div className="setting-row__value">
+                  已学卡片、复习队列、错词本与统计全部归零，像新用户第一次打开；词库与设置保留
+                </div>
+              </div>
+              <button type="button" className="btn btn--danger-text" onClick={onOpenResetEngine}>
+                清空
               </button>
             </div>
           </section>

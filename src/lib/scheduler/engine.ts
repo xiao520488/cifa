@@ -576,6 +576,38 @@ export class Scheduler {
     return group ? [...group.words] : [];
   }
 
+  /**
+   * 清空全部学习数据（设置页「清空所有学习数据」）。
+   *
+   * 清的是**学习状态**：卡片、未学池、当天/历史记录、错词本、即时复习、结算与统计——
+   * 像新用户第一次打开。**保留设置**：每日目标、上限（含钉住）、新词顺序、词频表，
+   * 否则重置完还得重新配一遍目标，测试时很烦。
+   * 调用后需要重新 `seed(当前词库)` 灌池子（App 层负责），否则今天没有新词可发。
+   */
+  resetLearning(): void {
+    const s = this.s;
+    s.cards = {};
+    s.unlearned = [];
+    s.relearned = {};
+    s.archived = [];
+    s.days = {};
+    s.mistakes = {};
+    s.immediate = {
+      pendingCount: 0,
+      pendingWords: [],
+      active: null,
+      stats: { groups: 0, cards: 0, loops: 0, skipped: 0 },
+      lastAvgLoops: null,
+    };
+    s.pendingLimit = null;
+    s.manual = null;
+    s.consecutiveGoodDays = 0;
+    s.currentLimit = s.userDailyGoal;
+    s.lifetime = { score: 0, count: 0 };
+    s.lastSettlement = null;
+    s.lastSettledDay = null;
+  }
+
   // ---------------------------------------------------------------- 错词本
 
   /**

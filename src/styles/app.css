@@ -1636,6 +1636,12 @@ p {
   color: var(--danger);
 }
 
+/* 设置页最底部的危险操作区：只靠边框与既有 danger 色区分，不引入新色值 */
+.section--danger-zone {
+  border-top: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  padding-top: var(--space-4);
+}
+
 .answer-btn--unknown:hover {
   background: var(--surface-sunken);
 }

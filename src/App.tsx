@@ -19,13 +19,14 @@ import { StudyScreen } from './components/StudyScreen';
 import { TodayCard } from './components/TodayCard';
 import { useScheduler } from './hooks/useScheduler';
 import { preloadBook } from './lib/books';
+import { deckWords } from './lib/deck';
 import { emptyStageProgress, loadStore, saveStore } from './lib/storage';
 import type { LevelKey, Profile, Store, Word } from './lib/types';
 import { skinMeta } from './lib/skins';
 import { getBook, levelMeta, showAllMeanings } from './lib/words';
 
 type Screen = 'study' | 'calendar' | 'me' | 'mistakes';
-type SheetKind = 'import' | 'delete-custom' | 'skin' | null;
+type SheetKind = 'import' | 'delete-custom' | 'reset-engine' | 'skin' | null;
 
 export default function App() {
   const [store, setStore] = useState<Store>(loadStore);
@@ -170,6 +171,20 @@ export default function App() {
       });
   };
 
+  /**
+   * 清空所有学习数据（引擎重置）：卡片 / 复习队列 / 错词本 / 历史 / 结算全部归零，
+   * 词库、阶段、每日目标、上限这些设置保留（见 engine.resetLearning 的注释）。
+   * 重置完必须重新 seed 当前词库，否则今天没有新词可发。
+   */
+  const resetEngine = () => {
+    setSession(false);
+    scheduler.run((engine) => {
+      engine.resetLearning();
+      engine.seed(deckWords(book));
+    });
+    setSheet(null);
+  };
+
   return (
     <div className="app">
       {session ? (
@@ -254,6 +269,7 @@ export default function App() {
           onStage={changeStage}
           onBatchSize={changeBatchSize}
           onOpenImport={() => setSheet('import')}
+          onOpenResetEngine={() => setSheet('reset-engine')}
           onDeleteCustom={() => setSheet('delete-custom')}
           onOpenSkin={() => setSheet('skin')}
           onOpenCalendar={() => setScreen('calendar')}
@@ -272,6 +288,16 @@ export default function App() {
           onSkin={(skin) => updateProfile({ skin })}
           onTheme={(theme) => updateProfile({ theme })}
           onClose={() => setSheet(null)}
+        />
+      ) : null}
+
+      {sheet === 'reset-engine' ? (
+        <ConfirmDialog
+          title="清空所有学习数据？"
+          text="所有已学的卡片、复习队列、逾期、错词本和学习统计都会被删除，进度彻底归零，像新用户第一次打开。词库、阶段、每日目标与上限会保留。这个操作不能撤销。"
+          confirmLabel="确认清空"
+          onConfirm={resetEngine}
+          onCancel={() => setSheet(null)}
         />
       ) : null}
 

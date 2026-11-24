@@ -1243,6 +1243,31 @@ const nineteen = Array.from({ length: 19 }, (_, index) => `t${index}`);
   eq('预览不建卡', Object.keys(s.state.cards).length, 0);
 }
 
+// 11.8 resetLearning：学习数据彻底归零，设置保留；重新 seed 后像新用户
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c', 'd', 'e']);
+  s.plan();
+  s.learnNewWord('a');
+  s.learnNewWord('b');
+  s.answerImmediate('b', false); // 制造错词记录需要 hard 路径，直接手动学两个再答一次即时
+  s.setUserDailyGoal(12);
+  s.setMaxLimit(30);
+  s.resetLearning();
+  eq('卡片清空', Object.keys(s.state.cards).length, 0);
+  eq('历史记录清空', Object.keys(s.state.days).length, 0);
+  eq('错词本清空', Object.keys(s.state.mistakes).length, 0);
+  eq('即时复习归零', s.state.immediate.stats.groups, 0);
+  eq('结算归零', s.state.lastSettlement, null);
+  eq('连续优秀归零', s.state.consecutiveGoodDays, 0);
+  eq('每日目标保留', s.state.userDailyGoal, 12);
+  eq('钉住的上限保留', [s.state.maxLimit, s.state.maxLimitPinned], [30, true]);
+  eq('基线回到目标值', s.state.currentLimit, 12);
+  eq('重置后池子为空（还没 seed）', s.newWordPool().length, 0);
+  s.seed(['a', 'b', 'c', 'd', 'e']);
+  eq('重新 seed 后像新用户', [s.newWordPool().length, s.state.days['2026-11-24'] ? 1 : 0], [5, 0]);
+  eq('发放按目标来', s.plan().allowedNewWords, 5); // min(12, 池 5)
+}
+
 // ---------------------------------------------------------------- 汇总
 
 const state: SchedulerState = emptyState();
