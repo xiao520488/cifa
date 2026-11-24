@@ -11,7 +11,7 @@
 | 2 | 批次切分与今日额度无关 | `chunk(book.words, batchSize)`，不是 `nextNewWords(allowed)` |
 | 3 | 新词单卡「记住了，下一个」，不是列表形态 | `SessionScreen` phase `'newword'` 用 flash 卡 |
 | 4 | **学一个词立刻入库建卡**，即时复习没清空也算已学；中途退出不回滚 | `engine.learnNewWord()` 建卡 + 进 pendingWords |
-| 5 | 即时复习有「跳过」第三键 | 用户新规则：只允许【认识】【不认识】两键 |
+| 5 | 即时复习有「跳过」第三键 | 用户新规则：只允许【认识】【模糊】两键（2026-11-24 修订：原【不认识】改名【模糊】，逻辑不变） |
 
 ## 1. 统一状态机（SessionScreen 重写）
 
@@ -35,7 +35,7 @@ phase 'list'（图二形态，词 = newQ 按 batchSize 切批，尾巴算完整�
   退出（顶栏返回）：什么都不落库 ──► 首页。下次从第 1 批重新看。
 
 phase 'immediate'（单卡两键，只给英文+音标，不渲染释义）
-  【认识】出队；【不认识】回队尾，同词最多 3 次，第 3 次标 hard 放过
+  【认识】出队；【模糊】回队尾，同词最多 3 次，第 3 次标 hard 放过
   队列清空 ──► engine.commitNewWords(group.words, hard) ──► 入库
     ├─ 还有下一批 ──► phase 'list'（batchIdx+1，解锁）
     └─ 末批已清   ──► phase 'done'

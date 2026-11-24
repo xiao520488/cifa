@@ -437,7 +437,7 @@ export function SessionScreen({
               ) : null}
               <p className="session-done__note">
                 {hardTotal > 0
-                  ? '不认识的词回到明天的 1 天批次，硬词和错词置顶；明天见。'
+                  ? '即时复习转了三遍还模糊的词已标成硬词；复习里不认识的词回到明天的 1 天批次，硬词和错词置顶。明天见。'
                   : '不认识的词会回到明天的 1 天批次，并进错词本。明天见。'}
               </p>
               <div className="session-done__actions">
@@ -530,7 +530,7 @@ export function SessionScreen({
       </main>
 
       {phase === 'review' ? (
-        <div className="answer-dock">
+        <div className="answer-dock answer-dock--review">
           <button type="button" className="answer-btn answer-btn--unknown" onClick={() => submit('unknown')}>
             <IconClose size={18} />
             <span>{RATING_LABEL.unknown}</span>
@@ -559,14 +559,15 @@ export function SessionScreen({
           nextLabel={isLastBatch ? '看完收尾' : '下一批'}
         />
       ) : phase === 'immediate' ? (
-        <div className="answer-dock">
+        /* 即时复习两键：认识 / 模糊。逻辑不变——点「模糊」回队尾循环，3 次标硬词放过。
+           与复习三键（answer-dock--review）用修饰类隔离，样式与测试互不污染。 */
+        <div className="answer-dock answer-dock--immediate">
           <button
             type="button"
-            className="answer-btn answer-btn--unknown"
+            className="answer-btn answer-btn--fuzzy"
             onClick={() => answerImmediateClick(false)}
           >
-            <IconClose size={18} />
-            <span>不认识</span>
+            <span>模糊</span>
           </button>
           <button
             type="button"

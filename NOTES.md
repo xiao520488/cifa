@@ -1,5 +1,20 @@
 # NOTES
 
+## 2026-11-24 · 真机反馈修复：即时复习 dock 溢出 + 两键改【认识/模糊】
+
+- **溢出根因**：`.answer-dock` 原来是 `position: fixed; inset-inline: 0`——按**视口**撑宽，
+  而 `.app` 是 `max-width: 760` 居中列；桌面窄窗口（768–900px）dock 两侧各捅出列外约 30px，
+  真机上被感知为「撑破屏幕/截断」。修复：改回正常流 `flex: none; width: 100%; box-sizing: border-box`
+  （它本来就是 `.app` flex column 的直接子元素，和列表阶段 `.dock` 同构）。**别再把它改回 fixed/100vw**。
+- **两键文案**：即时复习左键【不认识】→【模糊】（更贴合刚学完的体感），逻辑零改动——
+  仍回队尾循环、3 次标 hard、明天进 1 天批次。样式改用 `answer-btn--fuzzy`（中性描边，去掉 ✕）。
+- **两键/三键隔离**：dock 加修饰类 `answer-dock--review` / `answer-dock--immediate`；
+  复习三键（不认识/模糊/认识）与即时两键（模糊/认识）的 DOM 与选择器互不影响，实测 360 两态标签正确。
+- **附带**：`.flash-card__word` 加 `overflow-wrap: anywhere`——200 个专业长词不再被裁；
+  `.answer-btn` 加 `min-width: 0` 防文案撑爆。320/360/820/1440 四档实测 docScroll==innerWidth。
+- **回归**：tsc 0 错、test-scheduler 全过、build 过（dist 已重建，preview 4173 直接生效）；
+  浏览器全流程实测「模糊」回队尾正确。证据 `docs/screenshots/v6/immediate-fuzzy-360.png`。
+
 ## 2026-11-24 · 收尾：v1.1 + 引擎重置完成，进入待机维护（锁定 6bd5d5b 之后的 HEAD）
 
 - **新增（用户点名的小功能）**：设置页最底部「清空所有学习数据」——危险红样式 + 二次确认弹窗。

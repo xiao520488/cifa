@@ -1530,6 +1530,8 @@ p {
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.15;
+  /* 专业词库里的超长词：窄屏下换行而不是被裁掉 */
+  overflow-wrap: anywhere;
 }
 
 .flash-card__ph {
@@ -1569,11 +1571,15 @@ p {
   border-left: 2px solid var(--warning);
 }
 
+/* 复习 / 即时复习的底部操作栏。
+   必须留在 .app 列的正常流里（flex column 的直接子元素）：
+   之前用 position:fixed + inset-inline:0 是按视口撑宽，桌面窄窗口下
+   会捅破 max-width 居中的应用列，文档滚动条出现时还会再算进基宽，
+   真机上表现为横向溢出/截断。禁止改回 fixed / 100vw。 */
 .answer-dock {
-  position: fixed;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: 20;
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3) var(--page-x) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
@@ -1584,6 +1590,7 @@ p {
 
 .answer-btn {
   flex: 1 1 0;
+  min-width: 0;
   min-height: 52px;
   display: inline-flex;
   align-items: center;
