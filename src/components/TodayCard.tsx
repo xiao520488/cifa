@@ -1,9 +1,12 @@
 /**
- * 首页的「今日」摘要条（只读）。
+ * 首页的「今日」摘要条（纯展示）。
  *
  * 只回答三个问题：今天能学几个新词、有多少到期复习、欠了多少逾期。
  * 数字全部来自 `plan()` / `allowance()`，一个都不在页面里重算——
  * 首页与结算 JSON 必须说同一件事（TODO P0-1 的验收条件）。
+ *
+ * v1.1 起**没有任何动作按钮**：学习入口只有首页大按钮「开始背单词」一个，
+ * 复习优先的顺序由 Session 状态机保证（REFACTOR_PLAN §1），这里只报数。
  *
  * 新词量的三态文案统一走 `copy.ts` 的 `newWordHeadline()`：
  * 奖励挂 `↑ +5`、减量复用结算原因、发不出来就说清楚是哪道闸。
@@ -17,8 +20,6 @@ interface TodayCardProps {
   stats: SchedulerStats;
   onOpenCalendar: () => void;
   onOpenMistakes: () => void;
-  onStartReview: () => void;
-  onStartNewWords: () => void;
 }
 
 export function TodayCard({
@@ -26,8 +27,6 @@ export function TodayCard({
   stats,
   onOpenCalendar,
   onOpenMistakes,
-  onStartReview,
-  onStartNewWords,
 }: TodayCardProps) {
   const headline = newWordHeadline(plan);
   const blocked = plan.allowedNewWords < plan.newWordLimit;
@@ -35,15 +34,6 @@ export function TodayCard({
     plan.shortTermBatches.reduce((total, batch) => total + batch.wordCount, 0) +
     plan.overduePool.reduce((total, batch) => total + batch.wordCount, 0) +
     plan.longTermBatches.reduce((total, batch) => total + batch.wordCount, 0);
-  const canReview = pendingReviews > 0;
-  const canLearn = plan.allowedNewWords > 0;
-  const learnLabel = canLearn
-    ? `学新词 ${plan.allowedNewWords} 个`
-    : plan.newWordBlocked === 'quota'
-      ? '今天的新词学完了'
-      : plan.newWordBlocked === 'pool'
-        ? '词池暂时空了'
-        : headline.label;
 
   return (
     <section className="today-card" aria-label="今日学习摘要">
@@ -88,24 +78,11 @@ export function TodayCard({
 
       <p className={`today-card__reason is-${headline.tone}`}>{headline.note}</p>
 
-      <div className="today-card__actions">
-        <button
-          type="button"
-          className="btn btn--secondary btn--compact"
-          onClick={onStartReview}
-          disabled={!canReview}
-        >
-          {canReview ? `开始复习 ${pendingReviews} 个` : '今天没有到期复习'}
-        </button>
-        <button
-          type="button"
-          className="btn btn--primary btn--compact"
-          onClick={onStartNewWords}
-          disabled={!canLearn}
-        >
-          {canLearn ? `学新词 ${plan.allowedNewWords} 个` : learnLabel}
-        </button>
-      </div>
+      {pendingReviews > 0 ? (
+        <p className="today-card__reason">
+          点「开始背单词」后会先复习这 {pendingReviews} 个到期词，复习清空才轮到新词。
+        </p>
+      ) : null}
     </section>
   );
 }

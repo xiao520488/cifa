@@ -1,3 +1,12 @@
+/**
+ * 应用外壳（v1.1 统一学习流，见 REFACTOR_PLAN.md）。
+ *
+ * 学习入口只剩一个：首页大按钮「开始背单词」→ SessionScreen 统一流程
+ * （复习优先 → 今日新词列表 → 即时复习穿插 → 总结页）。
+ * 旧的「整本词库按批浏览」双轨已删——列表切分严格按今日发放额度走。
+ * 首页所有数字都读调度引擎，和结算 JSON 说同一件事。
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarScreen } from './components/CalendarScreen';
 import { ImportSheet } from './components/ImportSheet';
@@ -10,28 +19,20 @@ import { StudyScreen } from './components/StudyScreen';
 import { TodayCard } from './components/TodayCard';
 import { useScheduler } from './hooks/useScheduler';
 import { preloadBook } from './lib/books';
-import {
-  emptyStageProgress,
-  getStageProgress,
-  loadStore,
-  saveStore,
-  todayKey,
-} from './lib/storage';
+import { emptyStageProgress, loadStore, saveStore } from './lib/storage';
 import type { LevelKey, Profile, Store, Word } from './lib/types';
 import { skinMeta } from './lib/skins';
-import { chunk, getBook, levelMeta, showAllMeanings } from './lib/words';
+import { getBook, levelMeta, showAllMeanings } from './lib/words';
 
 type Screen = 'study' | 'calendar' | 'me' | 'mistakes';
-type SheetKind = 'import' | 'reset' | 'delete-custom' | 'skin' | null;
+type SheetKind = 'import' | 'delete-custom' | 'skin' | null;
 
 export default function App() {
   const [store, setStore] = useState<Store>(loadStore);
   const [screen, setScreen] = useState<Screen>('study');
-  const [session, setSession] = useState<'review' | 'newword' | null>(null);
-  const [studying, setStudying] = useState(false);
-  const [revealed, setRevealed] = useState<Set<number>>(() => new Set());
+  /** 唯一学习入口：true = 统一 Session 在场 */
+  const [session, setSession] = useState(false);
   const [sheet, setSheet] = useState<SheetKind>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     saveStore(store);
@@ -40,15 +41,7 @@ export default function App() {
   const stage = store.profile.stage;
   const book = getBook(stage, store.custom);
   const totalCount = book?.words.length ?? 0;
-  const batches = useMemo(
-    () => (book ? chunk(book.words, store.profile.batchSize) : []),
-    [book, store.profile.batchSize],
-  );
-  const batchCount = batches.length;
-  const storedBatchIndex = store.progress[stage]?.batchIndex ?? 0;
-  const batchIndex = Math.min(storedBatchIndex, Math.max(0, batchCount - 1));
-  const batch = batches[batchIndex] ?? [];
-  const seenCount = store.progress[stage]?.seen.length ?? 0;
+  const batchSize = store.profile.batchSize;
   const showAll = showAllMeanings(store.profile.meaningMode, stage);
   const stageMeta = levelMeta(stage);
   const initial = store.profile.name.trim().slice(0, 1) || '词';
@@ -64,6 +57,14 @@ export default function App() {
     // version 变化说明调度状态动过，必须重算；engine 是常驻实例
     [scheduler.engine, scheduler.version],
   );
+
+  /* 首页数字全部来自调度：今日发放 / 今日批数 / 已学（不再读旧浏览进度）。
+     注意 `stats.newCards` 是**未学池**数量（「我的」页语义），不是已学——
+     已学 = 短期 + 长期 + 归档卡数。 */
+  const allowedNew = todayView.plan.allowedNewWords;
+  const todayBatchCount = Math.ceil(allowedNew / Math.max(1, batchSize));
+  const learnedCount =
+    todayView.stats.shortCards + todayView.stats.longCards + todayView.stats.archivedCards;
 
   /* 主题：跟随系统时监听系统变化 */
   useEffect(() => {
@@ -88,51 +89,11 @@ export default function App() {
     document.documentElement.dataset.skin = store.profile.skin;
   }, [store.profile.skin]);
 
-  /* 进入一批就记下「看过」 */
-  useEffect(() => {
-    if (!studying || batch.length === 0) return;
-    const start = batchIndex * store.profile.batchSize;
-    const indices = batch.map((_, offset) => start + offset);
-    setStore((prev) => {
-      const current = prev.progress[stage] ?? emptyStageProgress();
-      const seen = new Set(current.seen);
-      const before = seen.size;
-      indices.forEach((index) => seen.add(index));
-      if (seen.size === before) return prev;
-      return {
-        ...prev,
-        progress: { ...prev.progress, [stage]: { ...current, seen: [...seen], day: todayKey() } },
-      };
-    });
-  }, [studying, batch, batchIndex, stage, store.profile.batchSize]);
-
-  /* 换批 / 进出学习态时回到顶部 */
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
-  }, [batchIndex, studying, screen, stage]);
-
-  const goTo = useCallback(
-    (next: number) => {
-      const target = Math.max(0, Math.min(next, batchCount - 1));
-      setStore((prev) => {
-        const current = getStageProgress(prev, stage);
-        if (current.batchIndex === target) return prev;
-        return {
-          ...prev,
-          progress: { ...prev.progress, [stage]: { ...current, batchIndex: target } },
-        };
-      });
-      setRevealed(new Set());
-    },
-    [batchCount, stage],
-  );
-
   const toggleMeaning = useCallback(() => {
     setStore((prev) => ({
       ...prev,
       session: { ...prev.session, hideMeaning: !prev.session.hideMeaning },
     }));
-    setRevealed(new Set());
   }, []);
 
   const toggleWord = useCallback(() => {
@@ -140,47 +101,7 @@ export default function App() {
       ...prev,
       session: { ...prev.session, hideWord: !prev.session.hideWord },
     }));
-    setRevealed(new Set());
   }, []);
-
-  /* 键盘：← / → 翻批，空格切换中文 */
-  useEffect(() => {
-    if (!studying) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable ||
-          target.getAttribute('role') === 'button')
-      ) {
-        return;
-      }
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        goTo(batchIndex - 1);
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        goTo(batchIndex + 1);
-      } else if (event.key === ' ') {
-        event.preventDefault();
-        toggleMeaning();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [studying, batchIndex, goTo, toggleMeaning]);
-
-  const handleStart = () => {
-    setStudying(true);
-    setRevealed(new Set());
-  };
-
-  const handleExit = () => {
-    setStudying(false);
-    setRevealed(new Set());
-  };
 
   const updateProfile = (patch: Partial<Profile>) => {
     setStore((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
@@ -189,17 +110,16 @@ export default function App() {
   /**
    * 换阶段：内置词库是按需加载的，必须等书到齐再切——否则调度引擎会拿空词池
    * 重新 seed，把当天的「新词计划」结算成 0（见 NOTES 的坑）。
-   * `requestRef` 防连点：只认最后一次点选。
+   * `stageRequest` 防连点：只认最后一次点选。Session 一律先退出（词池要换血）。
    */
   const stageRequest = useRef(0);
   const changeStage = (next: LevelKey) => {
     if (next === stage) return;
+    setSession(false);
     const token = ++stageRequest.current;
     const apply = () => {
       if (stageRequest.current !== token) return;
       setStore((prev) => ({ ...prev, profile: { ...prev.profile, stage: next } }));
-      setStudying(false);
-      setRevealed(new Set());
     };
     if (next === 'custom') {
       apply();
@@ -213,42 +133,23 @@ export default function App() {
   };
 
   const changeBatchSize = (size: number) => {
-    setStore((prev) => {
-      const current = getStageProgress(prev, prev.profile.stage);
-      const firstWord = current.batchIndex * prev.profile.batchSize;
-      return {
-        ...prev,
-        profile: { ...prev.profile, batchSize: size },
-        progress: {
-          ...prev.progress,
-          [prev.profile.stage]: { ...current, batchIndex: Math.max(0, Math.floor(firstWord / size)) },
-        },
-      };
-    });
-    setRevealed(new Set());
+    setStore((prev) => ({ ...prev, profile: { ...prev.profile, batchSize: size } }));
   };
 
   const importWords = (words: Word[]) => {
+    setSession(false);
     setStore((prev) => ({
       ...prev,
       custom: { lvl: 'custom', label: '我的词库', words },
       profile: { ...prev.profile, stage: 'custom' },
       progress: { ...prev.progress, custom: emptyStageProgress() },
     }));
-    setStudying(false);
-    setRevealed(new Set());
-    setSheet(null);
-  };
-
-  const resetProgress = () => {
-    setStore((prev) => ({ ...prev, progress: {} }));
-    setStudying(false);
-    setRevealed(new Set());
     setSheet(null);
   };
 
   const deleteCustom = () => {
     const nextStage = store.profile.stage === 'custom' ? 'cet4' : store.profile.stage;
+    setSession(false);
     const commit = () => {
       setStore((prev) => {
         const progress = { ...prev.progress };
@@ -260,7 +161,6 @@ export default function App() {
           profile: { ...prev.profile, stage: prev.profile.stage === 'custom' ? nextStage : prev.profile.stage },
         };
       });
-      setStudying(false);
       setSheet(null);
     };
     preloadBook(nextStage)
@@ -277,60 +177,44 @@ export default function App() {
           engine={scheduler.engine}
           book={book}
           initial={initial}
-          startMode={session}
+          batchSize={batchSize}
+          showAll={showAll}
+          hideMeaning={store.session.hideMeaning}
+          hideWord={store.session.hideWord}
           run={scheduler.run}
-          onExit={() => setSession(null)}
+          onExit={() => setSession(false)}
+          onToggleMeaning={toggleMeaning}
+          onToggleWord={toggleWord}
           onOpenCalendar={() => {
-            setSession(null);
+            setSession(false);
             setScreen('calendar');
           }}
           onOpenMe={() => {
-            setSession(null);
+            setSession(false);
             setScreen('me');
           }}
         />
       ) : screen === 'study' ? (
         <StudyScreen
           stageMeta={stageMeta}
-          batch={batch}
-          batchIndex={batchIndex}
-          batchCount={batchCount}
-          batchSize={store.profile.batchSize}
           totalCount={totalCount}
-          seenCount={seenCount}
+          batchSize={batchSize}
+          allowedNew={allowedNew}
+          todayBatchCount={todayBatchCount}
+          learnedCount={learnedCount}
           initial={initial}
-          studying={studying}
-          hideMeaning={store.session.hideMeaning}
-          hideWord={store.session.hideWord}
-          showAll={showAll}
-          revealed={revealed}
-          scrollRef={scrollRef}
           todayCard={
             <TodayCard
               plan={todayView.plan}
               stats={todayView.stats}
               onOpenCalendar={() => setScreen('calendar')}
               onOpenMistakes={() => setScreen('mistakes')}
-              onStartReview={() => setSession('review')}
-              onStartNewWords={() => setSession('newword')}
             />
           }
-          onStart={handleStart}
-          onExit={handleExit}
+          onStart={() => setSession(true)}
           onOpenMe={() => setScreen('me')}
           onOpenSkin={() => setSheet('skin')}
           onOpenCalendar={() => setScreen('calendar')}
-          onToggleMeaning={toggleMeaning}
-          onToggleWord={toggleWord}
-          onPrev={() => goTo(batchIndex - 1)}
-          onNext={() => goTo(batchIndex + 1)}
-          onReveal={(index) =>
-            setRevealed((prev) => {
-              const next = new Set(prev);
-              next.add(index);
-              return next;
-            })
-          }
           onImport={() => setSheet('import')}
         />
       ) : screen === 'calendar' ? (
@@ -341,8 +225,7 @@ export default function App() {
           onBack={() => setScreen('study')}
           onOpenMe={() => setScreen('me')}
           onOpenSkin={() => setSheet('skin')}
-          onStartReview={() => setSession('review')}
-          onStartNewWords={() => setSession('newword')}
+          onStartSession={() => setSession(true)}
         />
       ) : screen === 'mistakes' ? (
         <MistakesScreen
@@ -358,7 +241,7 @@ export default function App() {
         <ProfileScreen
           store={store}
           book={book}
-          seenCount={seenCount}
+          learnedCount={learnedCount}
           schedulerStats={todayView.stats}
           allowance={todayView.allowance}
           onUserDailyGoal={(goal) => scheduler.run((engine) => engine.setUserDailyGoal(goal))}
@@ -371,7 +254,6 @@ export default function App() {
           onStage={changeStage}
           onBatchSize={changeBatchSize}
           onOpenImport={() => setSheet('import')}
-          onOpenReset={() => setSheet('reset')}
           onDeleteCustom={() => setSheet('delete-custom')}
           onOpenSkin={() => setSheet('skin')}
           onOpenCalendar={() => setScreen('calendar')}
@@ -390,16 +272,6 @@ export default function App() {
           onSkin={(skin) => updateProfile({ skin })}
           onTheme={(theme) => updateProfile({ theme })}
           onClose={() => setSheet(null)}
-        />
-      ) : null}
-
-      {sheet === 'reset' ? (
-        <ConfirmDialog
-          title="重置学习进度？"
-          text="所有阶段「已学」记录和批次位置会清空，个人资料、设置和自定义词库都会保留。这个操作不能撤销。"
-          confirmLabel="重置进度"
-          onConfirm={resetProgress}
-          onCancel={() => setSheet(null)}
         />
       ) : null}
 

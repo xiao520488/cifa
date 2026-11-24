@@ -1123,6 +1123,126 @@ const words10 = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf'
   eq('日历格子带目标值', new Scheduler(pausedBase, { now: () => at('2026-11-24') }).calendar(1, '2026-11-24')[0].newWordGoal, 20);
 }
 
+// ---------------------------------------------------------------- §11 统一学习流（v1.1 新 API）
+
+const nineteen = Array.from({ length: 19 }, (_, index) => `t${index}`);
+
+// 11.1 startImmediateWith：校验与去重
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c', 'd']);
+  eq('空列表拒绝开组', s.startImmediateWith([]), null);
+  s.learnNewWord('a'); // 旧 API：a 已入库
+  eq('混入已入库词整组拒绝', s.startImmediateWith(['b', 'a']), null);
+  eq('混入不在池的词也拒绝', s.startImmediateWith(['b', 'zzz']), null);
+  eq('去重后开组成功', s.startImmediateWith(['b', 'c', 'b'])!.words.join(','), 'b,c');
+  eq('同一天重复调用返回现有组', s.startImmediateWith(['b', 'c'])!.words.join(','), 'b,c');
+  eq('组进了 active', s.state.immediate.active?.words.join(','), 'b,c');
+  eq('未入库词不占 pendingWords', s.state.immediate.pendingCount, 1); // 只有旧 API 塞的 a
+}
+
+// 11.2 两键循环 + 3 次上限：hard 判定（词未入库也照常记错词账本）
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
+  const group = s.startImmediateWith(['a', 'b', 'c']);
+  s.answerImmediate('a', true);
+  s.answerImmediate('b', false); // 第 1 次错：回队尾
+  eq('错词回队尾', s.state.immediate.active!.queue.join(','), 'c,b');
+  s.answerImmediate('b', false); // 第 2 次错：再回队尾
+  const third = s.answerImmediate('b', false); // 第 3 次：hard 放过
+  check('第 3 次标 hard', third!.hard === true);
+  eq('hard 词出队', third!.group.queue.join(','), 'c');
+  eq('没建卡也能进错词本（3 次都计）', s.state.mistakes.b.count, 3);
+  eq('此时还没有任何卡', Object.keys(s.state.cards).length, 0);
+  const last = s.answerImmediate('c', true);
+  check('最后一个答对 → 组清空', last!.finished === true);
+}
+
+// 11.3 commitNewWords：唯一落库点；非法词进 rejected，不整组失败
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c', 'x']);
+  s.learnNewWord('x'); // 旧 API：x 已入库（并占住 pendingWords 一格）
+  const group = s.startImmediateWith(['a', 'b', 'c'])!;
+  s.answerImmediate('a', true);
+  s.answerImmediate('b', true);
+  const done = s.answerImmediate('c', true);
+  void done;
+  const result = s.commitNewWords([...group.words, 'x', ''], '2026-11-24', ['b']);
+  eq('合法词全部入库', result.committed.slice().sort(), ['a', 'b', 'c']);
+  eq('已入库词被拒', result.rejected, ['x']);
+  check('建卡即进 1 天短期档、明天到期', s.state.cards.a.phase === 'short' && s.state.cards.a.due === '2026-11-25');
+  check('hardWords 打了 hard 标记', s.state.cards.b.hard === true && s.state.cards.a.hard === false);
+  eq('记入当天 newLearned', s.state.days['2026-11-24'].newLearned.slice().sort(), ['a', 'b', 'c', 'x']);
+  eq('从池里移除', s.newWordPool().includes('a'), false);
+  eq('commit 不塞旧 pendingWords', s.state.immediate.pendingCount, 1); // 仍只有旧 API 的 x
+}
+
+// 11.4 abandonImmediate：中途退出零入库
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
+  s.plan(); // 建立当天记录（App 挂载时本来就会拍一次）
+  s.startImmediateWith(['a', 'b', 'c']);
+  s.answerImmediate('a', true); // 做掉 1 个再退出
+  const abandoned = s.abandonImmediate();
+  eq('丢弃整组', abandoned.length, 3);
+  eq('active 清空', s.state.immediate.active, null);
+  eq('一个词都没入库', Object.keys(s.state.cards).length, 0);
+  eq('newLearned 为空', s.state.days['2026-11-24'].newLearned.length, 0);
+  eq('词池原样', s.newWordPool().length, 3);
+  eq('没组时 abandon 空转', s.abandonImmediate().length, 0);
+}
+
+// 11.5 19 词全流程：5/5/5/4 → 组 10 → 组 9（尾巴也弹）→ 全部入库
+{
+  const s = schedulerOn('2026-11-24', 20, nineteen);
+  const list = s.nextNewWords();
+  eq('今日发放 19', list.length, 19);
+  const g1 = s.startImmediateWith(list.slice(0, 10))!;
+  eq('第一组恰好 10 个', g1.words.length, 10);
+  for (const word of list.slice(0, 9)) s.answerImmediate(word, true);
+  const hardWord = list[9];
+  s.answerImmediate(hardWord, false);
+  s.answerImmediate(hardWord, false);
+  const third = s.answerImmediate(hardWord, false);
+  check('硬词第 3 次放过并清空组', third!.hard === true && third!.finished === true);
+  const r1 = s.commitNewWords(third!.group.words, '2026-11-24', [hardWord]);
+  eq('第一组入库 10 个', r1.committed.length, 10);
+  check('硬词有卡且有 hard 标记', s.state.cards[hardWord].hard === true);
+  const g2 = s.startImmediateWith(list.slice(10))!;
+  eq('尾巴 9 个也开组', g2.words.length, 9);
+  let lastResult: ReturnType<typeof s.answerImmediate> = null;
+  for (const word of list.slice(10)) lastResult = s.answerImmediate(word, true);
+  check('尾巴组清空', lastResult !== null && lastResult!.finished === true);
+  const r2 = s.commitNewWords(lastResult!.group.words, '2026-11-24', []);
+  eq('尾巴入库 9 个', r2.committed.length, 9);
+  eq('当天 newLearned 共 19', s.state.days['2026-11-24'].newLearned.length, 19);
+  eq('池子清空', s.newWordPool().length, 0);
+  const plan = s.plan();
+  eq('今天没有到期复习（明天才轮到）', plan.shortTermBatches.length + plan.overduePool.length, 0);
+  eq('今日配额已用完', s.allowance().allowed, 0);
+}
+
+// 11.6 跨天：昨天的半组自动作废，今天的词能开新组
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c', 'd']);
+  s.startImmediateWith(['a', 'b']);
+  const d2 = moveTo(s, '2026-11-25');
+  d2.startOfSession();
+  eq('启动后旧半组作废', d2.state.immediate.active, null);
+  const g = d2.startImmediateWith(['c', 'd']);
+  eq('新组不掺旧词', g!.words.join(','), 'c,d');
+  eq('新组记在今天', g!.startedOn, '2026-11-25');
+}
+
+// 11.7 列表阶段零状态：nextNewWords 预览不消费、不建卡
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
+  const first = s.nextNewWords();
+  const second = s.nextNewWords();
+  eq('预览可重复调用且结果稳定', first, second);
+  eq('预览不消费池子', s.newWordPool().length, 3);
+  eq('预览不建卡', Object.keys(s.state.cards).length, 0);
+}
+
 // ---------------------------------------------------------------- 汇总
 
 const state: SchedulerState = emptyState();

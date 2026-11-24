@@ -503,6 +503,79 @@ export class Scheduler {
     return remaining;
   }
 
+  // ------------------------------------------------ 统一学习流（v1.1，见 REFACTOR_PLAN §2）
+
+  /**
+   * 用指定词开即时复习组（统一流程：列表看完 → 攒够 pending → 开组）。
+   *
+   * 与 `startImmediate()` 的本质区别：**这里的词还没入库**（列表阶段不建卡，
+   * 「清空即时复习才算背完」），所以不走 pendingWords、不建卡，只做校验后开组。
+   * 校验：非空、去重、每个词都还在未学池且没有卡；混入非法词整组拒绝。
+   * 上一次残留的半组先按跨日规则作废（`expireStaleImmediate`）。
+   */
+  startImmediateWith(words: string[], day: StudyDay = this.today()): ImmediateGroup | null {
+    this.expireStaleImmediate(day);
+    const immediate = this.s.immediate;
+    if (immediate.active) return immediate.active;
+    const list: string[] = [];
+    const seen = new Set<string>();
+    for (const word of words) {
+      if (!word || seen.has(word)) continue;
+      seen.add(word);
+      if (this.s.cards[word] || this.s.unlearned.indexOf(word) < 0) return null;
+      list.push(word);
+    }
+    if (list.length === 0) return null;
+    const group = makeGroup(list, day);
+    immediate.active = group;
+    return group;
+  }
+
+  /**
+   * 即时复习组清空后的**入库判定**（完成判定的唯一落库点）。
+   *
+   * 逐词建卡、出池、记入当天 newLearned；`hardWords` 打 hard 标记（次日 1 天批次
+   * 由既有 hard 语义自然置顶）。不复验 allowance：额度在拍列表快照时已定，
+   * 复习闸在进列表前已清。非法词（不在池 / 已有卡）进 `rejected`，不整组失败。
+   * 刻意**不**往 pendingWords 里塞——那是旧「学一个攒一个」模型的触发器。
+   */
+  commitNewWords(
+    words: string[],
+    day: StudyDay = this.today(),
+    hardWords: string[] = [],
+  ): { committed: string[]; rejected: string[] } {
+    const record = this.ensureDay(day);
+    const hard = new Set(hardWords);
+    const committed: string[] = [];
+    const rejected: string[] = [];
+    for (const word of words) {
+      const index = word ? this.s.unlearned.indexOf(word) : -1;
+      if (!word || this.s.cards[word] || index < 0) {
+        if (word) rejected.push(word);
+        continue;
+      }
+      this.s.unlearned.splice(index, 1);
+      const card = createCard(word, day, this.s.relearned[word] === true);
+      if (hard.has(word)) card.hard = true;
+      this.s.cards[word] = card;
+      if (!record.newLearned.includes(word)) record.newLearned.push(word);
+      committed.push(word);
+    }
+    return { committed, rejected };
+  }
+
+  /**
+   * 丢弃当前即时复习组（统一流程里用户中途退出）。
+   * 这组词从未入库（列表阶段不建卡），所以不打 skippedImmediate、不动配额——
+   * 它们原样留在未学池，明天重新从列表看起。返回被丢弃的全部词。
+   */
+  abandonImmediate(): string[] {
+    const immediate = this.s.immediate;
+    const group = immediate.active;
+    immediate.active = null;
+    return group ? [...group.words] : [];
+  }
+
   // ---------------------------------------------------------------- 错词本
 
   /**

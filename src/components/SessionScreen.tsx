@@ -1,28 +1,34 @@
 /**
- * 专注学习页：今日复习（三键）与学新词（看词 + 即时复习）。
+ * 统一学习流（REFACTOR_PLAN v1.1）：点「开始背单词」后的唯一流程。
  *
- * 作答口径**全部交给引擎**，页面只负责把结果画出来：
- * - 一切作答走 `engine.answer()`：同一天第二次及以后会自动降级成 isRetry（不计正确率、不动排程）；
- * - 完成率的分母是当天快照，页面不参与计算；
- * - 学新词走 `learnNewWord()`，配额/复习闸/逾期闸由它内部把关，`ok:false` 时把 `reason` 原样给用户看；
- * - 攒满 10 个触发即时复习（两键、最多 3 次、可跳过）。
+ * review（三键单卡）→ list（按今日额度切批的平铺列表）→ immediate（两键单卡）→ … → done（总结页）。
  *
- * 队列在进入页面时拍一次（`plan()` 的结果），之后不再随引擎状态重建——
- * 不然每答一个词队列就少一个，进度条和「还剩几个」会乱跳。
+ * 完成判定（本文件的核心口径）：
+ * - 列表阶段**一个词都不落库**——翻列表不产生任何状态，中途退出下次从第 1 批重看；
+ * - 只有即时复习组被清空（全部「认识」，或连错 3 次标 hard 放过）才 `commitNewWords` 入库；
+ * - 组清空才解锁下一批；今日尾巴不足 10 个也弹一组（状态机无特例，尾巴同样要考）。
+ *
+ * 队列在进页面时拍快照，之后不随引擎状态重建（不然每答一个词进度条就乱跳）。
+ * 复习清空后才重拍新词列表——复习闸 / 逾期闸在那一刻才真正打开。
+ * 跨学习日硬守卫：任何动作前发现学习日翻转，直接退出回首页。
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   formatMonthDay,
+  IMMEDIATE_TRIGGER,
   RATING_LABEL,
   weekdayLabel,
 } from '../lib/scheduler';
-import type { DailyPlan, Rating, Scheduler } from '../lib/scheduler';
+import type { DailyPlan, ImmediateGroup, Rating, Scheduler } from '../lib/scheduler';
 import { wordLookup } from '../lib/deck';
+import { chunk } from '../lib/words';
 import type { Wordbook } from '../lib/types';
+import { ControlDock } from './ControlDock';
 import { IconBack, IconCheck, IconClose } from './Icons';
+import { WordRow } from './WordRow';
 
-type Phase = 'review' | 'newword' | 'immediate' | 'done';
+type Phase = 'review' | 'list' | 'immediate' | 'done';
 
 interface QueueItem {
   word: string;
@@ -35,9 +41,16 @@ interface SessionScreenProps {
   engine: Scheduler;
   book: Wordbook | null;
   initial: string;
-  startMode: 'review' | 'newword';
+  /** 列表每批词数（profile.batchSize，默认 5） */
+  batchSize: number;
+  /** 释义详略（列表行用，与首页一致） */
+  showAll: boolean;
+  hideMeaning: boolean;
+  hideWord: boolean;
   run: <T>(fn: (engine: Scheduler) => T) => T;
   onExit: () => void;
+  onToggleMeaning: () => void;
+  onToggleWord: () => void;
   onOpenCalendar: () => void;
   onOpenMe: () => void;
 }
@@ -90,38 +103,63 @@ export function SessionScreen({
   engine,
   book,
   initial,
-  startMode,
+  batchSize,
+  showAll,
+  hideMeaning,
+  hideWord,
   run,
   onExit,
+  onToggleMeaning,
+  onToggleWord,
   onOpenCalendar,
   onOpenMe,
 }: SessionScreenProps) {
   const lookup = useMemo(() => wordLookup(book), [book]);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  /* 进入页面拍一次快照：复习队列 + 今日新词列表（无复习时直接可用）。 */
   const [plan] = useState<DailyPlan>(() => engine.plan());
-  const [queue] = useState<QueueItem[]>(() => buildReviewQueue(plan));
+  const [reviewQueue] = useState<QueueItem[]>(() => buildReviewQueue(plan));
+  const [newQueue, setNewQueue] = useState<string[]>(() =>
+    reviewQueue.length > 0 ? [] : engine.nextNewWords(undefined, plan.day),
+  );
   const [phase, setPhase] = useState<Phase>(() => {
-    if (startMode === 'review') return queue.length > 0 ? 'review' : 'done';
-    return engine.nextNewWords(undefined, plan.day).length > 0 ? 'newword' : 'done';
+    if (reviewQueue.length > 0) return 'review';
+    return engine.nextNewWords(undefined, plan.day).length > 0 ? 'list' : 'done';
   });
-  const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [tally, setTally] = useState<Tally>(EMPTY_TALLY);
-  const [learned, setLearned] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
 
   /* ---------------------------------------------------------------- 复习 */
 
-  const current = queue[index];
+  const [index, setIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [tally, setTally] = useState<Tally>(EMPTY_TALLY);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const current = phase === 'review' ? reviewQueue[index] : undefined;
   const detail = current ? lookup.get(current.word) : undefined;
 
+  /** 复习清空 → 重拍新词列表（复习闸此刻才真正开），无缝进列表。 */
   const finishReview = useCallback(() => {
-    setPhase(engine.nextNewWords(undefined, plan.day).length > 0 ? 'newword' : 'done');
-    setIndex(queue.length);
-  }, [engine, plan.day, queue.length]);
+    if (engine.today() !== plan.day) {
+      onExit();
+      return;
+    }
+    const queue = run((target) => target.nextNewWords(undefined, plan.day));
+    if (queue.length > 0) {
+      setNewQueue(queue);
+      setPhase('list');
+    } else {
+      setPhase('done');
+    }
+  }, [engine, onExit, plan.day, run]);
 
   const submit = useCallback(
     (rating: Rating) => {
       if (!current) return;
+      if (engine.today() !== plan.day) {
+        onExit();
+        return;
+      }
       const outcome = run((target) => target.answer(current.word, rating));
       if (!outcome.ok) {
         setToast(outcome.reason ?? '这个词现在不能作答');
@@ -139,85 +177,219 @@ export function SessionScreen({
         retried: value.retried + (outcome.counted ? 0 : 1),
       }));
       setRevealed(false);
-      if (index + 1 >= queue.length) finishReview();
+      if (index + 1 >= reviewQueue.length) finishReview();
       else setIndex((value) => value + 1);
     },
-    [current, finishReview, index, queue.length, run],
+    [current, engine, finishReview, index, onExit, plan.day, reviewQueue.length, run],
   );
 
-  /* ---------------------------------------------------------------- 新词 */
+  /* ---------------------------------------------------------------- 新词列表 */
 
-  const [newQueue] = useState<string[]>(() => engine.nextNewWords(undefined, plan.day));
-  const newWord = phase === 'newword' ? newQueue[learned] : undefined;
-  const newDetail = newWord ? lookup.get(newWord) : undefined;
+  const size = Math.max(1, batchSize);
+  const batches = useMemo(() => chunk(newQueue, size), [newQueue, size]);
+  const batchCount = batches.length;
+  const [batchIdx, setBatchIdx] = useState(0);
+  /** 已入库的词数（= newQueue 前缀；pending 的起点） */
+  const [committedCount, setCommittedCount] = useState(0);
+  /** 总结页数字 */
+  const [committedTotal, setCommittedTotal] = useState(0);
+  const [hardTotal, setHardTotal] = useState(0);
+  const [revealedRows, setRevealedRows] = useState<Set<number>>(() => new Set());
 
-  const nextNewWord = useCallback(() => {
-    if (!newWord) return;
-    const result = run((target) => target.learnNewWord(newWord, plan.day));
-    if (!result.ok) {
-      setToast(result.reason ?? '这个词现在学不了');
+  const batch = batches[batchIdx] ?? [];
+  const pending = useMemo(() => {
+    const end = Math.min((batchIdx + 1) * size, newQueue.length);
+    return newQueue.slice(committedCount, end);
+  }, [batchIdx, committedCount, newQueue, size]);
+  const isLastBatch = batchIdx + 1 >= batchCount;
+
+  const goBatch = useCallback(
+    (next: number) => {
+      const target = Math.max(0, Math.min(next, batchCount - 1));
+      setBatchIdx(target);
+      setRevealedRows(new Set());
+      scrollRef.current?.scrollTo({ top: 0 });
+    },
+    [batchCount],
+  );
+
+  /**
+   * 「下一批」= 状态机推进点：
+   * 攒够 10 个（或末批还有没考的）→ 强制弹即时复习；否则翻页。
+   * 「上一批」只回看不产生状态——pending 由 committed 和当前批尾决定，回看不会重复触发。
+   */
+  const handleNext = useCallback(() => {
+    if (engine.today() !== plan.day) {
+      onExit();
       return;
     }
-    setLearned((value) => value + 1);
-    if (result.triggerImmediate) {
-      run((target) => target.startImmediate());
-      setPhase('immediate');
-      return;
+    const shouldTrigger = pending.length >= IMMEDIATE_TRIGGER || (isLastBatch && pending.length > 0);
+    if (shouldTrigger) {
+      const group = run((target) => target.startImmediateWith(pending, plan.day));
+      if (group) {
+        setGroup(group);
+        setPhase('immediate');
+        setToast(null);
+        return;
+      }
+      // 开组失败（词池被动过）：不卡死流程，按翻页处理
     }
-    if (learned + 1 >= newQueue.length) setPhase('done');
-  }, [learned, newQueue.length, newWord, plan.day, run]);
+    if (!isLastBatch) goBatch(batchIdx + 1);
+    else setPhase('done');
+  }, [batchIdx, engine, goBatch, isLastBatch, onExit, pending, plan.day, run]);
 
   /* ---------------------------------------------------------------- 即时复习 */
 
-  const active = engine.state.immediate.active;
-  const immediateWord = phase === 'immediate' && active ? active.queue[0] : null;
+  const [group, setGroup] = useState<ImmediateGroup | null>(null);
+  const [hardSet, setHardSet] = useState<Set<string>>(() => new Set());
+  const immediateWord = group && group.queue.length > 0 ? group.queue[0] : null;
   const immediateDetail = immediateWord ? lookup.get(immediateWord) : undefined;
-
-  const answerImmediate = useCallback(
+  const answerImmediateClick = useCallback(
     (known: boolean) => {
-      if (!immediateWord) return;
-      run((target) => target.answerImmediate(immediateWord, known));
-      // 组做完时引擎会把 active 置空
-      if (engine.state.immediate.active === null) {
-        setPhase(learned >= newQueue.length ? 'done' : 'newword');
+      if (!group || !immediateWord) return;
+      if (engine.today() !== plan.day) {
+        run((target) => target.abandonImmediate());
+        onExit();
+        return;
+      }
+      const result = run((target) => target.answerImmediate(immediateWord, known));
+      if (!result) {
+        setToast('这组即时复习已经结束了');
+        setGroup(null);
+        setPhase('done');
+        return;
+      }
+      if (result.hard) {
+        setHardSet((value) => new Set(value).add(immediateWord));
+      }
+      if (!result.finished) {
+        setGroup(result.group);
+        return;
+      }
+      /* 组清空 = 这组词真正「背完」：唯一落库点。 */
+      const hardWords = [...hardSet];
+      if (result.hard && !hardWords.includes(immediateWord)) hardWords.push(immediateWord);
+      const { committed, rejected } = run((target) =>
+        target.commitNewWords(result.group.words, plan.day, hardWords),
+      );
+      setCommittedCount((value) => value + committed.length);
+      setCommittedTotal((value) => value + committed.length);
+      setHardTotal((value) => value + hardWords.length);
+      setGroup(null);
+      setHardSet(new Set());
+      if (rejected.length > 0) {
+        setToast(`有 ${rejected.length} 个词状态变了没能入库（可能已被清扫），其余都已背完。`);
+      }
+      if (batchIdx + 1 < batchCount) {
+        goBatch(batchIdx + 1);
+        setPhase('list');
+      } else {
+        setPhase('done');
       }
     },
-    [engine, immediateWord, learned, newQueue.length, run],
+    [
+      batchCount,
+      batchIdx,
+      engine,
+      goBatch,
+      group,
+      hardSet,
+      immediateWord,
+      onExit,
+      plan.day,
+      reviewQueue.length,
+      run,
+    ],
   );
 
-  const skipImmediate = useCallback(() => {
-    run((target) => target.skipImmediate());
-    setPhase(learned >= newQueue.length ? 'done' : 'newword');
-  }, [learned, newQueue.length, run]);
+  /** 退出：列表阶段本来就没落库；即时复习阶段整组作废，词留在池里。 */
+  const handleExit = useCallback(() => {
+    if (phase === 'immediate' && group) run((target) => target.abandonImmediate());
+    onExit();
+  }, [group, onExit, phase, run]);
+
+  /* ---------------------------------------------------------------- 键盘（列表阶段） */
+
+  useEffect(() => {
+    if (phase !== 'list') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.getAttribute('role') === 'button')
+      ) {
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goBatch(batchIdx - 1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        handleNext();
+      } else if (event.key === ' ') {
+        event.preventDefault();
+        onToggleMeaning();
+        setRevealedRows(new Set());
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [batchIdx, goBatch, handleNext, onToggleMeaning, phase]);
 
   /* ---------------------------------------------------------------- 视图 */
 
-  const cardWord = phase === 'review' ? detail : phase === 'newword' ? newDetail : immediateDetail;
-  const showMeaning = phase !== 'review' || revealed;
+  const cardWord = phase === 'review' ? detail : immediateDetail;
+  const showMeaning = phase === 'review' && revealed;
   const progress =
     phase === 'review'
-      ? { done: index, total: queue.length, label: current?.label ?? '' }
-      : phase === 'newword'
-        ? { done: learned, total: newQueue.length, label: '今日新词' }
+      ? { done: index, total: reviewQueue.length, label: '今日复习' }
+      : phase === 'list'
+        ? {
+            done: Math.min((batchIdx + 1) * size, newQueue.length),
+            total: newQueue.length,
+            label: '今日新词',
+          }
         : phase === 'immediate'
           ? {
-              done: active ? active.words.length - active.queue.length : 0,
-              total: active ? active.words.length : 0,
+              done: group ? group.words.length - group.queue.length : 0,
+              total: group ? group.words.length : 0,
               label: '即时复习',
             }
-          : { done: 0, total: 0, label: '本次结束' };
+          : { done: 0, total: 0, label: '今日收尾' };
+
+  const reviewAnswered = tally.known + tally.fuzzy + tally.unknown;
 
   return (
     <>
       <header className="topbar topbar--bordered">
-        <button type="button" className="icon-btn" onClick={onExit} aria-label="退出本次学习">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={handleExit}
+          aria-label={phase === 'done' ? '返回首页' : '退出本次学习'}
+        >
           <IconBack size={22} />
         </button>
         <div className="study-bar__info">
-          <div className="study-bar__title">{progress.label}</div>
+          <div className="study-bar__title">
+            {progress.label}
+            {phase === 'list' && batchCount > 0 ? (
+              <span className="study-bar__title-total">
+                {' '}
+                · 第 {batchIdx + 1} / {batchCount} 批
+              </span>
+            ) : null}
+          </div>
           <div className="study-bar__sub">
             {formatMonthDay(plan.day)} {weekdayLabel(plan.day)}
-            {phase === 'immediate' ? ' · 即时复习' : ''}
+            {phase === 'immediate' && group
+              ? ` · 还剩 ${group.queue.length} 个`
+              : phase === 'list' && pending.length > 0
+                ? ` · 待考 ${pending.length} 个`
+                : ''}
           </div>
         </div>
         <button type="button" className="avatar-btn" onClick={onOpenMe} aria-label="打开我的">
@@ -241,20 +413,32 @@ export function SessionScreen({
         </div>
       ) : null}
 
-      <main className="app__main">
+      <main className="app__main" ref={scrollRef}>
         <div className="screen">
           {phase === 'done' ? (
             <div className="session-done">
-              <p className="session-done__kicker">本次结束</p>
+              <p className="session-done__kicker">今日收尾</p>
               <h1 className="session-done__title">
-                复习 {tally.known + tally.fuzzy + tally.unknown} 个 · 学新词 {learned} 个
+                {committedTotal > 0 || reviewAnswered > 0
+                  ? `复习 ${reviewAnswered} 个 · 入库 ${committedTotal} 个新词`
+                  : '今天没有要学的了'}
               </h1>
-              <p className="session-done__text">
-                认识 {tally.known} · 模糊 {tally.fuzzy} · 不认识 {tally.unknown}
-                {tally.retried > 0 ? ` · 重试 ${tally.retried}` : ''}
-              </p>
+              {reviewAnswered > 0 ? (
+                <p className="session-done__text">
+                  认识 {tally.known} · 模糊 {tally.fuzzy} · 不认识 {tally.unknown}
+                  {tally.retried > 0 ? ` · 重试 ${tally.retried}` : ''}
+                </p>
+              ) : null}
+              {committedTotal > 0 ? (
+                <p className="session-done__text">
+                  即时复习全部清空，这 {committedTotal} 个词才真正入库
+                  {hardTotal > 0 ? ` · 其中硬词 ${hardTotal} 个` : ''}。
+                </p>
+              ) : null}
               <p className="session-done__note">
-                不认识的词会回到明天的 1 天批次，并进错词本。模糊的退回上一档，认识的前进一档。
+                {hardTotal > 0
+                  ? '不认识的词回到明天的 1 天批次，硬词和错词置顶；明天见。'
+                  : '不认识的词会回到明天的 1 天批次，并进错词本。明天见。'}
               </p>
               <div className="session-done__actions">
                 <button type="button" className="btn btn--primary btn--block" onClick={onOpenCalendar}>
@@ -265,23 +449,69 @@ export function SessionScreen({
                 </button>
               </div>
             </div>
+          ) : phase === 'list' ? (
+            <div className="session">
+              <ol
+                className="word-list"
+                key={`${plan.day}-${batchIdx}-${size}`}
+                aria-label={`今日新词 第 ${batchIdx + 1} 批`}
+              >
+                {batch.map((word, rowIndex) => {
+                  const detailRow = lookup.get(word);
+                  return (
+                    <WordRow
+                      key={`${word}-${rowIndex}`}
+                      word={detailRow ?? { w: word, ph: '', m: [] }}
+                      index={rowIndex + 1}
+                      showAll={showAll}
+                      hideWord={hideWord}
+                      hideMeaning={hideMeaning}
+                      revealed={revealedRows.has(rowIndex)}
+                      onReveal={() =>
+                        setRevealedRows((prev) => {
+                          const next = new Set(prev);
+                          next.add(rowIndex);
+                          return next;
+                        })
+                      }
+                    />
+                  );
+                })}
+              </ol>
+              {toast ? (
+                <p className="session-toast" role="status">
+                  {toast}
+                </p>
+              ) : null}
+            </div>
           ) : (
             <div className="flash">
-              <article className={showMeaning ? 'flash-card' : 'flash-card flash-card--masked'}>
+              <article
+                className={
+                  showMeaning ? 'flash-card' : phase === 'immediate' ? 'flash-card' : 'flash-card flash-card--masked'
+                }
+              >
                 <div className="flash-card__head">
-                  <span className="flash-card__word">{cardWord?.w ?? current?.word ?? newWord ?? ''}</span>
+                  <span className="flash-card__word">
+                    {cardWord?.w ?? current?.word ?? immediateWord ?? ''}
+                  </span>
                   {cardWord?.ph ? <span className="flash-card__ph">{cardWord.ph}</span> : null}
                 </div>
-                <div className="flash-card__meanings">
-                  {(cardWord?.m ?? []).map((meaning, senseIndex) => (
-                    <p key={senseIndex} className={senseIndex === 0 ? 'meaning meaning--main' : 'meaning meaning--extra'}>
-                      <span className={showMeaning ? undefined : 'masked'} aria-hidden={showMeaning || undefined}>
-                        {meaning}
-                      </span>
-                    </p>
-                  ))}
-                  {!cardWord ? <p className="meaning meaning--main">{current?.word ?? newWord}</p> : null}
-                </div>
+                {phase === 'review' ? (
+                  <div className="flash-card__meanings">
+                    {(cardWord?.m ?? []).map((meaning, senseIndex) => (
+                      <p
+                        key={senseIndex}
+                        className={senseIndex === 0 ? 'meaning meaning--main' : 'meaning meaning--extra'}
+                      >
+                        <span className={showMeaning ? undefined : 'masked'} aria-hidden={showMeaning || undefined}>
+                          {meaning}
+                        </span>
+                      </p>
+                    ))}
+                    {!cardWord ? <p className="meaning meaning--main">{current?.word}</p> : null}
+                  </div>
+                ) : null}
                 {phase === 'review' && !revealed ? (
                   <button type="button" className="flash-card__reveal" onClick={() => setRevealed(true)}>
                     轻点看中文
@@ -313,28 +543,41 @@ export function SessionScreen({
             <span>{RATING_LABEL.known}</span>
           </button>
         </div>
-      ) : phase === 'newword' ? (
+      ) : phase === 'list' ? (
+        <ControlDock
+          hideMeaning={hideMeaning}
+          hideWord={hideWord}
+          canPrev={batchIdx > 0}
+          canNext={true}
+          onToggleMeaning={() => {
+            onToggleMeaning();
+            setRevealedRows(new Set());
+          }}
+          onToggleWord={onToggleWord}
+          onPrev={() => goBatch(batchIdx - 1)}
+          onNext={handleNext}
+          nextLabel={isLastBatch ? '看完收尾' : '下一批'}
+        />
+      ) : phase === 'immediate' ? (
         <div className="answer-dock">
-          <button type="button" className="answer-btn answer-btn--ghost" onClick={onExit}>
-            先不学了
-          </button>
-          <button type="button" className="answer-btn answer-btn--known" onClick={nextNewWord}>
-            <span>记住了，下一个</span>
-          </button>
-        </div>
-      ) : (
-        <div className="answer-dock">
-          <button type="button" className="answer-btn answer-btn--unknown" onClick={() => answerImmediate(false)}>
+          <button
+            type="button"
+            className="answer-btn answer-btn--unknown"
+            onClick={() => answerImmediateClick(false)}
+          >
+            <IconClose size={18} />
             <span>不认识</span>
           </button>
-          <button type="button" className="answer-btn answer-btn--ghost" onClick={skipImmediate}>
-            跳过
-          </button>
-          <button type="button" className="answer-btn answer-btn--known" onClick={() => answerImmediate(true)}>
+          <button
+            type="button"
+            className="answer-btn answer-btn--known"
+            onClick={() => answerImmediateClick(true)}
+          >
+            <IconCheck size={18} />
             <span>认识</span>
           </button>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

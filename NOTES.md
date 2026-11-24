@@ -1,5 +1,39 @@
 # NOTES
 
+## 2026-11-24 · 收尾：统一学习流重构（v1.1）完成，实测 + design-review 已闭环
+
+- **交付**：按用户口径重构核心流程——「开始背单词」大按钮成为唯一学习入口；旧的「整本词库按批浏览」双轨（图二 481 批）已删，
+  列表形态挪进统一 Session，切分改为**今日发放额度按批大小切**（19 词 → 5/5/5/4，尾巴算完整一批）。规约在 `REFACTOR_PLAN.md`。
+- **状态机**（`SessionScreen.tsx` 重写）：`review`（三键，复习/逾期强制先行）→ 无缝进 `list`（平铺列表 + 遮蔽切换 + 用户自己点下一批）
+  → 攒满 10 个（或末批看完还有没考的）**强制弹** `immediate`（两键、只给英文+音标、不认识回队尾最多 3 次标 hard）
+  → 组清空才 `commitNewWords` 入库并解锁下一批 → 全部完成进 `done` 总结页。
+- **完成判定口径（最重要）**：列表阶段**零落库**——中途退出下次从第 1 批重看；唯一入库点是即时复习组清空后的 `commitNewWords`。
+  复习作答仍逐词落库（既有语义）。错词本在即时复习答错时就记（事实记录），与入库解耦。
+- **替用户拍板**：① 尾巴不足 10 也弹一组（状态机无特例，尾巴同样要考）；② 即时复习**没有跳过键**（用户明说两键），想停只能退出；
+  ③ 「重置学习进度」入口删了——它原来只清旧浏览 progress（v1.1 后不再展示），按钮语义断了；「清调度状态重新开始」是另一个功能，**待用户要再做**。
+- **内核**：`engine.ts` 新增 `startImmediateWith(words)`（未入库词开组）、`commitNewWords(words, day, hardWords)`（唯一落库点，非法词进
+  rejected 不整组失败）、`abandonImmediate()`（退组零入库）。旧 API 一律没动——`test-scheduler.ts` 老 67 处调用与 181 项断言、demo 40 天弧线、
+  bench 全部原样通过；新增 §11.1–11.7（校验/两键循环/入库判定/退出零状态/19 词全流程/跨天作废/预览不消费）。
+- **改动面**：`App.tsx`（删 studying/seen 记录/键盘翻批双轨，首页数字改读调度）、`StudyScreen.tsx`（只剩首页）、
+  `TodayCard.tsx`（删两个动作按钮，纯展示）、`CalendarScreen.tsx`（两按钮合并为统一入口）、`ProfileScreen.tsx`（learnedCount 改卡库数）、
+  `ControlDock.tsx`（+nextLabel，末批「看完收尾」）。`cijian.v1` 的 `progress.seen/batchIndex` 保留不读不删。
+- **已验证**：`tsc --noEmit` 0 错；`vite build` 过（主 chunk 321.6KB / gzip 101KB，CSS gzip 15.6KB，词库仍独立 chunk）；
+  `test:scheduler` 全过（含 §11）；`test:books` / `test:csv` 全过；`demo:scheduler` 弧线未变；`bench:scheduler` 全 <50ms。
+  **浏览器端到端实测**（fixture「8 张今日到期 + 19 词未学池」，dev 5173）：复习优先→无缝进列表 5/5/5/4→第 2 批「下一批」弹 10 词组→
+  清空入库（cards 8→18、pool 19→9）并自动解锁第 3 批→末批按钮变「看完收尾」→尾巴 9 词组→总结页「入库 19」→首页数字一致；
+  三个退出场景（列表退 / 即时退 / 复习中途退）全部**零入库**、重进从第 1 批重看；硬词路径：t8 连错 3 → hard 放过 →
+  卡 `hard:true`、错词本 count=3 source=immediate、组照常清空入库。
+  **design-review v6**：list/immediate/done 各 24 组（4 肤 × 明暗 × 3 视口）真实 DOM 量，首轮 immediate 8 组 FAIL（对比度，见下条坑 3），
+  修复后回归 0 失败；报告 `DESIGN_REVIEW.md` v6，截图 `docs/screenshots/v6/`（6 张：home/list-360/list-1440/immediate-360/done-360/done-768）。
+- **坑**：① `commitNewWords` 不复验 allowance（额度在拍列表快照时已定、复习闸在进列表前已清）——别给它加闸，加了会把考完的词拒之门外；
+  ② 测试里断言 days 字段前先 `plan()`/`ensureDay()`，新流程列表阶段不建当天记录（§11.4 就栽在这）；
+  ③ **皮肤 token 审查顺带修的三处**：broadsheet 深色块漏了 `--danger`（浅色近黑 #14140f 沿用→1.38:1，补 #e8836f）、
+  foundry 深色 danger #ff4a21→#ff6a45、foundry 浅色 accent #d93a16→#cf3714（白字 4.46→5.5:1）——以后动答案键颜色先跑 24 组；
+  ④ 浏览器脚本按文案找按钮**必须精确匹配**：`textContent.includes('认识')` 会先命中「不认识」，我因此误判过一次「队列无限循环」；
+  ⑤ dev 下 `/vite.svg` 不存在会被 SPA fallback 成 index.html——fixture 要写到真静态页 `/icon.svg`，且该导航 load 必超时（预期，忽略）。
+- **下一步**：用户真机跑几天验收遗忘曲线与完成判定；过了打 tag `v1.1.0-beta.1`。dev job `pwsh-6d628cb48fd046cf`（5173）还开着；
+  preview(4173) 未重启，真机联调前记得 `vite preview` + SW 缓存老坑。
+
 ## 2026-11-24 · 收尾：v1.0.0-beta 已打 tag，进入待机维护
 
 - **版本**：`git init` 后首次提交 `fc4a862`，tag **v1.0.0-beta**（标注「完整词库 + 学习调度 + 错词本」）。

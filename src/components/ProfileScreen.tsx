@@ -108,7 +108,8 @@ function LimitHint() {
 interface ProfileScreenProps {
   store: Store;
   book: Wordbook | null;
-  seenCount: number;
+  /** 已学 = 调度卡库总数（v1.1 起不再读旧浏览进度） */
+  learnedCount: number;
   schedulerStats: SchedulerStats;
   allowance: NewWordAllowance;
   onBack: () => void;
@@ -116,7 +117,6 @@ interface ProfileScreenProps {
   onStage: (stage: LevelKey) => void;
   onBatchSize: (size: number) => void;
   onOpenImport: () => void;
-  onOpenReset: () => void;
   onDeleteCustom: () => void;
   onOpenSkin: () => void;
   onOpenCalendar: () => void;
@@ -131,7 +131,7 @@ const BATCH_OPTIONS = [5, 8, 10, 15, 20].map((value) => ({ value, label: String(
 export function ProfileScreen({
   store,
   book,
-  seenCount,
+  learnedCount,
   schedulerStats,
   allowance,
   onBack,
@@ -139,7 +139,6 @@ export function ProfileScreen({
   onStage,
   onBatchSize,
   onOpenImport,
-  onOpenReset,
   onDeleteCustom,
   onOpenSkin,
   onOpenCalendar,
@@ -154,7 +153,7 @@ export function ProfileScreen({
   const stats = useMemo(() => bookStats(book), [book]);
   const initial = profile.name.trim().slice(0, 1) || '词';
   const showAll = showAllMeanings(profile.meaningMode, profile.stage);
-  const progressPercent = total > 0 ? Math.min(100, (seenCount / total) * 100) : 0;
+  const progressPercent = total > 0 ? Math.min(100, (learnedCount / total) * 100) : 0;
 
   const stageWords = (key: LevelKey): number => bookCount(key, custom);
 
@@ -188,7 +187,7 @@ export function ProfileScreen({
                 autoComplete="off"
               />
               <p className="profile__meta">
-                {meta.name} · 已学 {seenCount} / {total} 词
+                {meta.name} · 已学 {learnedCount} / {total} 词
               </p>
             </div>
           </section>
@@ -234,7 +233,9 @@ export function ProfileScreen({
               value={profile.batchSize}
               onChange={onBatchSize}
             />
-            <p className="section__hint">一屏放不下时直接下滑，底部控制区不会挡住最后一行。</p>
+            <p className="section__hint">
+              今日发放的新词按这个数切批，看完两批会弹一次即时复习。一屏放不下时直接下滑，底部控制区不会挡住最后一行。
+            </p>
           </section>
 
           <section className="section">
@@ -419,8 +420,8 @@ export function ProfileScreen({
               <h2 className="section__title">学习进度</h2>
             </div>
             <div className="stat">
-              <span className="stat__num">{seenCount}</span>
-              <span className="stat__unit">/ {total} 个词已看过</span>
+              <span className="stat__num">{learnedCount}</span>
+              <span className="stat__unit">/ {total} 个词已入库</span>
             </div>
             <div className="progress-track" aria-hidden="true">
               <span className="progress-track__bar" style={{ width: `${progressPercent}%` }} />
@@ -445,15 +446,6 @@ export function ProfileScreen({
               </div>
               <button type="button" className="btn btn--text" onClick={onOpenMistakes}>
                 {schedulerStats.mistakes > 0 ? `打开 ${schedulerStats.mistakes}` : '打开'}
-              </button>
-            </div>
-            <div className="setting-row">
-              <div>
-                <div className="setting-row__label">重置学习进度</div>
-                <div className="setting-row__value">只清空已学和批次位置，词库与设置保留</div>
-              </div>
-              <button type="button" className="btn btn--text btn--danger-text" onClick={onOpenReset}>
-                重置
               </button>
             </div>
           </section>

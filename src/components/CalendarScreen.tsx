@@ -32,8 +32,8 @@ interface CalendarScreenProps {
   onBack: () => void;
   onOpenMe: () => void;
   onOpenSkin: () => void;
-  onStartReview: () => void;
-  onStartNewWords: () => void;
+  /** 统一入口（v1.1）：进 Session 状态机，复习优先由流程内部保证 */
+  onStartSession: () => void;
 }
 
 const LONG_LABEL: Record<string, string> = {
@@ -115,8 +115,7 @@ export function CalendarScreen({
   onBack,
   onOpenMe,
   onOpenSkin,
-  onStartReview,
-  onStartNewWords,
+  onStartSession,
 }: CalendarScreenProps) {
   const { plan, view, stats } = useMemo(() => {
     void version;
@@ -208,19 +207,18 @@ export function CalendarScreen({
             <div className="cal-hero__actions">
               <button
                 type="button"
-                className="btn btn--secondary btn--block btn--compact"
-                onClick={onStartReview}
-                disabled={plan.totals.dueToday === 0 && plan.totals.overdue === 0}
-              >
-                {plan.totals.dueToday > 0 || plan.totals.overdue > 0 ? '开始复习' : '今天没有到期复习'}
-              </button>
-              <button
-                type="button"
                 className="btn btn--primary btn--block btn--compact"
-                onClick={onStartNewWords}
-                disabled={plan.allowedNewWords === 0}
+                onClick={onStartSession}
+                disabled={
+                  plan.allowedNewWords === 0 &&
+                  plan.totals.dueToday === 0 &&
+                  plan.totals.overdue === 0 &&
+                  plan.longTermBatches.length === 0
+                }
               >
-                {plan.allowedNewWords > 0 ? `学新词 ${plan.allowedNewWords} 个` : headline.label}
+                {plan.allowedNewWords > 0 || plan.totals.dueToday > 0 || plan.totals.overdue > 0
+                  ? '开始背单词'
+                  : '今天没有要学的了'}
               </button>
             </div>
           </section>

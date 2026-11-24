@@ -35,8 +35,8 @@
   --text-secondary: #52524c;
   --text-tertiary: #6e6e66;
 
-  /* 印章红（只盖章，面积 ≤10%） */
-  --accent: #d93a16;
+  /* 印章红（只盖章，面积 ≤10%）——#d93a16 上白字只有 4.46:1，压深一档到 AA */
+  --accent: #cf3714;
   --accent-hover: #bf3212;
   --accent-press: #a82a0e;
   --accent-weak: rgba(217, 58, 22, 0.1);
@@ -137,7 +137,7 @@
   --accent-weak: rgba(255, 74, 33, 0.12);
   --on-accent: #0b0b0b;
 
-  --danger: #ff4a21;
+  --danger: #ff6a45;
   --scrim: rgba(0, 0, 0, 0.68);
   --row-hover: rgba(242, 242, 240, 0.05);
   --toggle-on: #f2f2f0;

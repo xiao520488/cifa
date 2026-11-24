@@ -9,6 +9,8 @@ interface ControlDockProps {
   onToggleWord: () => void;
   onPrev: () => void;
   onNext: () => void;
+  /** 末批改成「看完收尾」之类的推进文案；默认「下一批」。 */
+  nextLabel?: string;
 }
 
 export function ControlDock({
@@ -20,6 +22,7 @@ export function ControlDock({
   onToggleWord,
   onPrev,
   onNext,
+  nextLabel = '下一批',
 }: ControlDockProps) {
   return (
     <div className="dock" role="toolbar" aria-label="本批控制">
@@ -60,7 +63,7 @@ export function ControlDock({
         disabled={!canNext}
         aria-label="下一批单词"
       >
-        <span>下一批</span>
+        <span>{nextLabel}</span>
         <IconChevronRight size={16} />
       </button>
     </div>
