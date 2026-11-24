@@ -1,5 +1,14 @@
 # NOTES
 
+## 2026-11-24 · 即时复习卡片改居中版式（用户点名）
+
+- 版式：单词正中 → 音标 → 释义（直显、不遮蔽），专属修饰类 `.flash-card--centered`，
+  **复习三键卡片完全不受影响**（仍是左对齐 + 轻点揭义），实测两态互不污染。
+- 字号自适应：单词 `clamp(26px, 7vw, 40px)`、释义 `clamp(14px, 4vw, var(--fs-meaning))`；
+  360 下单词中心偏差 0px、1440 下相对应用列居中偏差 0px；长专业词换行不裁切、无横向滚动。
+- 规则修订：原「即时复习只给英文+音标不渲染释义」作废，REFACTOR_PLAN.md §1/§UI 表已同步。
+- 截图 `docs/screenshots/v6/immediate-centered-360.png / -1440.png`。
+
 ## 2026-11-24 · 真机反馈修复：即时复习 dock 溢出 + 两键改【认识/模糊】
 
 - **溢出根因**：`.answer-dock` 原来是 `position: fixed; inset-inline: 0`——按**视口**撑宽，

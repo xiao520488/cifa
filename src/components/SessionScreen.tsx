@@ -488,7 +488,11 @@ export function SessionScreen({
             <div className="flash">
               <article
                 className={
-                  showMeaning ? 'flash-card' : phase === 'immediate' ? 'flash-card' : 'flash-card flash-card--masked'
+                  phase === 'immediate'
+                    ? 'flash-card flash-card--centered'
+                    : showMeaning
+                      ? 'flash-card'
+                      : 'flash-card flash-card--masked'
                 }
               >
                 <div className="flash-card__head">
@@ -497,19 +501,22 @@ export function SessionScreen({
                   </span>
                   {cardWord?.ph ? <span className="flash-card__ph">{cardWord.ph}</span> : null}
                 </div>
-                {phase === 'review' ? (
+                {phase === 'review' || phase === 'immediate' ? (
                   <div className="flash-card__meanings">
                     {(cardWord?.m ?? []).map((meaning, senseIndex) => (
                       <p
                         key={senseIndex}
                         className={senseIndex === 0 ? 'meaning meaning--main' : 'meaning meaning--extra'}
                       >
-                        <span className={showMeaning ? undefined : 'masked'} aria-hidden={showMeaning || undefined}>
+                        <span
+                          className={phase === 'immediate' || showMeaning ? undefined : 'masked'}
+                          aria-hidden={phase === 'immediate' || showMeaning ? undefined : true}
+                        >
                           {meaning}
                         </span>
                       </p>
                     ))}
-                    {!cardWord ? <p className="meaning meaning--main">{current?.word}</p> : null}
+                    {phase === 'review' && !cardWord ? <p className="meaning meaning--main">{current?.word}</p> : null}
                   </div>
                 ) : null}
                 {phase === 'review' && !revealed ? (

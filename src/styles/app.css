@@ -1551,6 +1551,32 @@ p {
   color: transparent;
 }
 
+/* 即时复习卡片：单词正中 → 音标 → 释义，全部居中；字号随视口自适应。
+   只作用于 .flash-card--centered（即时复习专属修饰类），复习三键卡片版式不受影响。 */
+.flash-card--centered {
+  align-items: center;
+  text-align: center;
+}
+
+.flash-card--centered .flash-card__head {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.flash-card--centered .flash-card__word {
+  font-size: clamp(26px, 7vw, 40px);
+}
+
+.flash-card--centered .flash-card__meanings {
+  align-items: center;
+  max-width: 32em;
+}
+
+.flash-card--centered .meaning {
+  font-size: clamp(14px, 4vw, var(--fs-meaning));
+}
+
 .flash-card__reveal {
   align-self: flex-start;
   font-size: var(--fs-small);

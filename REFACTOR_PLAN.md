@@ -34,7 +34,7 @@ phase 'list'（图二形态，词 = newQ 按 batchSize 切批，尾巴算完整�
   【上一批】自由回看（不影响 pending；回看不产生任何状态）
   退出（顶栏返回）：什么都不落库 ──► 首页。下次从第 1 批重新看。
 
-phase 'immediate'（单卡两键，只给英文+音标，不渲染释义）
+phase 'immediate'（单卡两键，居中版式：单词正中→音标→释义，字号随视口自适应；2026-11-24 修订，原「只给英文+音标不渲染释义」）
   【认识】出队；【模糊】回队尾，同词最多 3 次，第 3 次标 hard 放过
   队列清空 ──► engine.commitNewWords(group.words, hard) ──► 入库
     ├─ 还有下一批 ──► phase 'list'（batchIdx+1，解锁）
@@ -77,7 +77,7 @@ abandonImmediate(): string[]   // 返回被丢弃的词
 | `App.tsx` | 删 `studying` 双轨：大按钮 → `setSession(true)`（统一 Session）；删老列表 effect（seen 记录、键盘翻批、goTo、changeBatchSize 的 batchIndex 换算）；`session` 类型改 boolean |
 | `StudyScreen.tsx` | 删 `studying` 分支（列表挪进 Session）；首页 topbar/hero/spec/readouts 数字改读调度：今日新词 `plan.allowedNewWords`、今日批次 `ceil(allowed/batchSize)`、已学 = stats 卡数合计（不再读 `progress.seen/batchIndex`）；lede 文案对齐新流程 |
 | `TodayCard.tsx` | 删两个动作按钮（纯展示）；保留错词本 / 学习日历链接 |
-| `SessionScreen.tsx` | 重写为 §1 状态机；`list` 阶段复用 `WordRow`+`ControlDock`+`.session/.word-list` 样式；`immediate` 阶段 flash 卡不渲染释义、两键 dock；末批「下一批」文案=「看完收尾」；`nextNewWords` 快照在复习清空后重拍 |
+| `SessionScreen.tsx` | 重写为 §1 状态机；`list` 阶段复用 `WordRow`+`ControlDock`+`.session/.word-list` 样式；`immediate` 阶段 flash 卡居中版式（`flash-card--centered`，释义直显不遮蔽）、两键 dock；末批「下一批」文案=「看完收尾」；`nextNewWords` 快照在复习清空后重拍 |
 | `CalendarScreen.tsx` | 两个按钮合并为一个「开始背单词」（统一入口，复习优先由 Session 内部保证） |
 | `ProfileScreen.tsx` | 「每批单词数」hint 文案微调（现在是今日新词的列表批大小） |
 | `ControlDock.tsx` | 加 `nextLabel?: string`（默认「下一批」） |
