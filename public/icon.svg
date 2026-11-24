@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" fill="#191817" />
+  <text
+    x="31"
+    y="45"
+    font-family="'PingFang SC','HarmonyOS Sans SC','Microsoft YaHei',sans-serif"
+    font-size="34"
+    font-weight="700"
+    fill="#F6F3EC"
+    text-anchor="middle"
+  >词</text>
+  <circle cx="52.5" cy="43.5" r="2.8" fill="#B23A2A" />
+</svg>

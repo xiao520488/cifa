@@ -1,0 +1,1264 @@
+/* ==========================================================================
+   皮肤 · 铅字 FOUNDRY                       （[data-skin="foundry"]）
+   --------------------------------------------------------------------------
+   一家只印活字的印刷厂：纸是白的，墨是黑的，红只用来盖章。
+
+   3 条规矩
+   1. 对比只靠字号 / 字重 / 墨色，不掉灰：大字收紧 -0.035em，注脚放开 +0.08em。
+   2. 红是印章不是装饰：只出现在词性小方块、音标方点、头像格、偷看竖条、当前批刻度。
+   3. 硬边：圆角 0（遮挡块 2px），分隔一律实墨线 1.5px，投影只有 4px 硬投影。
+   1 条禁区：不用模糊阴影 / 渐变（斜条纹纹理除外）/ 玻璃拟态 / 圆角混搭。
+
+   本文件只做三件事：
+   A. 覆盖 tokens.css 的同名令牌（app.css 既有规则自动跟着变）；
+   B. 暗色令牌重映射；
+   C. 按组件写补丁（全部以 [data-skin="foundry"] 开头，不碰别的皮肤）。
+   ========================================================================== */
+
+/* ==========================================================================
+   1. 令牌 —— 纸 / 墨 / 印章红
+   ========================================================================== */
+
+[data-skin='foundry'] {
+  color-scheme: light;
+
+  /* 纸与墨 */
+  --bg: #ffffff;
+  --surface: #f1f0ec;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e7e5de;
+  --border: rgba(11, 11, 11, 0.22);
+  --border-strong: #0b0b0b;
+
+  /* 字 */
+  --text: #0b0b0b;
+  --text-secondary: #52524c;
+  --text-tertiary: #6e6e66;
+
+  /* 印章红（只盖章，面积 ≤10%） */
+  --accent: #d93a16;
+  --accent-hover: #bf3212;
+  --accent-press: #a82a0e;
+  --accent-weak: rgba(217, 58, 22, 0.1);
+  --on-accent: #ffffff;
+
+  --success: #2e6b4c;
+  --warning: #7a4e10;
+  --danger: #a82a0e;
+  --scrim: rgba(11, 11, 11, 0.72);
+  --row-hover: rgba(11, 11, 11, 0.04);
+  --toggle-on: #0b0b0b;
+
+  /* 45° 斜条纹：1px 墨线 / 8px 周期；控制条上墨量更轻 */
+  --mask: repeating-linear-gradient(45deg, var(--text) 0 1px, transparent 1px 8px);
+  --mask-soft: repeating-linear-gradient(45deg, var(--border) 0 1px, transparent 1px 6px);
+
+  /* 字体族：Space Grotesk 排英文，Plex Mono 排数据，中文一律回退系统字 */
+  --font-grot: 'Space Grotesk', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-mono: 'IBM Plex Mono', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui,
+    monospace;
+  --font-sans: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-serif: 'Space Grotesk', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui,
+    sans-serif;
+
+  /* 字号阶梯：只有「大字 / 正文 / 注脚」三档 */
+  --fs-display: clamp(2.125rem, 9.4vw, 2.5rem); /* 34 → 40 · 大标题 */
+  --fs-h1: 26px;
+  --fs-h2: 20px;
+  --fs-body: 14px; /* 正文下限 */
+  --fs-small: 12px; /* 标签 */
+  --fs-word: clamp(1.5rem, 6.5vw, 1.75rem); /* 24 → 28 · 词条 */
+  --fs-phonetic: 11px;
+  --fs-meaning: 15px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* 度量 */
+  --page-x: 20px;
+  --content-max: 640px;
+  --app-max: 760px;
+  --dock-height: 60px;
+
+  /* 圆角只有 0 和遮挡块的 2px */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-full: 0;
+
+  /* 阴影只有硬投影，永不模糊 */
+  --shadow-sm: 2px 2px 0 var(--border-strong);
+  --shadow-md: 4px 4px 0 var(--border-strong);
+  --shadow-lg: 4px 4px 0 var(--border-strong);
+
+  /* 动效 */
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 200ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* 皮肤自有度量 */
+  --fd-col-no: 40px;
+  --fd-rule: 1.5px;
+  --fd-rule-bold: 2px;
+}
+
+/* ==========================================================================
+   2. 暗色 —— 黑纸白墨，红提亮；不是反相
+   ========================================================================== */
+
+[data-skin='foundry'][data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0b0b0b;
+  --surface: #151513;
+  --surface-raised: #1e1e1a;
+  --surface-sunken: #1e1e1a;
+  --border: rgba(242, 242, 240, 0.22);
+  --border-strong: #f2f2f0;
+
+  --text: #f2f2f0;
+  --text-secondary: #a9a9a0;
+  --text-tertiary: #7e7e77;
+
+  --accent: #ff4a21;
+  --accent-hover: #ff6a45;
+  --accent-press: #c43a16;
+  --accent-weak: rgba(255, 74, 33, 0.12);
+  --on-accent: #0b0b0b;
+
+  --danger: #ff4a21;
+  --scrim: rgba(0, 0, 0, 0.68);
+  --row-hover: rgba(242, 242, 240, 0.05);
+  --toggle-on: #f2f2f0;
+
+  --mask: repeating-linear-gradient(45deg, var(--text) 0 1px, transparent 1px 8px);
+  --mask-soft: repeating-linear-gradient(45deg, var(--border) 0 1px, transparent 1px 6px);
+
+  /* 白墨压印，不是发光 */
+  --shadow-sm: 2px 2px 0 rgba(242, 242, 240, 0.9);
+  --shadow-md: 4px 4px 0 rgba(242, 242, 240, 0.9);
+  --shadow-lg: 4px 4px 0 rgba(242, 242, 240, 0.9);
+}
+
+/* ==========================================================================
+   3. 基底
+   ========================================================================== */
+
+[data-skin='foundry'] body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin='foundry'] ::selection {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+[data-skin='foundry'] :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* ==========================================================================
+   4. 顶栏 —— 报头：字标 + 通栏小字 + 粗线封口
+   ========================================================================== */
+
+[data-skin='foundry'] .topbar {
+  min-height: 0;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) var(--page-x) 10px;
+  background: var(--bg);
+  border-bottom: var(--fd-rule-bold) solid var(--border-strong);
+}
+
+[data-skin='foundry'] .topbar--bordered {
+  border-bottom: var(--fd-rule-bold) solid var(--border-strong);
+}
+
+[data-skin='foundry'] .brand {
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  row-gap: 3px;
+  min-width: 0;
+}
+
+[data-skin='foundry'] .brand__name {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: clamp(2rem, 9.6vw, 2.75rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+
+/* 印章点做成小方块，不要圆 */
+[data-skin='foundry'] .brand__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 0;
+  background: var(--accent);
+  transform: none;
+}
+
+/* 报头下的通栏小字：阶段 · 第几批 · 几个词 */
+[data-skin='foundry'] .topbar__meta {
+  display: flex;
+  align-items: center;
+  flex-basis: 100%;
+  order: 3;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+
+[data-skin='foundry'] .topbar__sep {
+  padding-inline: 5px;
+  opacity: 1;
+  color: var(--text-tertiary);
+}
+
+/* 图标按钮：硬边方块，点按 44 */
+[data-skin='foundry'] .icon-btn {
+  width: 44px;
+  height: 44px;
+  border: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+[data-skin='foundry'] .icon-btn:active {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+/* 头像格：红底白字小方块 */
+[data-skin='foundry'] .avatar-btn {
+  width: 44px;
+  height: 44px;
+  border: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+[data-skin='foundry'] .avatar-btn:hover {
+  transform: none;
+  background: var(--accent-press);
+}
+
+[data-skin='foundry'] .avatar-btn:active {
+  transform: none;
+  background: var(--accent-press);
+}
+
+/* 学习中：批号 + 阶段 */
+[data-skin='foundry'] .study-bar__title {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='foundry'] .study-bar__sub {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* 批次刻度：贴顶栏下沿的一道细尺，红只标到当前批 */
+[data-skin='foundry'] .study-progress {
+  height: 3px;
+  margin: 0;
+  border-radius: 0;
+  background: var(--border);
+}
+
+[data-skin='foundry'] .study-progress__bar {
+  border-radius: 0;
+  background: var(--accent);
+}
+
+/* ==========================================================================
+   5. 词表 —— 序号列 + 贯穿竖线 + 1.5px 实墨横线
+   ========================================================================== */
+
+[data-skin='foundry'] .word-list {
+  position: relative;
+  margin-top: 12px;
+  border-top: 0;
+  border-bottom: var(--fd-rule) solid var(--border-strong);
+}
+
+/* 序号列右侧贯穿全表的竖线 */
+[data-skin='foundry'] .word-list::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--fd-col-no);
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+[data-skin='foundry'] .word-row {
+  grid-template-columns: var(--fd-col-no) minmax(0, 1fr);
+  column-gap: 0;
+  padding: 11px 0;
+  border-top: var(--fd-rule) solid var(--border-strong);
+  border-bottom: 0;
+  border-radius: 0;
+}
+
+[data-skin='foundry'] .word-row--peekable {
+  margin-inline: 0;
+  padding-inline: 0;
+  border-radius: 0;
+}
+
+[data-skin='foundry'] .word-row--peekable:hover {
+  background: var(--row-hover);
+}
+
+[data-skin='foundry'] .word-row--peekable:active {
+  background: var(--surface-sunken);
+}
+
+[data-skin='foundry'] .word-row__index {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+  padding-top: 7px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='foundry'] .word-row__body {
+  min-width: 0;
+  padding-left: 12px;
+}
+
+/* 单词与音标分两行 */
+[data-skin='foundry'] .word-row__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 0;
+}
+
+[data-skin='foundry'] .word-row__word {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: var(--fs-word);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .word-row__ph {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* 音标前的红方点（被遮挡时不出现） */
+[data-skin='foundry'] .word-row__ph:not(.masked)::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+}
+
+[data-skin='foundry'] .word-row__meanings {
+  gap: 2px;
+  margin-top: 8px;
+}
+
+[data-skin='foundry'] .meaning {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .meaning--extra {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* 词性：红底白字小方块 */
+[data-skin='foundry'] .meaning__pos {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 3px 5px;
+  border-radius: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: translateY(-1px);
+}
+
+/* 遮挡态：45° 斜条纹（词与释义共用） */
+[data-skin='foundry'] .masked {
+  background-color: transparent;
+  background-image: var(--mask);
+  border-radius: 2px;
+  box-shadow: none;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* 遮挡时红方块不跟着留一块红 */
+[data-skin='foundry'] .masked .meaning__pos {
+  margin-right: 0;
+  padding: 0;
+  background: transparent;
+  color: transparent;
+}
+
+/* ==========================================================================
+   6. 底部控制条 —— 4 格 grid，格间 1.5px 墨线，激活格反相
+   ========================================================================== */
+
+[data-skin='foundry'] .dock {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  background: var(--bg);
+  border-top: var(--fd-rule-bold) solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+[data-skin='foundry'] .dock__btn {
+  min-height: 60px;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+/* 格间 1.5px 黑线 */
+[data-skin='foundry'] .dock__btn + .dock__btn {
+  border-left: var(--fd-rule) solid var(--border-strong);
+}
+
+/* 两个相邻的「开着」的格子：反相格之间用纸色分缝，保证四格仍然读得出来 */
+[data-skin='foundry'] .dock__toggle[aria-pressed='true'] + .dock__toggle[aria-pressed='true'] {
+  border-left-color: var(--bg);
+}
+
+[data-skin='foundry'] .dock__btn:active:not(:disabled) {
+  transform: none;
+}
+
+[data-skin='foundry'] .dock__state {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  opacity: 0.68;
+}
+
+/* 显示中 = 黑底反相 */
+[data-skin='foundry'] .dock__toggle[aria-pressed='true'] {
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin='foundry'] .dock__toggle[aria-pressed='true'] .dock__state {
+  color: var(--bg);
+  opacity: 0.68;
+}
+
+/* 已关 = 同一种版纹，墨量更轻 */
+[data-skin='foundry'] .dock__toggle[aria-pressed='false'] {
+  background-color: var(--bg);
+  background-image: var(--mask-soft);
+  border-color: transparent;
+  border-style: solid;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .dock__toggle[aria-pressed='false'] .dock__state {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+[data-skin='foundry'] .dock__nav {
+  flex-direction: row;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+/* 导航格保持纸色：黑只留给「开着的开关」，别让控制条糊成一条黑带 */
+[data-skin='foundry'] .dock__nav--primary {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin='foundry'] .dock__nav--primary svg {
+  color: var(--text);
+}
+
+[data-skin='foundry'] .dock__btn:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+}
+
+/* 暗色下不做白板：白线 + 升一档底 */
+[data-skin='foundry'][data-theme='dark'] .dock__toggle[aria-pressed='true'] {
+  background: var(--surface-sunken);
+  color: var(--text);
+  box-shadow: inset 0 3px 0 var(--text);
+}
+
+[data-skin='foundry'][data-theme='dark'] .dock__toggle[aria-pressed='true'] .dock__state {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+[data-skin='foundry'][data-theme='dark'] .dock__toggle[aria-pressed='true'] + .dock__toggle[aria-pressed='true'] {
+  border-left-color: var(--text);
+}
+
+/* ==========================================================================
+   7. 开始页 —— 印刷工单
+   ========================================================================== */
+
+[data-skin='foundry'] .start {
+  min-height: calc(100dvh - 104px);
+  padding-top: 20px;
+  padding-bottom: 24px;
+}
+
+[data-skin='foundry'] .start__body {
+  margin-block: auto;
+}
+
+[data-skin='foundry'] .start__eyebrow {
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .start__eyebrow::before {
+  width: 16px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+[data-skin='foundry'] .start__title {
+  margin-top: 12px;
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: var(--fs-display);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .start__lede {
+  margin-top: 12px;
+  max-width: 32ch;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* 批号 / 已学 已在工单里，这里不重复印一遍 */
+[data-skin='foundry'] .start__meta {
+  display: none;
+}
+
+/* 工单：四行表 */
+[data-skin='foundry'] .start__spec {
+  display: block;
+  margin-top: 24px;
+}
+
+[data-skin='foundry'] .start__spec::before {
+  content: '工单 · JOB TICKET';
+  display: block;
+  padding-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .start__spec-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+}
+
+[data-skin='foundry'] .start__spec-row:first-child {
+  border-top: var(--fd-rule) solid var(--border-strong);
+}
+
+[data-skin='foundry'] .start__spec-row:last-child {
+  border-bottom: var(--fd-rule) solid var(--border-strong);
+}
+
+[data-skin='foundry'] .start__spec-k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .start__spec-v {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='foundry'] .start__actions {
+  margin-top: 24px;
+}
+
+/* 工单上的章不铺满整栏，留出纸边 */
+[data-skin='foundry'] .start__actions .btn--primary {
+  width: min(100%, 320px);
+}
+
+[data-skin='foundry'] .start__foot {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+[data-skin='foundry'] .start__rule {
+  display: none;
+}
+
+/* ==========================================================================
+   8. 按钮 —— 主按钮是黑，不是红；按下就像压进纸里
+   ========================================================================== */
+
+[data-skin='foundry'] .btn {
+  min-height: 48px;
+  border-radius: 0;
+  border: var(--fd-rule) solid transparent;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+[data-skin='foundry'] .btn:active {
+  transform: none;
+}
+
+[data-skin='foundry'] .btn--primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+[data-skin='foundry'] .btn--primary:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin='foundry'] .btn--primary:active:not(:disabled) {
+  background: var(--text);
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--border-strong);
+}
+
+/* 暗色下主按钮同样不做白板：升一档底 + 白线 + 白硬投影 */
+[data-skin='foundry'][data-theme='dark'] .btn--primary {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--text);
+}
+
+[data-skin='foundry'][data-theme='dark'] .btn--primary:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+[data-skin='foundry'][data-theme='dark'] .btn--primary:active:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+[data-skin='foundry'] .btn--block {
+  min-height: 56px;
+  padding-inline: var(--space-5);
+  font-size: 14px;
+}
+
+[data-skin='foundry'] .btn--secondary {
+  border-color: var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin='foundry'] .btn--secondary:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+[data-skin='foundry'] .btn--text {
+  min-height: 44px;
+  padding: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  text-decoration-thickness: var(--fd-rule);
+  text-underline-offset: 4px;
+}
+
+[data-skin='foundry'] .btn--text:hover:not(:disabled) {
+  color: var(--text);
+}
+
+[data-skin='foundry'] .btn--compact {
+  min-height: 44px;
+  padding-inline: var(--space-3);
+  font-size: 12px;
+}
+
+[data-skin='foundry'] .btn--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--bg);
+}
+
+/* ==========================================================================
+   9. 我的 / 抽屉 / 分段控件 —— 同一套硬边
+   ========================================================================== */
+
+[data-skin='foundry'] .avatar {
+  width: 56px;
+  height: 56px;
+  border: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='foundry'] .profile__name {
+  border-bottom: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='foundry'] .profile__name:focus {
+  border-bottom-color: var(--accent);
+}
+
+[data-skin='foundry'] .profile__meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .section__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .section {
+  border-top: 1px solid var(--border);
+  padding-block: 20px;
+}
+
+[data-skin='foundry'] .section__hint {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .stage-option {
+  min-height: 64px;
+  border: var(--fd-rule) solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin='foundry'] .stage-option:hover {
+  border-color: var(--border-strong);
+}
+
+[data-skin='foundry'] .stage-option[aria-pressed='true'] {
+  border-color: var(--border-strong);
+  background: var(--bg);
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+
+[data-skin='foundry'] .stage-option__short {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-skin='foundry'] .stage-option__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .stage-option__desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .segmented {
+  gap: 0;
+  padding: 0;
+  border: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin='foundry'] .segmented__item {
+  min-height: 44px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .segmented__item + .segmented__item {
+  border-left: var(--fd-rule) solid var(--border);
+}
+
+[data-skin='foundry'] .segmented__item[aria-pressed='true'] {
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+/* 暗色同理：不用白板，用「升一档底 + 白线」 */
+[data-skin='foundry'][data-theme='dark'] .segmented__item[aria-pressed='true'] {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: inset 0 2px 0 var(--text);
+}
+
+[data-skin='foundry'] .setting-row {
+  min-height: 56px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+[data-skin='foundry'] .setting-row__label {
+  font-size: 15px;
+}
+
+[data-skin='foundry'] .setting-row__value {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .stat__num {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .stat__unit {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .progress-track {
+  height: 4px;
+  border-radius: 0;
+  background: var(--border);
+}
+
+[data-skin='foundry'] .progress-track__bar {
+  border-radius: 0;
+  background: var(--accent);
+}
+
+/* 抽屉：上边一条粗墨线，不做圆角、不做柔光 */
+[data-skin='foundry'] .scrim {
+  background: var(--scrim);
+}
+
+[data-skin='foundry'] .sheet {
+  border-top: var(--fd-rule-bold) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+[data-skin='foundry'] .sheet__title {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .sheet__desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .dialog {
+  border: var(--fd-rule-bold) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-skin='foundry'] .dialog__title {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='foundry'] .dialog__text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .textarea {
+  border: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+[data-skin='foundry'] .textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+[data-skin='foundry'] .parse-summary,
+[data-skin='foundry'] .issues {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+[data-skin='foundry'] .empty__title {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='foundry'] .empty__text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   10. 外观选择卡片 —— 微调成硬边小样张
+   ========================================================================== */
+
+[data-skin='foundry'] .skin-card {
+  gap: 8px;
+  padding: 8px;
+  border: var(--fd-rule) solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin='foundry'] .skin-card__swatch {
+  height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+}
+
+[data-skin='foundry'] .skin-card__ink,
+[data-skin='foundry'] .skin-card__accent {
+  border-radius: 0;
+}
+
+[data-skin='foundry'] .skin-card__name {
+  font-family: var(--font-grot);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='foundry'] .skin-card__latin {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .skin-card__tag {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .skin-card:hover {
+  border-color: var(--border-strong);
+}
+
+[data-skin='foundry'] .skin-card[aria-pressed='true'] {
+  border-color: var(--border-strong);
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+
+[data-skin='foundry'] .skin-sheet__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   11. 768+：内容列居中，控制条悬浮（.app 的 760 上限不动）
+   ========================================================================== */
+
+@media (min-width: 768px) {
+  [data-skin='foundry'] {
+    --fs-display: 38px;
+    --fs-word: clamp(1.75rem, 2.6vw, 1.875rem);
+    --fs-meaning: 16px;
+    --fs-phonetic: 11px;
+    --page-x: 24px;
+  }
+
+  [data-skin='foundry'] .start {
+    min-height: calc(100dvh - 112px);
+    padding-top: 32px;
+    padding-bottom: 40px;
+  }
+
+  [data-skin='foundry'] .word-row {
+    padding-block: 11px;
+  }
+
+  [data-skin='foundry'] .word-row__index {
+    font-size: 13px;
+    padding-top: 7px;
+  }
+
+  [data-skin='foundry'] .dock {
+    max-width: var(--content-max);
+    margin: 0 auto 24px;
+    padding: 0;
+    border: var(--fd-rule-bold) solid var(--border-strong);
+    border-radius: 0;
+    box-shadow: var(--shadow-md);
+  }
+
+  [data-skin='foundry'] .dock__btn {
+    min-height: 56px;
+  }
+
+  [data-skin='foundry'] .start__spec-row {
+    grid-template-columns: 64px minmax(0, 1fr);
+    padding-block: 9px;
+  }
+
+  [data-skin='foundry'] .screen {
+    padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2));
+  }
+
+  [data-skin='foundry'] .topbar {
+    padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2));
+  }
+
+  [data-skin='foundry'] .study-progress {
+    margin-inline: 0;
+  }
+}
+
+/* ==========================================================================
+   12. 悬停（只给真指针）+ 减少动效
+   ========================================================================== */
+
+@media (hover: hover) {
+  [data-skin='foundry'] .icon-btn:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
+
+  [data-skin='foundry'] .dock__btn:hover:not(:disabled):not([aria-pressed='true']) {
+    background-color: var(--surface-sunken);
+    background-image: none;
+    color: var(--text);
+  }
+
+  [data-skin='foundry'] .dock__nav--primary:hover:not(:disabled) {
+    background-color: var(--surface-sunken);
+    background-image: none;
+    color: var(--text);
+  }
+
+  [data-skin='foundry'] .btn--primary:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 6px 6px 0 var(--border-strong);
+  }
+
+  [data-skin='foundry'] .btn--secondary:hover:not(:disabled) {
+    background: var(--surface-sunken);
+  }
+
+  [data-skin='foundry'] .btn--text:hover:not(:disabled) {
+    color: var(--text);
+  }
+
+  [data-skin='foundry'] .stage-option:hover {
+    border-color: var(--border-strong);
+  }
+
+  [data-skin='foundry'] .segmented__item:hover {
+    color: var(--text);
+  }
+
+  [data-skin='foundry'] .skin-card:hover {
+    border-color: var(--border-strong);
+  }
+
+  [data-skin='foundry'] .profile__name:hover {
+    border-bottom-color: var(--border-strong);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='foundry'] *,
+  [data-skin='foundry'] *::before,
+  [data-skin='foundry'] *::after {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+
+  [data-skin='foundry'] .btn--primary:hover:not(:disabled),
+  [data-skin='foundry'] .btn--primary:active:not(:disabled) {
+    transform: none;
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* 窄屏：报头小字只留「第几批」。
+   完整词库有 700–1000 批，三段一起放在品牌旁的 158px 里会折成两行，
+   顶栏高度跟着变，下面的版心整体位移。阶段名与词数在工单表里都有。 */
+@media (max-width: 480px) {
+  [data-skin='foundry'] .topbar__meta > span:nth-child(-n + 2),
+  [data-skin='foundry'] .topbar__meta > span:nth-last-child(-n + 2) {
+    display: none;
+  }
+}

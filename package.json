@@ -1,0 +1,29 @@
+{
+  "name": "memoria",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "一个安静、专注的背单词 App —— 单词、音标、释义，一次看一批。",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:csv": "node scripts/test-csv.ts",
+    "test:books": "node scripts/test-books.ts",
+    "build:books": "node scripts/build-books.ts",
+    "test:scheduler": "node scripts/test-scheduler.ts",
+    "bench:scheduler": "node scripts/bench-scheduler.ts",
+    "demo:scheduler": "node scripts/demo-scheduler.ts"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3"
+  }
+}

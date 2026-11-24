@@ -1,0 +1,1074 @@
+/* ==========================================================================
+   皮肤 · 词表报 BROADSHEET（[data-skin="broadsheet"]）
+   一份只印单词的日报：编辑部排字、栏线定版、刊号注脚。
+   三条规则
+    1. 分隔只靠线：1px 墨线，以及 1px + 3px 间隙 + 1px 的双线（只用在报头与词表顶）。
+    2. 层级只靠字号与墨色：38px 衬线单词 ↔ 10px 等宽刊号，中间几乎不设过渡。
+    3. 靛蓝是信号不是装饰：只有三处 —— 词性前缀、序号小方块、控制条当前项下划线。
+   注意：本文件只覆盖令牌与组件，不改 app.css，不用 !important。
+   ========================================================================== */
+
+/* ==========================================================================
+   1. 令牌：同名覆盖 tokens.css，app.css 既有规则自动跟着变
+   ========================================================================== */
+
+[data-skin='broadsheet'] {
+  color-scheme: light;
+
+  /* 字族：衬线（英文） / 等宽（刊号·控件） / 无衬线（中文·释义） */
+  --font-serif: 'Instrument Serif', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-mono: 'IBM Plex Mono', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', ui-monospace,
+    'SFMono-Regular', monospace;
+
+  /* 纸与墨：中性灰白，不许偏黄 */
+  --bg: #f4f4f1;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eaeae5;
+  --border: rgba(20, 20, 15, 0.3);
+  --border-strong: rgba(20, 20, 15, 0.62);
+  --text: #14140f;
+  --text-secondary: #4c4c45;
+  --text-tertiary: #6b6b61;
+
+  /* 唯一彩色：靛蓝 */
+  --accent: #1b2e6b;
+  --accent-hover: #16245a;
+  --accent-press: #101e4a;
+  --accent-weak: rgba(27, 46, 107, 0.1);
+  --on-accent: #f4f4f1;
+
+  /* 语义色收回墨色：报纸只有一种油墨（危险操作靠边框与措辞区分） */
+  --success: #14140f;
+  --warning: #14140f;
+  --danger: #14140f;
+
+  --mask: #14140f;
+  --scrim: rgba(20, 20, 15, 0.55);
+  --row-hover: rgba(20, 20, 15, 0.035);
+  --toggle-on: transparent;
+
+  /* 字号阶梯 */
+  --fs-display: clamp(32px, 7.4vw, 46px);
+  --fs-h1: 26px;
+  --fs-h2: 20px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-word: clamp(30px, 8vw, 38px);
+  --fs-phonetic: 14px;
+  --fs-meaning: 15px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 28px;
+  --space-7: 40px;
+  --space-8: 56px;
+
+  /* 版心 */
+  --page-x: 20px;
+  --content-max: 640px;
+  --app-max: 760px;
+  --dock-height: 52px;
+
+  /* 圆角 0、阴影 0：这个方向只有线与字 */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-full: 0;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  /* 动效 */
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 280ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   2. 暗色：重新配的纸墨关系（近黑纸 + 微暖白墨），不是把浅色反相
+   ========================================================================== */
+
+[data-skin='broadsheet'][data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #131311;
+  --surface: #1b1b18;
+  --surface-raised: #242420;
+  --surface-sunken: #242420;
+  --border: rgba(238, 237, 231, 0.28);
+  --border-strong: rgba(238, 237, 231, 0.56);
+  --text: #eeede7;
+  --text-secondary: #c3c1b8;
+  --text-tertiary: #9a998f;
+
+  --accent: #93a8f0;
+  --accent-hover: #a4b5f4;
+  --accent-press: #b9c6f7;
+  --accent-weak: rgba(147, 168, 240, 0.14);
+  --on-accent: #131311;
+
+  --mask: #eeede7;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --row-hover: rgba(238, 237, 231, 0.05);
+}
+
+/* ==========================================================================
+   3. 外壳与版心
+   ========================================================================== */
+
+[data-skin='broadsheet'] .app {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .screen {
+  padding-bottom: var(--space-4);
+}
+
+[data-skin='broadsheet'] .app__main::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 0;
+}
+
+[data-skin='broadsheet'] :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 0;
+}
+
+[data-skin='broadsheet'] ::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ==========================================================================
+   4. 顶栏 / 栏头（running head）
+   ========================================================================== */
+
+[data-skin='broadsheet'] .topbar {
+  gap: var(--space-2);
+  min-height: 46px;
+  padding: 6px var(--page-x);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+/* 学习态：进度线就是这条栏头的下线，顶栏自己不再压一条线 */
+[data-skin='broadsheet'] .topbar--bordered {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+/* 开始页的顶栏只做刊号条：报头交给 .start__masthead，不重复品牌名 */
+[data-skin='broadsheet'] .topbar .brand {
+  align-items: baseline;
+  min-width: 0;
+  margin-right: auto;
+}
+
+[data-skin='broadsheet'] .topbar .brand__name,
+[data-skin='broadsheet'] .topbar .brand__dot {
+  display: none;
+}
+
+[data-skin='broadsheet'] .topbar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='broadsheet'] .topbar__sep {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+[data-skin='broadsheet'] .study-bar__info {
+  min-width: 0;
+}
+
+[data-skin='broadsheet'] .study-bar__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='broadsheet'] .study-bar__sub {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .icon-btn {
+  border-radius: 0;
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+[data-skin='broadsheet'] .icon-btn:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .icon-btn:active {
+  background: transparent;
+  color: var(--accent);
+}
+
+[data-skin='broadsheet'] .avatar-btn {
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 400;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+[data-skin='broadsheet'] .avatar-btn:hover {
+  transform: none;
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin='broadsheet'] .avatar-btn:active {
+  transform: none;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+/* 学习态的栏头下线：2px 墨线，靛蓝只做进度那一小段 */
+[data-skin='broadsheet'] .study-progress {
+  height: 2px;
+  margin: 0;
+  background: var(--border);
+  border-radius: 0;
+}
+
+[data-skin='broadsheet'] .study-progress__bar {
+  background: var(--accent);
+  border-radius: 0;
+}
+
+/* ==========================================================================
+   5. 开始页 = 头版
+   ========================================================================== */
+
+[data-skin='broadsheet'] .start {
+  min-height: calc(100dvh - 46px);
+  padding-top: 0;
+}
+
+/* 报头：衬线刊名 + 导引线 + 日期，下面接 1px + 3px + 1px 的双线 */
+[data-skin='broadsheet'] .start__masthead {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: 14px 0 9px;
+  border-bottom: 1px solid var(--text);
+}
+
+[data-skin='broadsheet'] .start__masthead-brand {
+  flex: none;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(38px, 12vw, 52px);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .start__masthead-rule {
+  flex: 1 1 auto;
+  min-width: 12px;
+  height: 1px;
+  margin-bottom: 7px;
+  background: var(--border-strong);
+}
+
+[data-skin='broadsheet'] .start__masthead-meta {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 双线的第二道：3px 间隙靠 margin 拉开，不叠边 */
+[data-skin='broadsheet'] .start__kicker {
+  display: block;
+  margin-top: 3px;
+  padding: 8px 0 7px;
+  border-top: 1px solid var(--text);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .start__body {
+  margin-block: 0 auto;
+  padding-top: var(--space-5);
+}
+
+[data-skin='broadsheet'] .start__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .start__eyebrow::before {
+  width: 20px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+[data-skin='broadsheet'] .start__title {
+  margin-top: var(--space-3);
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: var(--fs-display);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .start__lede {
+  margin-top: var(--space-3);
+  max-width: 34ch;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.62;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+
+/* 批次 / 已学 已在下面的「刊内提要」表里逐行印出，这里不重复 */
+[data-skin='broadsheet'] .start__meta {
+  display: none;
+}
+
+/* 刊内提要：四行元信息，像报纸的 In Brief 表 */
+[data-skin='broadsheet'] .start__spec {
+  display: block;
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--text);
+}
+
+[data-skin='broadsheet'] .start__spec-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 40px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+[data-skin='broadsheet'] .start__spec-k {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .start__spec-v {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+[data-skin='broadsheet'] .start__actions {
+  margin-top: var(--space-5);
+}
+
+[data-skin='broadsheet'] .start__foot {
+  margin-top: var(--space-5);
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .start__rule {
+  height: 1px;
+  background: var(--border);
+}
+
+/* ==========================================================================
+   6. 按钮：报刊的「订阅条」—— 只有线，没有壳
+   ========================================================================== */
+
+[data-skin='broadsheet'] .btn {
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  box-shadow: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+[data-skin='broadsheet'] .btn:active {
+  transform: none;
+}
+
+[data-skin='broadsheet'] .btn--primary {
+  background: transparent;
+  border-color: var(--text);
+  color: var(--text);
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+[data-skin='broadsheet'] .btn--primary:hover:not(:disabled) {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+[data-skin='broadsheet'] .btn--primary:active:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+[data-skin='broadsheet'] .btn--secondary {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: transparent;
+}
+
+[data-skin='broadsheet'] .btn--secondary:hover:not(:disabled) {
+  background: transparent;
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .btn--text {
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+[data-skin='broadsheet'] .btn--text:hover:not(:disabled) {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+
+[data-skin='broadsheet'] .btn--block {
+  min-height: 56px;
+  font-size: 12px;
+}
+
+[data-skin='broadsheet'] .btn--compact {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+[data-skin='broadsheet'] .btn--danger {
+  border: 1px dashed var(--text);
+  color: var(--text);
+  background: transparent;
+}
+
+[data-skin='broadsheet'] .btn--danger:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin='broadsheet'] .btn--danger-text {
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .btn--text.btn--danger-text:hover:not(:disabled) {
+  color: var(--text);
+  background: transparent;
+}
+
+/* ==========================================================================
+   7. 词表：版面，不是卡片堆
+   ========================================================================== */
+
+/* 双线：1px + 3px + 1px，只压在词表顶端 */
+[data-skin='broadsheet'] .word-list {
+  margin-top: var(--space-3);
+  border-top: 0;
+}
+
+[data-skin='broadsheet'] .word-list::before {
+  content: '';
+  display: block;
+  height: 5px;
+  border-top: 1px solid var(--text);
+  border-bottom: 1px solid var(--text);
+}
+
+[data-skin='broadsheet'] .word-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  margin-inline: 0;
+  padding-inline: 0;
+  background: transparent;
+  transition: none;
+}
+
+[data-skin='broadsheet'] .word-row--peekable {
+  min-height: 44px;
+  margin-inline: 0;
+  padding-inline: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+[data-skin='broadsheet'] .word-row--peekable:hover {
+  background: transparent;
+}
+
+[data-skin='broadsheet'] .word-row--peekable:hover .word-row__word {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.12em;
+}
+
+[data-skin='broadsheet'] .word-row--peekable:active {
+  background: transparent;
+}
+
+/* 序号 kicker：等宽小字 + 3px 靛蓝方块 */
+[data-skin='broadsheet'] .word-row__index {
+  grid-row: 1;
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='broadsheet'] .word-row__index::after {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 3px;
+  background: var(--accent);
+}
+
+[data-skin='broadsheet'] .word-row__body {
+  grid-row: 2;
+  grid-column: 1;
+  min-width: 0;
+}
+
+[data-skin='broadsheet'] .word-row__head {
+  align-items: baseline;
+  column-gap: var(--space-3);
+  row-gap: 0;
+  margin-top: 7px;
+}
+
+[data-skin='broadsheet'] .word-row__word {
+  font-family: var(--font-serif);
+  font-size: var(--fs-word);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .word-row__ph {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--fs-phonetic);
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .word-row__meanings {
+  gap: 0;
+  margin-top: 6px;
+}
+
+[data-skin='broadsheet'] .meaning {
+  font-family: var(--font-sans);
+  font-size: var(--fs-meaning);
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .meaning--main {
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .meaning--extra {
+  font-size: var(--fs-meaning);
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .meaning__pos {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1em;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   8. 遮挡态：报纸涂黑，纯墨块，不留圆角与投影
+   ========================================================================== */
+
+[data-skin='broadsheet'] .masked {
+  border-radius: 0;
+  box-shadow: 0 0 0 1px var(--mask);
+  background: var(--mask);
+}
+
+[data-skin='broadsheet'] .word-row__word.masked {
+  box-shadow: 0 0 0 2px var(--mask);
+}
+
+/* ==========================================================================
+   9. 报尾工具条：四个纯文字控件，中点分隔
+   ========================================================================== */
+
+[data-skin='broadsheet'] .dock {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 0;
+  padding: 4px var(--page-x) calc(4px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--text);
+  border-bottom: 1px solid var(--text);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+[data-skin='broadsheet'] .dock__btn {
+  position: relative;
+  flex-direction: row;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+/* 中点：只出现在后三个控件左侧 */
+[data-skin='broadsheet'] .dock__btn + .dock__btn::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+[data-skin='broadsheet'] .dock__btn:active:not(:disabled) {
+  transform: none;
+}
+
+[data-skin='broadsheet'] .dock__state {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* 开：加粗 + 2px 靛蓝下划线 */
+[data-skin='broadsheet'] .dock__toggle[aria-pressed='true'] {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin='broadsheet'] .dock__toggle[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 7px;
+  height: 2px;
+  background: var(--accent);
+}
+
+[data-skin='broadsheet'] .dock__toggle[aria-pressed='true'] .dock__state {
+  color: var(--text-secondary);
+}
+
+/* 关：删除线，墨色退一档 */
+[data-skin='broadsheet'] .dock__toggle[aria-pressed='false'] {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  opacity: 0.6;
+}
+
+[data-skin='broadsheet'] .dock__toggle:hover {
+  filter: none;
+  background: transparent;
+  color: var(--text);
+}
+
+[data-skin='broadsheet'] .dock__nav {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  gap: 0;
+}
+
+[data-skin='broadsheet'] .dock__nav:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+
+[data-skin='broadsheet'] .dock__nav--primary {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-weight: 500;
+}
+
+[data-skin='broadsheet'] .dock__nav--primary:hover:not(:disabled) {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+}
+
+[data-skin='broadsheet'] .dock__nav--primary:active:not(:disabled) {
+  background: transparent;
+  color: var(--accent-press);
+}
+
+[data-skin='broadsheet'] .dock__btn:disabled {
+  opacity: 0.34;
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+/* ==========================================================================
+   10. 抽屉 / 对话框 / 外观卡片：同一套线与字
+   ========================================================================== */
+
+[data-skin='broadsheet'] .sheet {
+  border-top: 1px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin='broadsheet'] .sheet__title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+[data-skin='broadsheet'] .sheet__desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .sheet__foot {
+  border-top: 1px solid var(--border);
+}
+
+[data-skin='broadsheet'] .dialog {
+  border: 1px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: none;
+}
+
+[data-skin='broadsheet'] .dialog__title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+[data-skin='broadsheet'] .dialog__text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .segmented {
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin='broadsheet'] .segmented__item {
+  min-height: 44px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .segmented__item[aria-pressed='true'] {
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+[data-skin='broadsheet'] .skin-sheet__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+[data-skin='broadsheet'] .skin-grid {
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+[data-skin='broadsheet'] .skin-card {
+  gap: 6px;
+  padding: 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin='broadsheet'] .skin-card__swatch {
+  height: 34px;
+  border-radius: 0;
+  border-color: var(--border);
+  background: var(--surface-sunken);
+}
+
+[data-skin='broadsheet'] .skin-card__body {
+  gap: 3px;
+}
+
+[data-skin='broadsheet'] .skin-card__name {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin='broadsheet'] .skin-card__latin {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .skin-card__tag {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+[data-skin='broadsheet'] .skin-card:hover {
+  border: 0;
+  background: var(--surface-sunken);
+}
+
+[data-skin='broadsheet'] .skin-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+[data-skin='broadsheet'] .skin-card[aria-pressed='true'] {
+  border: 0;
+  background: var(--accent-weak);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+[data-skin='broadsheet'] .skin-card[aria-pressed='true'] .skin-card__name {
+  font-style: italic;
+}
+
+/* 小屏：行距收到 12px，让 390 宽一屏读完 5 个词（同样张的 <=430 断点） */
+@media (max-width: 430px) {
+  [data-skin='broadsheet'] .word-row {
+    padding: 12px 0;
+  }
+
+  [data-skin='broadsheet'] .word-row__head {
+    margin-top: 6px;
+  }
+
+  [data-skin='broadsheet'] .word-row__meanings {
+    margin-top: 5px;
+  }
+}
+
+/* ==========================================================================
+   11. 768 以上：内容列居中、释义两栏、控制条悬浮
+   ========================================================================== */
+
+@media (min-width: 768px) {
+  [data-skin='broadsheet'] .topbar {
+    padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2));
+  }
+
+  [data-skin='broadsheet'] .start__masthead {
+    padding-top: 20px;
+  }
+
+  [data-skin='broadsheet'] .start__body {
+    padding-top: var(--space-6);
+  }
+
+  [data-skin='broadsheet'] .start__title {
+    max-width: 22ch;
+  }
+
+  [data-skin='broadsheet'] .word-row {
+    padding: 15px 0;
+  }
+
+  /* 释义两栏，带一条栏线（多栏布局，所以把 flex 换回 block） */
+  [data-skin='broadsheet'] .word-row__meanings {
+    display: block;
+    margin-top: 6px;
+    column-count: 2;
+    column-gap: var(--space-6);
+    column-rule: 1px solid var(--border);
+  }
+
+  [data-skin='broadsheet'] .meaning + .meaning {
+    margin-top: 2px;
+  }
+
+  [data-skin='broadsheet'] .meaning {
+    break-inside: avoid;
+  }
+
+  [data-skin='broadsheet'] .dock {
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto var(--space-4);
+    padding: 0 var(--page-x);
+    border: 1px solid var(--text);
+    border-radius: 0;
+    background: var(--bg);
+    box-shadow: none;
+  }
+}
+
+/* ==========================================================================
+   12. 尊重「减少动态效果」
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='broadsheet'] .word-list,
+  [data-skin='broadsheet'] .word-row,
+  [data-skin='broadsheet'] .btn,
+  [data-skin='broadsheet'] .dock__btn,
+  [data-skin='broadsheet'] .study-progress__bar {
+    animation: none;
+    transition-duration: 1ms;
+  }
+}

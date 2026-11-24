@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+.vite/
+
+# ECDICT 源数据（约 63MB，用 scripts/build-books.ts 重新生成词库）
+.tmp-vocab/
