@@ -6,13 +6,17 @@
  *
  * 显示的每一个数都有出处，没有前端自己拍脑袋的加减：
  * - 今日计划值 = `plan.newWordLimit`（结算写入），可学 = `plan.allowedNewWords`（三道闸之后）；
- * - 每格的新词 = `CalendarDay.newWordPlan / newWordAllowed`，解释句统一来自 `copy.ts`；
+ * - 每格的负荷行 = `calendarDayLoad(day)`：复习取 `dueTotal`，新词取 `newWordPlan`；
+ *   今天与过去带完成度（`12/20`），未来日只报计划总量（v1.2，见 `REFACTOR_PLAN.md` §6）；
  * - 批次行读的是当天快照（`planSnapshot`），不是实时重算，所以做完的批次不会消失。
  */
 
 import { useMemo } from 'react';
 import {
-  calendarNewWordTag,
+  CALENDAR_FORECAST_EXPLAIN_BODY,
+  CALENDAR_FORECAST_EXPLAIN_TITLE,
+  calendarDayLoad,
+  calendarReviewNote,
   describeLongForecast,
   explainCalendarNewWords,
   formatMonthDay,
@@ -23,6 +27,7 @@ import {
   weekdayLabel,
 } from '../lib/scheduler';
 import type { CalendarDay, Scheduler } from '../lib/scheduler';
+import { Hint } from './Hint';
 import { IconBack, IconPalette } from './Icons';
 
 interface CalendarScreenProps {
@@ -36,19 +41,17 @@ interface CalendarScreenProps {
   onStartSession: () => void;
 }
 
-const LONG_LABEL: Record<string, string> = {
-  '30d': '30 天',
-  '90d': '90 天',
-  '180d': '180 天',
-  '360d': '360 天',
-};
-
+/**
+ * 一个格子 = 三层，顺序不许再调（`REFACTOR_PLAN.md` §6）：
+ * 1. 负荷行：`复习 → 逾期 → 新词 → ↑ → 长期`，复习是主任务所以最重；
+ * 2. 来源小字：这批词是哪一天学的（只在真有复习时出现，不再充当复习量）；
+ * 3. 短句：为零的复习 / 被闸挡住的新词，各解释一句。
+ * 未来日没有「已完成」，负荷行只报计划总量——旧的 `0 / 20` 就是这么被读成「明天不用复习」的。
+ */
 function DayCard({ day }: { day: CalendarDay }) {
-  const done = day.doneTotal;
-  const total = day.dueTotal;
-  const hasBatches = day.shortTermBatches.length > 0;
+  const load = calendarDayLoad(day);
+  const note = calendarReviewNote(day);
   const reason = needsNewWordReason(day) ? explainCalendarNewWords(day) : null;
-  const tag = calendarNewWordTag(day);
 
   return (
     <article
@@ -65,44 +68,33 @@ function DayCard({ day }: { day: CalendarDay }) {
         <span className="cal-day__weekday">{day.weekdayLabel}</span>
         {day.isToday ? <span className="cal-day__badge">今天</span> : null}
         {day.estimated ? <span className="cal-day__badge cal-day__badge--quiet">预估</span> : null}
-        {total > 0 ? (
-          <span className="cal-day__count">
-            {done} / {total}
-          </span>
-        ) : null}
       </header>
 
-      {hasBatches ? (
+      <div className="cal-day__load">
+        {load.map((item) => (
+          <span key={item.key} className={`cal-load cal-load--${item.tone}`}>
+            {item.dot ? <span className="cal-load__dot" aria-hidden="true" /> : null}
+            {item.label ? <span className="cal-load__k">{item.label}</span> : null}
+            <b className="cal-load__v">{item.value}</b>
+            {item.unit ? <span className="cal-load__u">{item.unit}</span> : null}
+          </span>
+        ))}
+      </div>
+
+      {day.shortTermBatches.length > 0 ? (
         <ul className="cal-day__batches">
           {day.shortTermBatches.map((batch) => (
             <li key={`${day.day}-${batch.daysAgo}`} className="cal-batch">
               <span className="cal-batch__k">{batch.daysAgo} 天前</span>
               <span className="cal-batch__v">
-                {formatMonthDay(batch.sourceDate)} · {batch.wordCount} 词
+                {formatMonthDay(batch.sourceDate)} 那批 · {batch.wordCount} 词
               </span>
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="cal-day__empty">没有到期复习</p>
-      )}
+      ) : null}
 
-      <div className="cal-day__foot">
-        {day.overdue > 0 ? (
-          <span className="cal-tag cal-tag--warn">逾期 {day.overdue} 词</span>
-        ) : null}
-        {day.longTermBatches.map((batch) => (
-          <span key={`${day.day}-${batch.type}`} className="cal-tag">
-            长期 {LONG_LABEL[batch.type] ?? batch.type} · {batch.wordCount} 词
-          </span>
-        ))}
-        <span className="cal-tag cal-tag--new">新词 {day.newWordPlan}</span>
-        {tag ? <span className="cal-tag cal-tag--up">{tag}</span> : null}
-        {day.estimated ? null : day.newWordDone > 0 ? (
-          <span className="cal-tag cal-tag--quiet">已学 {day.newWordDone}</span>
-        ) : null}
-      </div>
-
+      {note ? <p className="cal-day__empty">{note}</p> : null}
       {reason ? <p className="cal-day__reason">{reason}</p> : null}
     </article>
   );
@@ -225,7 +217,15 @@ export function CalendarScreen({
 
           <section className="cal-section" aria-labelledby="cal-next-title">
             <div className="cal-section__head">
-              <h2 id="cal-next-title">接下来 7 天</h2>
+              <h2 id="cal-next-title">
+                接下来 7 天
+                <Hint
+                  id="cal-forecast-hint"
+                  label="为什么后面的日期还没排上复习"
+                  title={CALENDAR_FORECAST_EXPLAIN_TITLE}
+                  body={CALENDAR_FORECAST_EXPLAIN_BODY}
+                />
+              </h2>
               <span className="cal-section__hint">批次按「来源日期」排，不是按今天</span>
             </div>
             <div className="cal-days">

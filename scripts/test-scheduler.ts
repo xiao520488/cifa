@@ -9,25 +9,34 @@ import {
   Scheduler,
   IDLE_DAY_NOTE,
   MAX_LIMIT_ZERO_NOTE,
-  applyAdaptation,  applyLongReview,
-  applyShortReview,
+  addDays,
+  calendarDayLoad,
+  calendarReviewNote,
   computeRecentAccuracy,
   createCard,
   describeLongForecast,
+  diffDays,
   emptyState,
   explainCalendarNewWords,
   explainMaxLimitChange,
   idleDayNote,
   loadScheduler,
   newWordHeadline,
+  nextWeekday,
   sanitizeScheduler,
   saveScheduler,
   toStudyDay,
-  nextWeekday,
-  addDays,
-  diffDays,
+  applyAdaptation,
+  applyLongReview,
+  applyShortReview,
 } from '../src/lib/scheduler/index.ts';
-import type { AdaptInput, SchedulerState } from '../src/lib/scheduler/index.ts';
+import type {
+  AdaptInput,
+  CalendarDay,
+  LongBatch,
+  SchedulerState,
+  StudyDay,
+} from '../src/lib/scheduler/index.ts';
 
 let failures = 0;
 
@@ -1266,6 +1275,108 @@ const nineteen = Array.from({ length: 19 }, (_, index) => `t${index}`);
   s.seed(['a', 'b', 'c', 'd', 'e']);
   eq('重新 seed 后像新用户', [s.newWordPool().length, s.state.days['2026-11-24'] ? 1 : 0], [5, 0]);
   eq('发放按目标来', s.plan().allowedNewWords, 5); // min(12, 池 5)
+}
+
+// ---------------------------------------------------------------- §12 日历格子的负荷行（v1.2 视觉误导修复）
+
+/** 造一格日历数据：默认「未来的预估格」，只覆盖要断言的字段。 */
+function loadDay(overrides: Partial<CalendarDay> & { day: StudyDay }): CalendarDay {
+  const base: CalendarDay = {
+    day: overrides.day,
+    weekdayLabel: '三',
+    shortTermBatches: [],
+    longTermBatches: [],
+    newWordPlan: 20,
+    newWordAllowed: 20,
+    newWordBlocked: null,
+    newWordDone: 0,
+    newWordGoal: 20,
+    dueTotal: 0,
+    doneTotal: 0,
+    overdue: 0,
+    isToday: false,
+    isPast: false,
+    estimated: true,
+  };
+  return { ...base, ...overrides };
+}
+
+function slot(day: CalendarDay, key: string) {
+  return calendarDayLoad(day).find((item) => item.key === key) ?? null;
+}
+
+// 12.1 真机报的场景：今天学完 20 个新词 → 明天那格必须一眼看到「复习 20 词」
+{
+  const w20 = Array.from({ length: 20 }, (_, index) => `c${index}`);
+  const s = schedulerOn('2026-11-24', 20, w20);
+  s.plan();
+  s.startImmediateWith(w20);
+  for (const word of w20) s.answerImmediate(word, true);
+  s.commitNewWords(w20);
+  const tomorrow = s.calendar(8)[1];
+  eq('次日到期 20 词', tomorrow.dueTotal, 20);
+  const review = slot(tomorrow, 'review');
+  eq('复习槽是这格的主任务', [review?.tone, review?.dot], ['primary', true]);
+  eq('未来日只报计划总量', [review?.value, review?.unit], ['20', '词']);
+  check('复习槽里没有假分数 0 /', !review!.value.includes('/'));
+  eq(
+    '复习量与批次明细同数',
+    review?.value,
+    String(tomorrow.shortTermBatches.reduce((sum, batch) => sum + batch.wordCount, 0)),
+  );
+  const fresh = slot(tomorrow, 'new');
+  check('新词槽不抢主任务的位', fresh?.tone !== 'primary');
+  eq('新词槽取当天计划值', fresh?.value, String(tomorrow.newWordPlan));
+  eq('未来日没有逾期槽', slot(tomorrow, 'overdue'), null);
+}
+
+// 12.2 没排上复习的格子：显式零 + 一句人话，不能留空白让人以为漏排
+{
+  const gap = loadDay({ day: '2026-11-26', dueTotal: 0 });
+  eq('复习为零也占位', [slot(gap, 'review')?.value, slot(gap, 'review')?.tone], ['—', 'quiet']);
+  check('说明句点出「随前面的复习动态生成」', calendarReviewNote(gap).includes('前面'));
+  eq('有复习时不再重复解释', calendarReviewNote(loadDay({ day: '2026-11-25', dueTotal: 20 })), '');
+  eq('今天的零说的是今天', calendarReviewNote(loadDay({ day: '2026-11-25', estimated: false, isToday: true })), '今天没有到期复习。');
+  eq('历史日的零说的是那天', calendarReviewNote(loadDay({ day: '2026-11-22', estimated: false, isPast: true })), '那天没有到期复习。');
+}
+
+// 12.3 完成度只属于今天与过去；「逾期」槽只在历史日出现
+{
+  const today = loadDay({
+    day: '2026-11-25',
+    estimated: false,
+    isToday: true,
+    dueTotal: 20,
+    doneTotal: 3,
+    overdue: 17,
+  });
+  eq('今天带完成度', [slot(today, 'review')?.value, slot(today, 'review')?.unit], ['3/20', null]);
+  eq('今天剩下的 17 个不叫逾期', slot(today, 'overdue'), null);
+  const past = loadDay({
+    day: '2026-11-23',
+    estimated: false,
+    isPast: true,
+    dueTotal: 20,
+    doneTotal: 18,
+    overdue: 2,
+    newWordDone: 8,
+  });
+  eq('历史日欠的才是逾期', [slot(past, 'overdue')?.value, slot(past, 'overdue')?.tone], ['2', 'warn']);
+  eq('历史日新词也带完成度', slot(past, 'new')?.value, '8/20');
+  eq('槽位顺序恒定', calendarDayLoad(past).map((item) => item.key).join(','), 'review,overdue,new');
+}
+
+// 12.4 长期批次与奖励角标都进负荷行，不再散到第二行
+{
+  const full = loadDay({
+    day: '2026-11-29',
+    dueTotal: 5,
+    newWordPlan: 25,
+    longTermBatches: [{ type: '30d', scheduledDate: '2026-11-29', wordCount: 12, words: [] }],
+  });
+  eq('长期批次带节点短标', [slot(full, 'long-30d')?.label, slot(full, 'long-30d')?.value, slot(full, 'long-30d')?.tone], ['长期 30 天', '12', 'quiet']);
+  eq('奖励角标紧跟新词槽', calendarDayLoad(full).map((item) => item.key).join(','), 'review,new,bonus,long-30d');
+  eq('零新词也占位', [slot(loadDay({ day: '2026-11-30', newWordPlan: 0 }), 'new')?.value, slot(loadDay({ day: '2026-11-30', newWordPlan: 0 }), 'new')?.tone], ['—', 'quiet']);
 }
 
 // ---------------------------------------------------------------- 汇总

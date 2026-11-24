@@ -1338,13 +1338,73 @@ p {
   color: var(--text-tertiary);
 }
 
-.cal-day__count {
-  margin-left: auto;
-  font-size: var(--fs-small);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
+/* ---- 格子负荷行（v1.2）：一格里最该先看见的一行，槽位顺序见 REFACTOR_PLAN §6 ---- */
+.cal-day__load {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
 }
 
+.cal-load {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-small);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cal-load__v {
+  font-weight: 600;
+}
+
+/* 复习是当天的主任务：加大一档 + accent 描边与圆点 + 弱底色。
+   文字一律走 --text，不用 accent 当小字（深色皮肤下 accent 作文字对比度不够，v4 老坑）。 */
+.cal-load--primary {
+  padding: var(--space-1) var(--space-3);
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--text);
+  font-size: var(--fs-load);
+}
+
+.cal-load--primary .cal-load__v {
+  font-weight: 700;
+}
+
+.cal-load__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* 逾期：只出现在历史日，与复习槽分开说 */
+.cal-load--warn {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+/* 零占位（复习 —）与长期批次：虚线描边，明确「看过这里，确实没有」而不是漏渲染 */
+.cal-load--quiet {
+  border-style: dashed;
+}
+
+/* ↑ +5 奖励角标：延续设置页那套（文字 --text，强调靠描边） */
+.cal-load--up {
+  padding: 1px 7px;
+  border-color: var(--accent);
+  color: var(--text);
+  font-size: 11px;
+}
+
+/* ---- 来源小字：只回答「这批词是哪一天学的」，不再充当复习量 ---- */
 .cal-day__batches {
   list-style: none;
   display: flex;
@@ -1356,53 +1416,25 @@ p {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .cal-batch__k {
   min-width: 4.2em;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-
-.cal-batch__v {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-.cal-day__empty {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.cal-day__foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.cal-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-.cal-tag--warn {
-  border-color: var(--warning);
-  color: var(--warning);
+.cal-batch__v {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.cal-tag--new {
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-.cal-tag--quiet {
-  border-style: dashed;
-  color: var(--text-tertiary);
+.cal-day__empty {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 
 .cal-day__reason {
@@ -1893,8 +1925,7 @@ p {
 }
 
 /* ↑ +5 这类角标：只做点缀，不抢主数字；文字用 --text，强调靠描边（深色下 accent 作小字对比度不够） */
-.today-card__tag,
-.cal-tag--up {
+.today-card__tag {
   font-size: 11px;
   padding: 1px 7px;
   border: 1px solid var(--accent);

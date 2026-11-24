@@ -138,6 +138,9 @@
   --on-accent: #0b0b0b;
 
   --danger: #ff6a45;
+  /* 浅色档的 --warning #7a4e10 会漏进深色（本文件在 tokens.css 之后加载，同名声明后来者胜）：
+     深色底上只有 2.74:1。日历 hero 的「已学满 / 减量」那句就是它。补一档亮琥珀。 */
+  --warning: #d3a25a;
   --scrim: rgba(0, 0, 0, 0.68);
   --row-hover: rgba(242, 242, 240, 0.05);
   --toggle-on: #f2f2f0;

@@ -265,6 +265,109 @@ export const LONG_BATCH_LABEL: Record<LongForecast['type'], string> = {
   '360d': '360 天批次',
 };
 
+/** 日历格子里长期批次角标的短写法（长写法见 `LONG_BATCH_LABEL`，格子里放不下「批次」二字）。 */
+export const CALENDAR_LONG_LABEL: Record<LongForecast['type'], string> = {
+  '30d': '30 天',
+  '90d': '90 天',
+  '180d': '180 天',
+  '360d': '360 天',
+};
+
+/* ---------------------------------------------------------- 日历格子的负荷行 */
+
+/**
+ * 一格里「今天要干几件事」的那一行。
+ *
+ * 真机反馈：复习量原先只出现在灰色批次明细的小字里，同格的「新词」反而是显眼标签，
+ * 加上头部无标签的 `0 / 20`，用户读成了「明天不用复习」。所以口径写死在这里：
+ * - 槽位顺序恒定（复习 → 逾期 → 新词 → 奖励 → 长期），七格竖着扫时同一列对同一列；
+ * - 完成度**只属于今天与过去**，未来日（`estimated`）没有「已做」可言，报分数就是假数据；
+ * - 复习为零也占位（`复习 —`），不渲染成空格——缺格子会被读成漏排。
+ * UI 层拿到的就是最终字符串，不再自己拼数字。
+ */
+export interface CalendarLoad {
+  key: string;
+  /** 为 null 时是纯角标（↑ +5），没有「标签 + 数字」结构 */
+  label: string | null;
+  value: string;
+  unit: string | null;
+  tone: 'primary' | 'neutral' | 'quiet' | 'warn' | 'up';
+  /** 复习槽带实心圆点：去掉颜色也认得出哪个是主任务 */
+  dot: boolean;
+}
+
+export function calendarDayLoad(day: CalendarDay): CalendarLoad[] {
+  const hasReview = day.dueTotal > 0;
+  const out: CalendarLoad[] = [
+    {
+      key: 'review',
+      label: '复习',
+      value: hasReview
+        ? day.estimated
+          ? String(day.dueTotal)
+          : `${day.doneTotal}/${day.dueTotal}`
+        : '—',
+      unit: hasReview && day.estimated ? '词' : null,
+      tone: hasReview ? 'primary' : 'quiet',
+      dot: hasReview,
+    },
+  ];
+
+  // `CalendarDay.overdue` 是「这天到期却没做完的词」，不是跨日欠账（跨日欠账在 plan.totals.overdue，
+  // 由 hero 区那行说）。今天做完之前它恒等于剩余量，标成「逾期」会跟分数里的分母打架——只在历史日显示。
+  if (day.isPast && day.overdue > 0) {
+    out.push({ key: 'overdue', label: '逾期', value: String(day.overdue), unit: '词', tone: 'warn', dot: false });
+  }
+
+  const hasNew = day.newWordPlan > 0;
+  out.push({
+    key: 'new',
+    label: '新词',
+    value: hasNew ? (day.estimated ? String(day.newWordPlan) : `${day.newWordDone}/${day.newWordPlan}`) : '—',
+    unit: hasNew && day.estimated ? '词' : null,
+    tone: hasNew ? 'neutral' : 'quiet',
+    dot: false,
+  });
+
+  const bonus = calendarNewWordTag(day);
+  if (bonus) {
+    out.push({ key: 'bonus', label: null, value: bonus, unit: null, tone: 'up', dot: false });
+  }
+
+  for (const batch of day.longTermBatches) {
+    out.push({
+      key: `long-${batch.type}`,
+      label: `长期 ${CALENDAR_LONG_LABEL[batch.type] ?? batch.type}`,
+      value: String(batch.wordCount),
+      unit: '词',
+      tone: 'quiet',
+      dot: false,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * 复习为零时那一行小字。**不能留空**——用户看到空白格子只会以为系统没排。
+ * 有复习时返回 null：数字已经在负荷行里了，不必再抄一遍。
+ */
+export function calendarReviewNote(day: CalendarDay): string {
+  if (day.dueTotal > 0) return '';
+  if (day.estimated) return '还没排上复习：做完前面的复习才会排进来。';
+  if (day.isPast) return '那天没有到期复习。';
+  return '今天没有到期复习。';
+}
+
+/** 「接下来 7 天」标题旁那个问号的文案（真机反馈：未来的格子看着像 Bug）。 */
+export const CALENDAR_FORECAST_EXPLAIN_TITLE = '日历上的未来，只是「此刻已确定」的那部分';
+
+export const CALENDAR_FORECAST_EXPLAIN_BODY: readonly string[] = [
+  '复习间隔由你每天的作答决定：答对的往后挪，答错或选「模糊」的会提前回到 1 天批次。所以还没做到的那几天，此刻无法精确推演——离今天越近的数字越准。',
+  '某格显示「复习 —」不是漏排：那批词要等你把前面的复习做完，才会按新的间隔排到后面几天。',
+  '新词量按每日目标与自适应基线预估，往后可能因连续优秀（+5）或状态波动（减量、暂停）而变化。',
+];
+
 /** 未来 7 天没有长期批次时那一栏的文案：不留空、不隐藏。 */
 export function describeLongForecast(forecast: LongForecast | null): string {
   if (!forecast) return '近期无长期复习';

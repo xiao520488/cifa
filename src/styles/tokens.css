@@ -56,6 +56,8 @@
   --fs-word: clamp(22px, 5.6vw, 27px);
   --fs-phonetic: 13px;
   --fs-meaning: 15px;
+  /* 日历格子负荷行的主数字（复习槽）：比 small 大一档，比正文小一档 */
+  --fs-load: 14px;
 
   /* 间距（8pt 网格） */
   --space-1: 4px;

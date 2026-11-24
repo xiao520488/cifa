@@ -1,5 +1,15 @@
 # NOTES
 
+## 2026-11-24 · 日历格子信息层级重构（真机反馈：复习量被藏在小字里）
+
+- **现象**：学完 20 个新词当天看日历，明天那格只有灰色小字「1天前 11月24日 · 20 词」说复习量，同格「新词 20」反而是显眼标签，头部还挂无标签的 `0 / 20`——读起来像「明天不用复习」。
+- **修法**：新增负荷行 `.cal-day__load`，槽位顺序恒定 `复习 → 逾期 → 新词 → ↑+5 → 长期`；复习槽最重（`--fs-load` 14px + 700 + accent 描边/圆点/弱底），新词降为中性描边。批次行降级成「来源小字」，`cal-day__count`（裸分数）整个删掉。口径与测试在 `copy.ts: calendarDayLoad/calendarReviewNote` + `test-scheduler §12`（21 条）。
+- **规则**：未来日（`estimated`）**永不显示完成度**，只报计划总量；复习为零要占位显示 `复习 —` + 一句「做完前面的复习才会排进来」，不留空格。「接下来 7 天」标题旁加了 `?` 气泡（`Hint.tsx`，从 ProfileScreen 抽出来的共用组件）。
+- **坑 1**：`CalendarDay.overdue` = 这天到期没做完的词，**不是**跨日欠账（跨日在 `plan.totals.overdue`）。旧格子因此同时显示 `0/20` 和「逾期 20 词」自相矛盾——现在逾期槽只在 `isPast` 渲染。
+- **坑 2**：foundry / broadsheet 的**深色档漏写 `--warning`**，浅色档那条（权重 0,1,0、后加载）盖住 tokens 的深色值 → foundry 深色 2.74:1、broadsheet 深色 1.01:1（等于看不见）。和 v6 那个 `--danger` 是同一个坑：**以后每加一个语义色，四肤 × 明暗八档都要写齐**，别只写浅色。
+- **审查**：`scripts/audit-calendar.js`（`localStorage.__audit_vp` 指定单档，24 组一次跑会顶破 MCP 30s 超时）；首轮 2 组 FAIL 修完回归 0 失败。截图 `docs/screenshots/v7/`。
+- **下一步**：待机规则不变。`scripts/fixture-calendar.ts` 造两份 fixture（第一天 / 40 天老用户），**跑完会往 `public/` 写 `__fixture-*.json`，必须删掉再 build**，否则打进 dist。
+
 ## 2026-11-24 · 收尾：待机维护状态锁更新——HEAD `54b61e3`
 
 - **提交链**（6bd5d5b 之后，按序）：`ee6273d` 引擎重置 → `8e1e59f` dock 溢出修复 + 两键改【认识/模糊】→ `54b61e3` 即时卡片居中版式。

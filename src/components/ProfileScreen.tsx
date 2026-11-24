@@ -1,109 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import type { LevelKey, Profile, Store, Wordbook } from '../lib/types';
 import type { NewWordAllowance, SchedulerStats } from '../lib/scheduler';
 import { explainMaxLimitChange, MAX_LIMIT_EXPLAIN_BODY, MAX_LIMIT_EXPLAIN_TITLE } from '../lib/scheduler';
 import { bookCount, bookStats, LEVELS, levelMeta, showAllMeanings } from '../lib/words';
+import { Hint } from './Hint';
 import { IconBack } from './Icons';
 import { Segmented } from './Segmented';
 import { SkinPicker } from './SkinPicker';
-
-/**
- * 「每日新词上限」旁边的小问号。
- *
- * 点开是一个贴着问号的气泡：外部点击 / Esc 关闭，按钮带 `aria-expanded` 与 `aria-controls`。
- * 文案在 `copy.ts` 里（`MAX_LIMIT_EXPLAIN_*`），设置页只负责摆位置。
- */
-function LimitHint() {
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement | null>(null);
-  const popRef = useRef<HTMLDivElement | null>(null);
-  const open = pos !== null;
-
-  const close = () => setPos(null);
-
-  const toggle = () => {
-    if (pos) {
-      close();
-      return;
-    }
-    const rect = btnRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    // 贴着问号往下展开，但左右/上下都夹在视口里（360 宽时 300px 会正好顶到边）
-    const margin = 16;
-    const width = Math.min(300, window.innerWidth - margin * 2);
-    const left = Math.min(Math.max(margin, rect.left - 12), window.innerWidth - width - margin);
-    setPos({ top: rect.bottom + 8, left, width });
-  };
-
-  /* 展开后再量一次高度：底部不够就翻到问号上方 */
-  useLayoutEffect(() => {
-    if (!pos || !popRef.current || !btnRef.current) return;
-    const height = popRef.current.offsetHeight;
-    const rect = btnRef.current.getBoundingClientRect();
-    const overflow = pos.top + height > window.innerHeight - 12;
-    if (overflow && rect.top - height - 8 >= 12) {
-      setPos({ ...pos, top: rect.top - height - 8 });
-    }
-  }, [pos]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      close();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('touchstart', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    // 固定定位的气泡会跟着页面滚动跑偏，滚一下就收起
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [open]);
-
-  return (
-    <div className="hint">
-      <button
-        ref={btnRef}
-        type="button"
-        className="hint__btn"
-        aria-expanded={open}
-        aria-controls="max-limit-hint"
-        aria-label="为什么要设置新词上限"
-        onClick={toggle}
-      >
-        ?
-      </button>
-      {pos ? (
-        <div
-          ref={popRef}
-          className="hint__pop"
-          id="max-limit-hint"
-          role="dialog"
-          aria-label={MAX_LIMIT_EXPLAIN_TITLE}
-          style={{ top: pos.top, left: pos.left, width: pos.width }}
-        >
-          <p className="hint__title">{MAX_LIMIT_EXPLAIN_TITLE}</p>
-          {MAX_LIMIT_EXPLAIN_BODY.map((paragraph) => (
-            <p key={paragraph} className="hint__text">
-              {paragraph}
-            </p>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 interface ProfileScreenProps {
   store: Store;
@@ -370,7 +273,12 @@ export function ProfileScreen({
               <div>
                 <div className="setting-row__label">
                   每日新词上限
-                  <LimitHint />
+                  <Hint
+                    id="max-limit-hint"
+                    label="为什么要设置新词上限"
+                    title={MAX_LIMIT_EXPLAIN_TITLE}
+                    body={MAX_LIMIT_EXPLAIN_BODY}
+                  />
                 </div>
                 <div className="setting-row__value">
                   默认比目标高 5；只截断今天给多少，不改基线；设成 0 就是暂停新词
