@@ -156,7 +156,8 @@ async (page) => {
       }
     }
   }
-  const bad = (r) => r.nav === 'FAIL' || r.ovf || r.nLow || r.nSmall || r.nOut || r.nClip || r.nTiny || r.maxGap || (r.cta && !r.cta.ok) || (r.snapped && r.snapped.length) || r.dataKept === false;
+  // nOutY 自 v10.1 起就有指标，但一直没进门禁——纵向被裁等于「看不见」，与横向同级，必须 fail。
+  const bad = (r) => r.nav === 'FAIL' || r.ovf || r.nLow || r.nSmall || r.nOut || r.nOutY || r.nClip || r.nTiny || r.maxGap || (r.cta && !r.cta.ok) || (r.snapped && r.snapped.length) || r.dataKept === false;
   const fails = out.filter(bad);
   return { n: out.length, failCount: fails.length, warnTiny: out.reduce((a, r) => a + (r.nWarn || 0), 0), outYTotal: out.reduce((a, r) => a + (r.nOutY || 0), 0), outYSamples: [...new Set(out.flatMap((r) => r.outY || []).map((x) => x[0] + '@' + x[2]))].slice(0, 12), dataKept: out.filter((r) => r.kind === 'session').every((r) => r.dataKept !== false), fail: fails, pass: out.filter((r) => !bad(r)).map((r) => `${r.skin}/${r.theme}/${r.w}/${r.kind}`) };
 }
