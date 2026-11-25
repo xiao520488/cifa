@@ -392,6 +392,9 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
   报 404 与 `[vite] Failed to reload`；`git reset --hard` 复原后还会残留旧 `?t=` 时间戳，
   报 `does not provide an export named 'SKINS'` 这类**假错**。
   **演练完必须重启 dev server**（整页 reload 不够），再跑任何回归，否则会把绿的项目读成红的。
+  **解法（首选，直接避免污染）**：演练 revert / 改历史一律开临时分离工作树——
+  `git worktree add --detach <目录> <sha>`，在里面做完就 `git worktree remove --force <目录>`，
+  活动工作树与 dev server 全程不动；只有被迫在活动工作树上演练过，才需要重启 dev server 兜底。
 - **MCP 单调用有超时上限**：长矩阵改走 `scripts/run-audit-node.js`（后台 job + `job_output` 收），
   别把 128 组塞进一次 `browser_run_code_unsafe`。
 
