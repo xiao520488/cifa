@@ -111,6 +111,10 @@
   --fd-col-no: 40px;
   --fd-rule: 1.5px;
   --fd-rule-bold: 2px;
+  /* 首页铭牌：铆钉方点 / 标签列 / 牌面内衬 */
+  --fd-rivet: 5px;
+  --fd-plate-k: 64px;
+  --fd-plate-pad: 12px;
 }
 
 /* ==========================================================================
@@ -227,10 +231,11 @@
   order: 3;
   margin-top: 1px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  /* 报头这行含「四级核心词」5 个汉字：>4 汉字的文本硬下限 14px（等宽 + 字距仍像工单） */
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.45;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
@@ -599,130 +604,303 @@
    7. 开始页 —— 印刷工单
    ========================================================================== */
 
+/* 竖向余量分成三段自动边距：墨条上方 / 版记上方 / 版记下方。
+   铭牌总成内部是固定节奏（12–24px），所以余量只落在装配体外侧，
+   1082 高的桌面窗口每段约 76px；360 手机上余量≈0，内容首尾相接。 */
 [data-skin='foundry'] .start {
   min-height: calc(100dvh - 104px);
-  padding-top: 20px;
+  padding-top: 16px;
   padding-bottom: 24px;
 }
 
-[data-skin='foundry'] .start__body {
-  margin-block: auto;
-}
-
-[data-skin='foundry'] .start__eyebrow {
+/* 新锚第 1 段 · 工序墨条：skin-hooks 默认关着，这里显式打开（漏写=整块静默消失） */
+[data-skin='foundry'] .start__kicker {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
   gap: 8px;
+  margin-top: auto;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: var(--text); /* 反白墨条：底色画在真元素上；暗色档即白墨压印 */
+  color: var(--bg);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-[data-skin='foundry'] .start__eyebrow::before {
-  width: 16px;
-  height: 1px;
-  background: var(--border-strong);
+[data-skin='foundry'] .start__body {
+  display: flex;
+  flex-direction: column;
+  margin-block: 0;
 }
 
-[data-skin='foundry'] .start__title {
-  margin-top: 12px;
+/* 新锚第 2 段 · 大号工序标题：eyebrow 升为首页最大的一块排印 */
+[data-skin='foundry'] .start__eyebrow {
+  gap: 12px;
+  margin-top: 0;
   font-family: var(--font-grot);
+  font-size: clamp(1.625rem, 7.2vw, 2.125rem); /* 26 → 34：低于顶栏报名，高于铭牌读数 */
   font-weight: 700;
-  font-size: var(--fs-display);
-  line-height: 1.04;
+  line-height: 1.1;
   letter-spacing: -0.035em;
+  text-transform: none;
+  text-wrap: balance;
+  word-break: keep-all;
   color: var(--text);
 }
 
-[data-skin='foundry'] .start__lede {
-  margin-top: 12px;
-  max-width: 32ch;
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--text-secondary);
+/* 标题前的 hairline 换成铭牌同款铆钉方点，把标题和牌钉在一起 */
+[data-skin='foundry'] .start__eyebrow::before {
+  width: 9px;
+  height: 9px;
+  background: var(--text);
 }
+
+/* 原「大标题 + 玩法说明」两句功能介绍已从 DOM 真删，对应两条死规则一并清掉；
+   首屏主角改为铭牌总成（工序墨条 → 大号工序标题 → 工业铭牌 → 铅条），见下方各条。 */
 
 /* 批号 / 已学 已在工单里，这里不重复印一遍 */
 [data-skin='foundry'] .start__meta {
   display: none;
 }
 
-/* 工单：四行表 */
+/* 新锚第 3 段 · 工业铭牌（首屏焦点本体）：
+   2px 墨框 + 内刻线（outline，不占阴影档）+ 每行左端铆钉方点 + 读数沉在深槽里。
+   牌面底色 --surface 与槽底 --surface-sunken 都画在真元素上，没有画进 ::before。 */
 [data-skin='foundry'] .start__spec {
   display: block;
-  margin-top: 24px;
+  position: relative;
+  margin-top: 14px;
+  max-width: 520px;
+  padding: 12px var(--fd-plate-pad) 8px;
+  background: var(--surface);
+  border: var(--fd-rule-bold) solid var(--border-strong);
+  outline: 1px solid var(--border);
+  outline-offset: -7px;
+  box-shadow: var(--shadow-md);
 }
 
 [data-skin='foundry'] .start__spec::before {
-  content: '工单 · JOB TICKET';
+  content: 'JOB TICKET';
   display: block;
-  padding-bottom: 6px;
+  padding-bottom: 7px;
+  border-bottom: var(--fd-rule) solid var(--border-strong);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 
 [data-skin='foundry'] .start__spec-row {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 12px;
-  padding: 7px 0;
+  grid-template-columns: var(--fd-rivet) var(--fd-plate-k) minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  padding: 8px 0;
   border-top: 1px solid var(--border);
 }
 
+/* 铆钉方点＝行的第一个网格项（不绝对定位、不锚兄弟） */
+[data-skin='foundry'] .start__spec-row::before {
+  content: '';
+  width: var(--fd-rivet);
+  height: var(--fd-rivet);
+  background: var(--text);
+}
+
 [data-skin='foundry'] .start__spec-row:first-child {
-  border-top: var(--fd-rule) solid var(--border-strong);
+  padding-top: 10px;
+  border-top: 0;
 }
 
 [data-skin='foundry'] .start__spec-row:last-child {
-  border-bottom: var(--fd-rule) solid var(--border-strong);
+  padding-bottom: 4px;
+  border-bottom: 0;
 }
 
 [data-skin='foundry'] .start__spec-k {
+  padding-right: 10px;
+  border-right: 1px solid var(--border); /* 深槽的左壁 */
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  line-height: 1.7;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 
+/* 读数槽：真元素底色 + 零模糊内描边（inset 0 0 0 1px 是硬边，不算阴影档） */
 [data-skin='foundry'] .start__spec-v {
+  min-width: 0;
+  padding: 4px 8px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border);
+  border-radius: 0;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.7;
-  letter-spacing: 0.02em;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
+/* 新锚第 4 段 · 铅条主按钮：左沿与铭牌对齐，字靠左，右端一枚牵引符号 */
 [data-skin='foundry'] .start__actions {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
-/* 工单上的章不铺满整栏，留出纸边 */
 [data-skin='foundry'] .start__actions .btn--primary {
-  width: min(100%, 320px);
+  width: min(100%, 340px);
+  min-height: 60px;
+  padding-inline: 16px;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 15px;
+  letter-spacing: 0.08em;
 }
 
+[data-skin='foundry'] .start__actions .btn--primary::after {
+  content: '▶';
+  margin-left: auto;
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* 今日卡 → 铭牌旁边的检验记录条：硬边框 + 行底发丝 + 两列读数 */
+[data-skin='foundry'] .today-card {
+  gap: var(--space-2);
+  margin-top: 24px;
+  padding: 12px 14px 14px;
+  background: var(--bg);
+  border: var(--fd-rule) solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin='foundry'] .today-card__head {
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding-bottom: 8px;
+  border-bottom: var(--fd-rule) solid var(--border-strong);
+}
+
+[data-skin='foundry'] .today-card__label {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='foundry'] .today-card__links {
+  min-width: 0;
+  gap: 2px;
+}
+
+[data-skin='foundry'] .today-card .btn--compact {
+  min-height: 44px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+[data-skin='foundry'] .today-card__figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+[data-skin='foundry'] .today-card__figure {
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: 2px;
+  align-items: baseline;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  white-space: normal;
+}
+
+[data-skin='foundry'] .today-card__figure b {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 语义色两档都要保住（写在 b 之后，靠同等特异度 + 后加载覆盖上面的 --text） */
+[data-skin='foundry'] .today-card__figure b.is-accent {
+  color: var(--accent);
+}
+
+[data-skin='foundry'] .today-card__figure b.is-warn {
+  color: var(--warning);
+}
+
+[data-skin='foundry'] .today-card__tag {
+  padding: 1px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  color: var(--text);
+}
+
+[data-skin='foundry'] .today-card__reason {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .today-card__reason.is-increase {
+  color: var(--text-secondary);
+}
+
+[data-skin='foundry'] .today-card__reason.is-decrease,
+[data-skin='foundry'] .today-card__reason.is-paused {
+  color: var(--warning);
+}
+
+/* 版记：余量的第三段落在它上下 */
 [data-skin='foundry'] .start__foot {
-  margin-top: 32px;
+  gap: 12px;
+  margin-top: auto;
+  margin-bottom: auto;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: var(--fd-rule) solid var(--border-strong);
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.5;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+[data-skin='foundry'] .start__foot .btn--text {
+  min-height: 44px;
+  padding-inline: 4px;
+  font-size: 14px;
+  color: var(--text);
 }
 
 [data-skin='foundry'] .start__rule {
@@ -882,7 +1060,7 @@
 }
 
 [data-skin='foundry'] .section__hint {
-  font-size: 13px;
+  font-size: 14px; /* 「四级核心词 · 3846 词」6 个汉字 → 14px 硬下限 */
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -1054,7 +1232,9 @@
 [data-skin='foundry'] .parse-summary,
 [data-skin='foundry'] .issues {
   font-family: var(--font-mono);
-  font-size: 11px;
+  /* 「不会覆盖已有词库」8 个汉字 → 14px 硬下限；--text-tertiary 在深色档只有 4.47:1，换 secondary */
+  font-size: 14px;
+  color: var(--text-secondary);
   letter-spacing: 0.04em;
 }
 
@@ -1107,7 +1287,7 @@
 }
 
 [data-skin='foundry'] .skin-card__tag {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -1140,6 +1320,7 @@
     --fs-meaning: 16px;
     --fs-phonetic: 11px;
     --page-x: 24px;
+    --fd-plate-k: 72px;
   }
 
   [data-skin='foundry'] .start {
@@ -1171,8 +1352,13 @@
   }
 
   [data-skin='foundry'] .start__spec-row {
-    grid-template-columns: 64px minmax(0, 1fr);
-    padding-block: 9px;
+    grid-template-columns: var(--fd-rivet) var(--fd-plate-k) minmax(0, 1fr);
+    padding-block: 10px;
+  }
+
+  /* 桌面：铭牌与铅条靠左成一根竖轴，今日卡与版记通栏 —— 仍是一列流水，不做双栏 */
+  [data-skin='foundry'] .today-card {
+    max-width: 520px;
   }
 
   [data-skin='foundry'] .screen {
@@ -1256,12 +1442,45 @@
   }
 }
 
-/* 窄屏：报头小字只留「第几批」。
-   完整词库有 700–1000 批，三段一起放在品牌旁的 158px 里会折成两行，
-   顶栏高度跟着变，下面的版心整体位移。阶段名与词数在工单表里都有。 */
+/* 窄屏（只影响首页：.topbar__meta 只在 StudyScreen 出现）
+   旧写法用 nth-child(-n+2) + nth-last-child(-n+2) 想「只留第几批」，但报头现在只有
+   「阶段名 / · / 今日 N 词」三个子节点，两条选择器的并集=全部，360 档整行数据静默消失。
+   .topbar__meta 本身是 flex-basis:100% 的通栏行，360 放得下三段，因此不再隐藏任何一项，
+   只收紧分隔符间距。 */
 @media (max-width: 480px) {
-  [data-skin='foundry'] .topbar__meta > span:nth-child(-n + 2),
-  [data-skin='foundry'] .topbar__meta > span:nth-last-child(-n + 2) {
-    display: none;
+  [data-skin='foundry'] .topbar__sep {
+    padding-inline: 4px;
   }
+}
+
+/* ---------- v10 排印提档 ------------------------------------------------
+   探针实测：foundry 的工业小字传统（10–12px）套在中文上读不动，
+   含 >4 个汉字的文本一律进 14px 正文档；纯拉丁标签（工序号、KIND、
+   批次号）不动，它们靠字距分层而不是靠字号。 */
+
+[data-skin='foundry'] .start__foot,
+[data-skin='foundry'] .today-card__label,
+[data-skin='foundry'] .today-card__reason,
+[data-skin='foundry'] .start__spec-v,
+[data-skin='foundry'] .profile__meta,
+[data-skin='foundry'] .section__title,
+[data-skin='foundry'] .section__hint,
+[data-skin='foundry'] .stage-option__desc,
+[data-skin='foundry'] .setting-row__value,
+[data-skin='foundry'] .stat__unit,
+[data-skin='foundry'] .study-bar__sub,
+[data-skin='foundry'] .sheet__desc {
+  font-size: 14px;
+}
+
+/* 主按钮上的「开始背单词」是 5 个汉字的动作句，不是铭牌小字 */
+[data-skin='foundry'] .btn--primary,
+[data-skin='foundry'] .answer-btn {
+  font-size: 15px;
+}
+
+/* 强调读数 #cf3714 落在 #f1f0ec 面板上实测 4.37:1，差一档；压到 #c23212 = 4.90。
+   深色档的 --accent 本来就够亮（跟着压会掉到 3.27），所以只改浅色。 */
+[data-skin='foundry'][data-theme='light'] .today-card__figure b.is-accent {
+  color: #c23212;
 }

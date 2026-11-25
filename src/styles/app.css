@@ -364,21 +364,9 @@ p {
   background: var(--border-strong);
 }
 
-.start__title {
-  margin-top: var(--space-4);
-  font-size: var(--fs-display);
-  line-height: 1.24;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.start__lede {
-  margin-top: var(--space-3);
-  max-width: 30ch;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.7;
-}
+/* 「一页五个词，看一遍就会」那句功能介绍已随 DOM 一起删除（用户要求：
+   功能说明不该当永久 UI 常驻）。首页的视觉主角因此下移到 .start__meta /
+   .start__spec / 今日卡，重排见下方 .start__ 系列规则。 */
 
 .start__meta {
   display: flex;
@@ -1750,7 +1738,7 @@ p {
 }
 
 .session-done__note {
-  font-size: 13px;
+  font-size: 14px; /* 「不认识的词会回到错词本…」22 个汉字 → 14px 硬下限 */
   line-height: 1.7;
   color: var(--text-tertiary);
   max-width: 34ch;
@@ -1768,6 +1756,11 @@ p {
 .stepper {
   display: inline-flex;
   align-items: center;
+  /* v10 基线修：44 + 3.2em + 44 是硬需求宽。此前 stepper 作为 .setting-row
+     的 flex item 可被挤窄（overflow:hidden 令自动最小尺寸归零），子元素
+     溢出右缘被永久裁掉，「+」在 390 下几乎点不到。flex:none 让它按
+     max-content 占位，标签列自己换行让位。 */
+  flex: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
   background: var(--surface);
@@ -1985,10 +1978,14 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  /* v10 基线修：触控盒落在元素本体（探针量的是元素 rect，伪元素热区不算数）。
+     可见的 18px 圆点移到 ::before，负 margin 把布局足迹压回 18×18，行盒高度
+     与旧版一致；圆角留在本体上，::before 用 inherit，desk 的 radius-sm 照旧生效。 */
+  width: 44px;
+  height: 44px;
+  margin: -13px;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--text-tertiary);
@@ -1996,17 +1993,18 @@ p {
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
-  transition:
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
-/* 18px 的圆点太小，撑出 44×44 的透明热区（移动端点击目标下限） */
-.hint__btn::after {
+.hint__btn::before {
   content: '';
   position: absolute;
-  inset: -13px;
+  inset: 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: inherit;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .hint__btn:active {
@@ -2014,13 +2012,20 @@ p {
 }
 
 .hint__btn:focus-visible {
+  outline: none; /* 焦点环画在 18px 圆点上，不给 44 透明盒套方圈 */
+}
+
+.hint__btn:focus-visible::before {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .hint__btn[aria-expanded='true'] {
-  border-color: var(--accent);
   color: var(--text);
+}
+
+.hint__btn[aria-expanded='true']::before {
+  border-color: var(--accent);
   background: var(--accent-weak);
 }
 
@@ -2192,8 +2197,11 @@ p {
 
 @media (hover: hover) and (pointer: fine) {
   .hint__btn:hover {
-    border-color: var(--accent);
     color: var(--text);
+  }
+
+  .hint__btn:hover::before {
+    border-color: var(--accent);
     background: var(--accent-weak);
   }
 
@@ -2208,6 +2216,10 @@ p {
   }
 
   .hint__btn {
+    transition: none;
+  }
+
+  .hint__btn::before {
     transition: none;
   }
 }
@@ -2273,4 +2285,275 @@ p {
   font-size: var(--fs-small);
   line-height: 1.7;
   color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   paper · 原版首页重排（v10：功能介绍句已删，见「开始页」段落的注释）
+   --------------------------------------------------------------------------
+   app.css 是全站 8 套皮肤的基线，这一段充当 paper 自己的皮肤文件：
+   所有规则一律 [data-skin='paper'] 前缀，裸 .start* 基线不动，别家不受牵连。
+   新锚 = 词典词条头：kicker（词类式小字行，钩子默认关→显式恢复）
+   → .start__eyebrow 提级为衬线大字词条（上方一条 accent 引导短线，
+   下方通栏发丝线）→ .start__meta 当词条的注音行 → .start__spec 显式恢复，
+   做成发丝台账（点线引线 + 右对齐 tabular 值，只留批次/已学两行真增量，
+   阶段、今日新词已由词条头与注音行承载）→ 今日卡 = 词典内页：方角页面片、
+   发丝框、零阴影，读数排 2×2 双栏带栏间发丝线；≥768 升级为左右双栏跨页
+   （左＝标题＋句子，右＝读数表，中间通高栏线）。
+   旧介绍句的两个死选择器全文件已无残留（见「开始页」段落注释）；伪元素只画线，无文案。
+   ========================================================================== */
+
+[data-skin='paper'] {
+  /* 词条头字号：360 下 28，宽屏封顶 40（Newsreader + 系统汉字兜底，不加字族） */
+  --pp-entry: clamp(28px, 6.2vw, 40px);
+}
+
+/* 首页顶栏收一条页眉线（:has(.start) 锁在首页，别的屏幕不跟着长线） */
+[data-skin='paper'] .app:has(.start) .topbar {
+  border-bottom: 1px solid var(--border);
+}
+
+/* ① 词条头 · 词类式小字行（skin-hooks 默认 display:none，这里显式恢复） */
+[data-skin='paper'] .start__kicker {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* ①b 词条头本体：大字词头 + 上方 accent 引导短线 + 下方通栏细线 */
+[data-skin='paper'] .start__eyebrow {
+  display: block;
+  margin-top: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+  font-family: var(--font-serif);
+  font-size: var(--pp-entry);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--text);
+}
+
+[data-skin='paper'] .start__eyebrow::before {
+  content: '';
+  display: block;
+  width: var(--space-7);
+  height: 2px;
+  margin: 0 0 var(--space-3);
+  background: var(--accent);
+}
+
+/* ①c 注音行位：今日 / 已学，衬线数字，中文 14px */
+[data-skin='paper'] .start__meta {
+  gap: var(--space-1) var(--space-5);
+  margin-top: var(--space-3);
+  font-size: 14px;
+}
+
+[data-skin='paper'] .start__meta b {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* ② 发丝台账（skin-hooks 默认 display:none，显式恢复） */
+[data-skin='paper'] .start__spec {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--border-strong);
+}
+
+/* 「阶段」是词条头的复读、「今日新词」是注音行的复读，台账只留真增量两行
+   （今日批次在这里是全站唯一宿主，已学这行带 /总数，注音行没有） */
+[data-skin='paper'] .start__spec-row:nth-child(1),
+[data-skin='paper'] .start__spec-row:nth-child(2) {
+  display: none;
+}
+
+[data-skin='paper'] .start__spec-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+[data-skin='paper'] .start__spec-k {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* 排检点线引线：纯装饰的发丝，不是刻度也不是进度 */
+[data-skin='paper'] .start__spec-k::after {
+  content: '';
+  flex: 1 1 var(--space-5);
+  min-width: var(--space-4);
+  border-bottom: 1px dotted var(--border-strong);
+  transform: translateY(-3px);
+}
+
+[data-skin='paper'] .start__spec-v {
+  flex: 0 1 auto;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* ③ 今日卡 = 词典内页：方角、发丝框、无浮起，读数区先做 2×2 双栏 */
+[data-skin='paper'] .today-card {
+  display: grid;
+  gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+[data-skin='paper'] .today-card__head {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
+/* 11px 的中文标签超 4 字，抬到 13（日期数字仍走衬线小字距） */
+[data-skin='paper'] .today-card__label {
+  font-size: 14px; /* 「今日 · 11月25日 周三」6 个汉字 → 14px 硬下限 */
+  letter-spacing: 0.12em;
+}
+
+[data-skin='paper'] .today-card__figures {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding-block: var(--space-1);
+  border-block: 1px solid var(--border);
+}
+
+[data-skin='paper'] .today-card__figure {
+  flex-wrap: wrap;
+  align-items: baseline;
+  padding: var(--space-2) var(--space-4) var(--space-2) 0;
+  white-space: normal;
+  font-size: 14px;
+}
+
+/* 双栏之间的通高栏线（第二、第四格左沿） */
+[data-skin='paper'] .today-card__figure:nth-child(even) {
+  padding-inline-start: var(--space-4);
+  border-inline-start: 1px solid var(--border);
+}
+
+/* 上行两格下沿压一道发丝，行与行也成栏 */
+[data-skin='paper'] .today-card__figure:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--border);
+}
+
+[data-skin='paper'] .today-card__reason {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* 版权行位：脚注中文抬到 14，色阶继续走 tertiary（两档对比实测 ≥5:1） */
+[data-skin='paper'] .start__foot {
+  gap: var(--space-4);
+  font-size: 14px;
+}
+
+[data-skin='paper'] .start__rule {
+  background: var(--border-strong);
+}
+
+/* ④ ≥768：今日卡升级成词典左右跨页（左＝标题＋句子，右＝读数表） */
+@media (min-width: 768px) {
+  [data-skin='paper'] .start__spec-row {
+    padding: var(--space-3) 0;
+  }
+
+  [data-skin='paper'] .today-card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: start;
+    column-gap: 0;
+    padding: var(--space-5);
+  }
+
+  [data-skin='paper'] .today-card__head {
+    grid-column: 1;
+    grid-row: 1;
+    padding-inline-end: var(--space-5);
+  }
+
+  [data-skin='paper'] .today-card__figures {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    padding: 0 0 0 var(--space-5);
+    border-block: none;
+    border-inline-start: 1px solid var(--border-strong);
+  }
+
+  [data-skin='paper'] .today-card__reason {
+    grid-column: 1;
+  }
+}
+
+/* ---------- v10 基线排印修正：中文小字提档 --------------------------------
+   探针（scripts/audit-screens.js）实测：非首页有 90+ 处「>4 个汉字」的文本
+   落在 11–13px，中文在这个字号读不动（WCAG 不管，但可读性管）。
+   规则：含 >4 个汉字的文本一律 ≥14px；纯拉丁/数字微标签（readout__k、
+   masthead-meta、音标、批次号）保持原来的小字，它们靠字距而非字号分层。
+   这里只覆盖字号，不动行高与颜色；皮肤层用 [data-skin] 前缀的特异性更高，
+   各自已经定过字号的地方照旧生效。 */
+
+.cal-kicker,
+.cal-note,
+.cal-section__hint,
+.cal-day__empty,
+.cal-long__note,
+.cal-foot,
+.cal-figure,
+.profile__meta,
+.stage-option__desc,
+.section__hint,
+.section__title,
+.setting-row__value,
+.stat__unit,
+.study-bar__sub,
+.sheet__desc,
+.parse-summary,
+.issues,
+.mistake-row__meta {
+  font-size: 14px;
+}
+
+/* 成句的说明文字：正文档，不是注脚档 */
+.cal-hero__lede,
+.cal-day__reason,
+.mistakes-empty__text,
+.dialog__text {
+  font-size: 15px;
+}
+
+/* 外观面板的卡片副标：宽度只有 ~171px，14px 会挤成三行，取 13px 下限 */
+.skin-card__tag {
+  font-size: 13px;
+}
+
+/* skin-hooks.css 在 app.css 之后加载，同特异性会把它压回 12px，
+   所以 paper 这一档要用皮肤级特异性兜住（其余皮肤各自定过字号）。 */
+[data-skin='paper'] .skin-card__tag {
+  font-size: 13px;
 }

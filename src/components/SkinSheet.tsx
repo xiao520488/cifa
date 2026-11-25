@@ -1,4 +1,5 @@
 import type { Skin, ThemeMode } from '../lib/types';
+import { SKINS } from '../lib/skins';
 import { Sheet } from './Modal';
 import { Segmented } from './Segmented';
 import { SkinPicker } from './SkinPicker';
@@ -11,12 +12,12 @@ interface SkinSheetProps {
   onClose: () => void;
 }
 
-/** 外观面板：四套皮肤 + 浅色 / 深色。选中即时生效，遮罩后面能直接看到效果。 */
+/** 外观面板：全部皮肤 + 浅色 / 深色。选中即时生效，遮罩后面能直接看到效果。 */
 export function SkinSheet({ skin, theme, onSkin, onTheme, onClose }: SkinSheetProps) {
   return (
     <Sheet
       title="外观"
-      description="四套排印系统，选中立即生效。浅色 / 深色与皮肤相互独立。"
+      description={`${SKINS.length} 套排印系统，选中立即生效。浅色 / 深色与皮肤相互独立。`}
       onClose={onClose}
       footer={
         <button type="button" className="btn btn--primary btn--block" onClick={onClose}>

@@ -1,0 +1,646 @@
+/* ==========================================================================
+   词笺 · 皮肤「夜航 NOCTURNE」—— v9 全站精修（五界面 · 文档语言）
+   深色原生档 · 零阴影 · 零卡片感：只靠排印与一根细线分层。
+   Newsreader（拉丁 / 数字：单词、日期、读数）+ IBM Plex Sans（正文 / 中文位）。
+   月光蓝 accent 压在墨蓝夜纸上；读数条让位给两栏排印读数（三格条归 bento）。
+   分区：1 深色令牌 / 2 浅色令牌 / 3 基底 / 4 顶栏 / 5 首页 /
+         6 今日数据带 / 7 按钮 / 8 排印基底 / 9 学习流 / 10 日历（航海日志） /
+         11 错词本（索引） / 12 我的（章节文档） / 13 浮层 /
+         14 断点 / 15 hover / 16 动效降级
+   ========================================================================== */
+
+/* ---------- 1. 深色令牌（原生档，先设计它） ------------------------------ */
+[data-skin='nocturne'][data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --surface: #12151c;
+  --surface-raised: #191e27;
+  --surface-sunken: #0e1117;
+  --border: #242a36;
+  --border-strong: #39424f;
+  --text: #e8edf5;
+  --text-secondary: #a2acbb;
+  --text-tertiary: #7c8796;
+  --accent: #a9c7f0;
+  --accent-hover: #c2d8f5;
+  --accent-press: #8fb4e4;
+  --accent-weak: #161f2e;
+  --on-accent: #0b1a2e;
+  --success: #79d3a5;
+  --warning: #e6b877;
+  --danger: #f1897e;
+  --mask: #1a1f28;
+  --scrim: rgba(6, 8, 12, 0.68);
+  --row-hover: rgba(232, 237, 245, 0.045);
+  --toggle-on: #161f2e;
+  --nc-mask-line: rgba(162, 172, 187, 0.24);
+  /* 零阴影：浮层靠 --surface 明度阶 + --scrim 分层（v2 命门） */
+  --shadow-sm: 0 0 0 transparent;
+  --shadow-md: 0 0 0 transparent;
+  --shadow-lg: 0 0 0 transparent;
+}
+
+/* ---------- 2. 浅色令牌（白天复刻：冷灰白 + 深月蓝，非反色） -------------- */
+[data-skin='nocturne'] {
+  color-scheme: light;
+  /* Newsreader 只给拉丁 / 数字位；中文一律走 Plex Sans（衬线族无 CJK，小字会掉宋体） */
+  --font-sans: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-serif: 'Newsreader', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+  --nc-latin: 'Newsreader', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e2e5ea;
+  --border: #e2e5ea;
+  --border-strong: #c2c8d0;
+  --text: #10141b;
+  --text-secondary: #4e5661;
+  --text-tertiary: #697079;
+  --accent: #1e4e8c;
+  --accent-hover: #17416f;
+  --accent-press: #12355c;
+  --accent-weak: #e1e9f4;
+  --on-accent: #ffffff;
+  --success: #14603f;
+  --warning: #7a4f0b;
+  --danger: #9b2c22;
+  --mask: #e4e7ec;
+  --scrim: rgba(16, 20, 27, 0.4);
+  --row-hover: rgba(16, 20, 27, 0.04);
+  --toggle-on: #e1e9f4;
+  --nc-mask-line: rgba(78, 86, 97, 0.18);
+
+  /* 字号阶梯（v2）：fs-small 保 14 —— 挂它的多是中文标签/成句 */
+  --fs-display: 34px;
+  --fs-h1: 22px;
+  --fs-h2: 17px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-word: clamp(24px, 7vw, 32px);
+  --fs-phonetic: 13px;
+  --fs-meaning: 15px;
+  --fs-load: 14px;
+  --page-x: 20px;
+  --content-max: 640px;
+  --app-max: 760px;
+  --dock-height: 76px;
+
+  /* 文档尺规（v9）：var() 晚绑定，明暗两档各取当档语义色，不必写两遍 */
+  --nc-over-key: 2px solid var(--accent);          /* 主键上划 / 选中粗线 */
+  --nc-over-sec: 1px solid var(--border-strong);   /* 次键上划 */
+  --nc-over-quiet: 1px solid var(--border);        /* 弱键上划 */
+  --nc-hair-strong: 1px solid var(--border-strong);/* 通栏粗线（分节） */
+  --nc-hair-line: 1px solid var(--border);         /* 发丝线（分格/行隔） */
+  --nc-ledger-x: 84px;   /* 日历左列：日期栏 */
+  --nc-entry-x: 44px;    /* 学习流索引栏：01 / 02 悬挂位 */
+
+  /* 零阴影 + 极小圆角（2/3/4）：层级只靠明度阶与细线 */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-full: 999px;
+  --shadow-sm: 0 0 0 transparent;
+  --shadow-md: 0 0 0 transparent;
+  --shadow-lg: 0 0 0 transparent;
+}
+
+/* ---------- 3. 基底：选区 / 焦点（零光晕，深色不做顶部天光） -------------- */
+[data-skin='nocturne'] ::selection { background: var(--accent-weak); color: var(--text); }
+/* 深色底上的焦点环 = 月蓝描线，外扩 2px */
+[data-skin='nocturne'] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ---------- 4. 顶栏（读数条已关，分隔线回到 topbar 下沿） ----------------- */
+[data-skin='nocturne'] .topbar { min-height: 56px; background: transparent; border-bottom: 1px solid var(--border); }
+[data-skin='nocturne'] .topbar--bordered { border-bottom: 1px solid var(--border); }
+[data-skin='nocturne'] .brand { align-items: baseline; gap: 10px; min-width: 0; }
+/* 「词笺」是中文 → sans 600，不赌衬线回退 */
+[data-skin='nocturne'] .brand__name {
+  font-size: 20px; font-weight: 600; letter-spacing: 0.18em; line-height: 1.2;
+}
+[data-skin='nocturne'] .brand__dot { display: none; } /* 强调色只留给语义位 */
+[data-skin='nocturne'] .brand__latin { font-family: var(--font-sans); font-size: 10px; letter-spacing: 0.22em; color: var(--text-tertiary); }
+/* 钩子：开。13px 大写宽字距 tertiary（含中文「四级/今日」→ 13 起）；窄屏整条隐藏防撑行 */
+[data-skin='nocturne'] .topbar__meta {
+  display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden;
+  font-size: 13px; font-weight: 500; letter-spacing: 0.14em; line-height: 1;
+  text-transform: uppercase; color: var(--text-tertiary); white-space: nowrap;
+}
+[data-skin='nocturne'] .topbar__sep { color: var(--text-tertiary); opacity: 0.6; }
+[data-skin='nocturne'] .icon-btn { border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text-secondary); }
+[data-skin='nocturne'] .avatar-btn {
+  border: 1px solid var(--border-strong); border-radius: 50%; background: transparent;
+  color: var(--text); font-family: var(--font-sans); font-size: 16px; font-weight: 500;
+}
+/* 钩子：关（v2）。三格读数条让给 bento；夜航的读数走 .start__meta 两栏排印 */
+[data-skin='nocturne'] .readouts { display: none; }
+
+/* ---------- 5. 首页 .start ---------------------------------------------- */
+[data-skin='nocturne'] .start { min-height: calc(100dvh - 56px); padding-top: var(--space-2); }
+/* 钩子：开。通栏刊号行 = sans 品牌小牌 + 1px border-strong 通栏线 + Newsreader 日期 */
+[data-skin='nocturne'] .start__masthead { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0 0; }
+[data-skin='nocturne'] .start__masthead-brand { font-size: 14px; font-weight: 600; letter-spacing: 0.3em; color: var(--text-secondary); white-space: nowrap; }
+[data-skin='nocturne'] .start__masthead-rule { flex: 1; min-width: var(--space-5); height: 1px; background: var(--border-strong); }
+[data-skin='nocturne'] .start__masthead-meta { font-family: var(--nc-latin); font-size: 11px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: var(--text-tertiary); white-space: nowrap; }
+/* 钩子：开。13px 大写 tertiary；「四级」是中文 → 只能 sans（Newsreader 交给拉丁位）；
+   前置 10px 短横线是这一版唯一的 accent 亮线 */
+[data-skin='nocturne'] .start__kicker {
+  display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3);
+  font-size: 13px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary);
+}
+[data-skin='nocturne'] .start__kicker::before { content: ''; width: 10px; height: 1px; background: var(--accent); }
+[data-skin='nocturne'] .start__eyebrow {
+  margin-top: var(--space-4); font-family: var(--font-sans); font-size: 14px; font-weight: 500; /* 「四级核心词 · 3846 词」6 个汉字 → 14px 硬下限 */
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary);
+}
+[data-skin='nocturne'] .start__eyebrow::before { display: none; } /* 横线让位给 kicker */
+/* 钩子：开（v2）。两栏排印读数：无盒无底无阴影；
+   数字 Newsreader 30px/500 tabular，标签 13px 大写 .14em tertiary（含中文，13 起） */
+[data-skin='nocturne'] .start__meta {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5); margin-top: var(--space-5);
+}
+[data-skin='nocturne'] .start__meta > span {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; min-width: 0;
+  font-size: 13px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary);
+}
+[data-skin='nocturne'] .start__meta b { font-family: var(--nc-latin); font-size: 30px; font-weight: 500; letter-spacing: 0; line-height: 1.1; }
+/* 钩子：开。细线表只留「阶段 / 今日批次」两行——同屏不许三次报同一个数（必修 1）：
+   第 2 行「今日新词」与两栏读数、today 带重复，第 4 行「已学」与两栏读数重复，CSS 隐藏不动 DOM */
+[data-skin='nocturne'] .start__spec { display: flex; flex-direction: column; margin-top: var(--space-5); border-top: 1px solid var(--border); }
+[data-skin='nocturne'] .start__spec-row:nth-child(2),
+[data-skin='nocturne'] .start__spec-row:nth-child(4) { display: none; }
+[data-skin='nocturne'] .start__spec-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4);
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+[data-skin='nocturne'] .start__spec-k { flex: none; font-size: 13px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); }
+[data-skin='nocturne'] .start__spec-v {
+  min-width: 0; text-align: right; font-size: 16px; font-weight: 600;
+  letter-spacing: 0.01em; font-variant-numeric: tabular-nums; color: var(--text);
+}
+[data-skin='nocturne'] .start__actions { margin-top: var(--space-6); }
+[data-skin='nocturne'] .start__foot { font-size: 14px; }
+[data-skin='nocturne'] .start__rule { background: var(--border); } /* v2：通栏就是一条 1px border，不做渐变 */
+
+/* ---------- 6. 今日数据带（去卡片盒） ------------------------------------ */
+/* 盒子拆掉：上 1px 粗线（border-strong）+ 下 1px 细线，四等分数字 */
+[data-skin='nocturne'] .today-card {
+  gap: var(--space-3); margin-top: var(--space-6); padding: var(--space-4) 0 var(--space-2);
+  border: 0; border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border);
+  border-radius: 0; background: transparent; box-shadow: none;
+}
+[data-skin='nocturne'] .today-card__head { flex-wrap: wrap; }
+[data-skin='nocturne'] .today-card__label {
+  font-family: var(--font-sans); font-size: 14px; font-weight: 500; letter-spacing: 0.04em;
+  text-transform: none; font-variant-numeric: tabular-nums; color: var(--text-tertiary);
+}
+/* 窄屏 2×2 起步，≥480 收成规约的四等分数据带 */
+[data-skin='nocturne'] .today-card__figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
+@media (min-width: 480px) {
+  [data-skin='nocturne'] .today-card__figures { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+/* figure 内部换行（覆盖 base nowrap），320 也不溢出 */
+[data-skin='nocturne'] .today-card__figure {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; min-width: 0;
+  font-size: var(--fs-small); color: var(--text-tertiary); white-space: normal;
+}
+/* 大数字是「读数」：Newsreader 500 tabular（纯数字位，衬线安全） */
+[data-skin='nocturne'] .today-card__figure b {
+  font-family: var(--nc-latin); font-size: 28px; font-weight: 500; line-height: 1.15;
+  letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--text);
+  overflow-wrap: anywhere; /* 三位数 done/total 极端值也不捅破列 */
+}
+[data-skin='nocturne'] .today-card__figure b.is-accent { color: var(--accent); }
+[data-skin='nocturne'] .today-card__figure b.is-warn { color: var(--warning); }
+[data-skin='nocturne'] .today-card__tag {
+  padding: 1px 6px; border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  font-size: 11px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--accent);
+}
+/* 中文成句 → ≥14px（规约 13px，守 CJK 线上调一档） */
+[data-skin='nocturne'] .today-card__reason { font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+/* 语气色要盖过上面那条（同为 0,2,0 且我们靠后），必须重声明 */
+[data-skin='nocturne'] .today-card__reason.is-decrease,
+[data-skin='nocturne'] .today-card__reason.is-paused { color: var(--warning); }
+[data-skin='nocturne'] .today-card__reason.is-increase { color: var(--text-secondary); }
+
+/* ---------- 7. 按钮：primary = 描边 + 弱底（v2：不许光晕） ----------------- */
+[data-skin='nocturne'] .btn--primary {
+  min-height: 52px; border-color: var(--accent); border-radius: var(--radius-md);
+  background: var(--accent-weak); color: var(--accent); font-size: 15px; font-weight: 600;
+  letter-spacing: 0.06em; box-shadow: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+[data-skin='nocturne'] .btn--primary:active:not(:disabled) { background: var(--accent-press); border-color: var(--accent-press); color: var(--on-accent); }
+[data-skin='nocturne'] .btn--primary:disabled { border-color: var(--border-strong); background: transparent; color: var(--text-tertiary); }
+[data-skin='nocturne'] .btn--secondary { border-color: var(--border-strong); }
+[data-skin='nocturne'] .btn--danger { border-color: var(--danger); }
+[data-skin='nocturne'] .btn--text,
+[data-skin='nocturne'] .btn--compact { border-radius: var(--radius-sm); }
+
+/* ---------- 8. 排印基底：拉丁位 / 遮罩 ------------------------------------ */
+/* IPA 音标（ə/ˈ/æ 不在 Newsreader 的 unicode-range 里）留 Plex Sans，防逐字掉字体；
+   数字位（索引 / 计数 / 读数）走 --nc-latin，见下方各屏 */
+[data-skin='nocturne'] .word-row__ph,
+[data-skin='nocturne'] .flash-card__ph { font-family: var(--font-sans); }
+/* Newsreader 可变 400–600：英文单词 / 词性用衬线位（含真字重，无伪粗） */
+[data-skin='nocturne'] .meaning__pos { font-style: italic; }
+/* 遮挡态：mask 与 surface 明度差仅 ~1.1，加斜纹才看得出「遮住了」，不抢正文。
+   box-shadow 0 0 0 2px 只作 mask 色扩边（遮罩贴字用），非投影阴影，零阴影不破 */
+[data-skin='nocturne'] .masked {
+  background-color: var(--mask);
+  background-image: repeating-linear-gradient(-45deg, var(--nc-mask-line) 0 1px, transparent 1px 6px);
+  border-radius: 2px; box-shadow: 0 0 0 2px var(--mask);
+}
+/* 中文成句/说明一律抬回 ≥14px */
+[data-skin='nocturne'] .section__hint,
+[data-skin='nocturne'] .stage-option__desc,
+[data-skin='nocturne'] .sheet__desc,
+[data-skin='nocturne'] .issues,
+[data-skin='nocturne'] .study-bar__sub,
+[data-skin='nocturne'] .profile__meta,
+[data-skin='nocturne'] .stat__unit,
+[data-skin='nocturne'] .parse-summary,
+[data-skin='nocturne'] .cal-day__reason { font-size: 14px; }
+[data-skin='nocturne'] .empty { gap: var(--space-4); padding: var(--space-7) 0; }
+/* 空态标题是中文 → 走 sans（base 600 即可），只有按钮保持描边冷线 */
+[data-skin='nocturne'] .empty .btn--primary { width: auto; padding-inline: var(--space-6); }
+
+/* ---------- 9. 学习流 Session：词条排印 + 无填充排印键 -------------------- */
+/* 结构动作：词行 = 词典条目（悬挂索引 + 大词头 + 缩进义项栏），
+   底部三键 = 无填充排印按钮（层级只靠上划线粗细 / 颜色 / 字距，不做三块实心） */
+[data-skin='nocturne'] .study-bar__title { font-weight: 600; letter-spacing: 0.03em; }
+[data-skin='nocturne'] .study-bar__title-total { font-family: var(--nc-latin); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+/* 进度 = 发丝规则线上的生长段（真数据驱动宽度，不做假刻度） */
+[data-skin='nocturne'] .study-progress { height: 1px; background: var(--border); border-radius: 0; }
+[data-skin='nocturne'] .study-progress__bar { height: 100%; background: var(--accent); border-radius: 0; }
+
+/* 词条列表：开卷粗线 + 每条目一条发丝线，行壳贴齐版心（不做圆角块） */
+[data-skin='nocturne'] .word-list { margin-top: var(--space-4); border-top: var(--nc-hair-strong); }
+[data-skin='nocturne'] .word-row {
+  grid-template-columns: var(--nc-entry-x) minmax(0, 1fr); column-gap: var(--space-4);
+  padding-block: var(--space-5); border-bottom: var(--nc-hair-line);
+}
+[data-skin='nocturne'] .word-row--peekable { margin-inline: 0; padding-inline: 0; border-radius: 0; }
+[data-skin='nocturne'] .word-row__index {
+  font-family: var(--nc-latin); font-size: 15px; font-weight: 500; padding-top: 9px;
+  letter-spacing: 0.06em; font-variant-numeric: tabular-nums;
+}
+[data-skin='nocturne'] .word-row__word { font-family: var(--nc-latin); font-weight: 500; }
+/* 义项缩进 + 左侧发丝竖线：层级只靠缩进和线，不靠盒 */
+[data-skin='nocturne'] .word-row__meanings {
+  margin-top: var(--space-3); padding-left: var(--space-4); border-left: 1px solid var(--border);
+}
+[data-skin='nocturne'] .meaning--extra { margin-top: var(--space-1); }
+
+/* 闪卡词条头：大字词头 + 小字音标 + 通栏细线；释义缩进成引文栏 */
+[data-skin='nocturne'] .flash { gap: var(--space-4); }
+[data-skin='nocturne'] .flash-card { gap: var(--space-5); padding: var(--space-5) 0 var(--space-6); border-bottom: var(--nc-hair-strong); }
+[data-skin='nocturne'] .flash-card__head { padding-bottom: var(--space-3); border-bottom: var(--nc-hair-line); }
+[data-skin='nocturne'] .flash-card__word {
+  font-family: var(--nc-latin); font-weight: 500; font-size: clamp(34px, 9vw, 46px); line-height: 1.12;
+}
+[data-skin='nocturne'] .flash-card__meanings { padding-left: var(--space-5); }
+/* 即时复习居中版式：撤掉引文缩进（居中层级靠字号，不靠左线） */
+[data-skin='nocturne'] .flash-card--centered .flash-card__head { padding-bottom: 0; border-bottom: 0; }
+[data-skin='nocturne'] .flash-card--centered .flash-card__meanings { padding-left: 0; }
+/* 揭示键：排印链接 + 点线（文档语言），补够 44 触控 */
+[data-skin='nocturne'] .flash-card__reveal {
+  min-height: 44px; display: inline-flex; align-items: center; padding: 0 var(--space-1);
+  font-size: 14px; font-weight: 500; letter-spacing: 0.08em; color: var(--text-secondary);
+  border-bottom: 1px dotted var(--border-strong);
+}
+[data-skin='nocturne'] .session-toast { border-left-width: 2px; }
+
+/* 本批控制条：实底 surface + 通栏粗线 = 页面与账本的缝 */
+[data-skin='nocturne'] .dock { background: var(--surface); border-top: var(--nc-hair-strong); }
+[data-skin='nocturne'] .dock__btn {
+  background: transparent; border: 1px solid var(--border); border-top-color: var(--border-strong);
+  border-radius: var(--radius-sm); color: var(--text-secondary);
+}
+[data-skin='nocturne'] .dock__state { font-size: 11px; letter-spacing: 0.06em; opacity: 1; color: var(--text-tertiary); }
+/* 开关两态全是排印语言：开 = 上划粗线，关 = 虚线框（「这里本来有内容」的缺席记号） */
+[data-skin='nocturne'] .dock__toggle[aria-pressed='true'] { background: transparent; border-color: var(--border); border-top: var(--nc-over-key); color: var(--text); }
+[data-skin='nocturne'] .dock__toggle[aria-pressed='false'] { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-tertiary); }
+[data-skin='nocturne'] .dock__nav { color: var(--text-secondary); border-color: var(--border); }
+/* 主导航键：accent 描线实心字，填充只留给 hover / press 的一瞬 */
+[data-skin='nocturne'] .dock__nav--primary {
+  background: transparent; border: 1px solid var(--border); border-top: var(--nc-over-key);
+  color: var(--accent); font-weight: 600; letter-spacing: 0.06em;
+}
+
+/* 答案 dock：不要毛玻璃：实色 + 一条线。保持正常流（禁 fixed / 100vw） */
+[data-skin='nocturne'] .answer-dock { background: var(--bg); border-top: var(--nc-hair-strong); backdrop-filter: none; }
+/* 三枚无填充排印键：上划线分主次 + 大写词距，实心全部取消 */
+[data-skin='nocturne'] .answer-btn {
+  flex: 1 1 0; border: 0; border-top: var(--nc-over-sec); border-radius: 0; background: transparent;
+  padding: var(--space-3) var(--space-1) 0; min-height: 56px;
+  font-size: 15px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-secondary);
+}
+[data-skin='nocturne'] .answer-btn svg { flex: none; opacity: 0.72; }
+[data-skin='nocturne'] .answer-btn--known { border-top: var(--nc-over-key); color: var(--accent); font-weight: 600; flex-grow: 1.5; }
+[data-skin='nocturne'] .answer-btn--fuzzy { color: var(--text); }
+[data-skin='nocturne'] .answer-btn--unknown { color: var(--danger); } /* 红只在此处 = 「不认识」错词语义 */
+[data-skin='nocturne'] .answer-btn--ghost { border-top: var(--nc-over-quiet); color: var(--text-tertiary); }
+[data-skin='nocturne'] .answer-btn:focus-visible { outline: var(--nc-over-key); outline-offset: 3px; }
+
+/* 收尾页：章节起线 + 大字读数 */
+[data-skin='nocturne'] .session-done { gap: var(--space-4); padding-block: var(--space-6); border-top: var(--nc-hair-strong); }
+[data-skin='nocturne'] .session-done__kicker {
+  font-family: var(--font-sans); font-size: 13px; font-weight: 500; letter-spacing: 0.24em; color: var(--accent);
+}
+[data-skin='nocturne'] .session-done__title { font-size: var(--fs-display); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+[data-skin='nocturne'] .session-done__text { font-family: var(--nc-latin); font-size: 15px; font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .session-done__note {
+  font-size: 14px; line-height: 1.8; max-width: 44ch; padding-left: var(--space-4); border-left: 1px solid var(--border);
+}
+[data-skin='nocturne'] .session-done__actions { margin-top: var(--space-4); gap: var(--space-3); }
+
+/* ---------- 10. 学习日历：航海日志 / 星表 --------------------------------- */
+/* 结构动作：日卡拆掉纵列流水，改成两栏日志——左栏星表日期（等宽数字对齐一列），
+   右栏负荷读数排（发丝竖线分格，不再是胶囊）；读数带 = 四格星表，竖线分栏 */
+[data-skin='nocturne'] .cal { counter-reset: nc-sect; }
+[data-skin='nocturne'] .cal-hero { padding-bottom: var(--space-6); border-bottom: var(--nc-hair-strong); }
+/* 星表日期行：数字位落 Newsreader，CJK 落 Plex（--nc-latin 栈内回退） */
+[data-skin='nocturne'] .cal-kicker {
+  font-family: var(--nc-latin); font-size: 14px; font-weight: 500; letter-spacing: 0.14em;
+  text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+[data-skin='nocturne'] .cal-title { margin-top: var(--space-3); letter-spacing: 0; }
+/* 月名大标的可守替代：标题里的真数字做 44px 星表大字（拉丁月名 DOM 里没有，不硬造） */
+[data-skin='nocturne'] .cal-title b { font-family: var(--nc-latin); font-size: 44px; font-weight: 500; line-height: 1; color: var(--accent); }
+[data-skin='nocturne'] .cal-title__sep { font-family: var(--nc-latin); font-size: 28px; line-height: 1; color: var(--border-strong); }
+[data-skin='nocturne'] .cal-title__sub { font-family: var(--nc-latin); font-size: 15px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .cal-title__tag { border-radius: var(--radius-sm); font-family: var(--font-sans); }
+[data-skin='nocturne'] .cal-hero__reason { font-size: 14px; line-height: 1.7; }
+/* 读数四格：等宽大字 + 格间发丝竖线（星表分栏） */
+[data-skin='nocturne'] .cal-figures { gap: var(--space-4) 0; margin-top: var(--space-5); padding-top: var(--space-4); border-top: var(--nc-hair-line); }
+[data-skin='nocturne'] .cal-figure + .cal-figure { border-left: 1px solid var(--border); padding-left: var(--space-3); }
+[data-skin='nocturne'] .cal-figure dt { font-size: 13px; letter-spacing: 0.14em; }
+[data-skin='nocturne'] .cal-figure dd { font-family: var(--nc-latin); font-size: 26px; font-weight: 500; line-height: 1.2; }
+[data-skin='nocturne'] .cal-note { font-size: 14px; border-left-width: 1px; }
+[data-skin='nocturne'] .cal-note--warn { border-left-color: var(--warning); color: var(--warning); }
+[data-skin='nocturne'] .cal-hero__lede { font-size: 14px; color: var(--text-secondary); line-height: 1.75; }
+[data-skin='nocturne'] .cal-section { counter-increment: nc-sect; }
+[data-skin='nocturne'] .cal-section__head { padding-bottom: var(--space-3); border-bottom: var(--nc-hair-strong); }
+/* 章节题 = 衬线小标 + 前缀零填充编号（计数器是真结构，不是假数据） */
+[data-skin='nocturne'] .cal-section__head h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: 0.06em; }
+[data-skin='nocturne'] .cal-section__head h2::before {
+  content: counter(nc-sect, decimal-leading-zero); font-family: var(--nc-latin); font-weight: 500;
+  letter-spacing: 0.1em; color: var(--accent); margin-right: var(--space-3);
+}
+[data-skin='nocturne'] .cal-section__hint { font-family: var(--font-sans); font-size: 14px; font-weight: 400; letter-spacing: 0.04em; text-transform: none; }
+/* 日志行：钉死「头栏 + 右侧四行」的网格（行列都钉，防隐式列挤窄） */
+[data-skin='nocturne'] .cal-day {
+  display: grid; grid-template-columns: var(--nc-ledger-x) minmax(0, 1fr);
+  grid-template-rows: repeat(4, minmax(0, auto)); row-gap: 0; column-gap: var(--space-4);
+  align-content: start; padding-block: var(--space-4); border-bottom: var(--nc-hair-line);
+}
+[data-skin='nocturne'] .cal-day__head {
+  grid-column: 1; grid-row: 1 / span 4; flex-direction: column; align-items: flex-start; gap: 2px;
+}
+[data-skin='nocturne'] .cal-day__load { grid-column: 2; grid-row: 1; gap: var(--space-1) var(--space-3); }
+[data-skin='nocturne'] .cal-day__batches { grid-column: 2; grid-row: 2; margin-top: var(--space-2); }
+[data-skin='nocturne'] .cal-day__empty { grid-column: 2; grid-row: 3; margin-top: var(--space-2); font-size: 14px; }
+[data-skin='nocturne'] .cal-day__reason { grid-column: 2; grid-row: 4; margin-top: var(--space-2); }
+[data-skin='nocturne'] .cal-day__date {
+  font-family: var(--nc-latin); font-size: 19px; font-weight: 500; line-height: 1.25;
+  font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+}
+[data-skin='nocturne'] .cal-day__weekday { font-size: 13px; letter-spacing: 0.14em; }
+[data-skin='nocturne'] .cal-day__badge { border-radius: var(--radius-sm); font-size: 12px; letter-spacing: 0.08em; }
+[data-skin='nocturne'] .cal-day__badge--quiet { border-color: var(--border); color: var(--text-tertiary); }
+[data-skin='nocturne'] .cal-day--today .cal-day__date { font-weight: 600; }
+/* 负荷读数排：胶囊壳全拆，只留尾随发丝竖线分格（末格无线） */
+[data-skin='nocturne'] .cal-load {
+  border: 0; border-right: var(--nc-hair-line); border-radius: 0; background: transparent;
+  padding: 0 var(--space-3) 0 0; gap: 6px; font-size: 14px; color: var(--text-secondary);
+}
+[data-skin='nocturne'] .cal-day__load .cal-load:last-child { border-right: 0; padding-right: 0; }
+[data-skin='nocturne'] .cal-load__k { font-size: 12px; letter-spacing: 0.1em; color: var(--text-tertiary); }
+[data-skin='nocturne'] .cal-load__v { font-family: var(--nc-latin); font-size: 17px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .cal-load__u { font-size: 12px; color: var(--text-tertiary); }
+/* 主槽（复习）：分格线加重 + 数字升一级，绑真数据的强调，不是假刻度 */
+[data-skin='nocturne'] .cal-load--primary {
+  border: 0; border-right: var(--nc-hair-strong); background: transparent; padding: 0 var(--space-3) 0 0;
+  color: var(--text-secondary); font-size: 14px;
+}
+[data-skin='nocturne'] .cal-load--primary .cal-load__v { font-family: var(--nc-latin); font-size: 19px; font-weight: 600; color: var(--accent); }
+[data-skin='nocturne'] .cal-load__dot { width: 5px; height: 5px; border-radius: 0; }
+[data-skin='nocturne'] .cal-load--warn { border-right-color: var(--warning); color: var(--warning); }
+[data-skin='nocturne'] .cal-load--warn .cal-load__v { color: var(--warning); }
+/* 「确实没有」占位格：分格线改虚线，缺席有记号 */
+[data-skin='nocturne'] .cal-load--quiet { border-right: 1px dashed var(--border); color: var(--text-tertiary); }
+[data-skin='nocturne'] .cal-load--quiet .cal-load__v { color: var(--text-tertiary); font-size: 15px; }
+[data-skin='nocturne'] .cal-load--up { border-right: 0; padding-right: 0; color: var(--text-secondary); }
+/* 来源行：← 指回「这批词哪天学的」，等宽日期对齐 */
+[data-skin='nocturne'] .cal-batch { font-size: 14px; gap: var(--space-3); }
+[data-skin='nocturne'] .cal-batch__k { font-family: var(--nc-latin); min-width: 4.5em; letter-spacing: 0.03em; }
+[data-skin='nocturne'] .cal-batch__k::before { content: '←'; margin-right: 6px; color: var(--border-strong); }
+[data-skin='nocturne'] .cal-batch__v { font-family: var(--nc-latin); font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .cal-long__value { font-family: var(--nc-latin); font-size: 16px; font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .cal-long__note { font-size: 14px; line-height: 1.8; color: var(--text-secondary); }
+[data-skin='nocturne'] .cal-foot { font-family: var(--nc-latin); font-size: 14px; letter-spacing: 0.04em; } /* 数字条里夹着「目标/上限/未学」12 个汉字 */
+
+/* ---------- 11. 错词本：索引排印 ------------------------------------------ */
+/* 结构动作：每行做成检索条目「词 · 音标 · 释义」一行读到底（中间点是伪元素符号），
+   右侧错次 / 日期 / 排程成独立右栏靠齐；行壳仍是通栏发丝线，不是卡 */
+[data-skin='nocturne'] .mistakes__list { margin-top: var(--space-3); border-top: var(--nc-hair-strong); }
+[data-skin='nocturne'] .mistake-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline;
+  column-gap: var(--space-4); padding: var(--space-4) var(--space-2); border-radius: var(--radius-sm);
+  border-bottom: var(--nc-hair-line); background: transparent;
+}
+[data-skin='nocturne'] .mistake-row__main {
+  flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); row-gap: 2px;
+}
+[data-skin='nocturne'] .mistake-row__word { font-family: var(--nc-latin); font-size: 19px; font-weight: 500; }
+[data-skin='nocturne'] .mistake-row__meaning { font-size: 14px; color: var(--text-secondary); }
+/* 索引分隔点：只允许符号，不加文案 */
+[data-skin='nocturne'] .mistake-row__meaning::before { content: '·'; margin-right: 8px; color: var(--border-strong); }
+/* 右栏台账：错次（× = 红，错词语义位）/ 日期 / 排程，一行一条靠齐 */
+[data-skin='nocturne'] .mistake-row__meta { flex-direction: column; align-items: flex-end; gap: 3px; font-size: 12px; }
+[data-skin='nocturne'] .mistake-row__badge {
+  padding: 0; border: 0; border-radius: 0; background: transparent;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+[data-skin='nocturne'] .mistake-row__badge::before { content: '×'; margin-right: 4px; color: var(--danger); }
+[data-skin='nocturne'] .mistake-row__date { font-family: var(--nc-latin); font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .mistake-row__hint { font-size: 13px; max-width: 20ch; text-align: right; }
+/* 单测 meta 是成句 → 14px */
+[data-skin='nocturne'] .mistake-quiz__meta { font-size: 14px; line-height: 1.8; font-family: var(--nc-latin); }
+[data-skin='nocturne'] .mistakes-empty__text { font-size: 14px; line-height: 1.8; }
+
+/* ---------- 12. 我的：章节式文档 ------------------------------------------ */
+/* 结构动作：设置页当书稿——章节题是衬线小标 + 通栏粗线，读数是大数字排印（无方卡），
+   阶段选择拆掉按钮壳，做成双栏目录行（选中 = 底部粗线 + ✓ 排印记号） */
+[data-skin='nocturne'] .topbar__title { font-size: 16px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; }
+[data-skin='nocturne'] .profile {
+  gap: var(--space-5); padding-block: var(--space-5);
+  border-top: var(--nc-hair-strong); border-bottom: var(--nc-hair-line);
+}
+[data-skin='nocturne'] .avatar {
+  background: transparent; border: 1px solid var(--border-strong); border-radius: 50%;
+  color: var(--text); font-family: var(--font-serif); font-size: 22px; font-weight: 500;
+}
+[data-skin='nocturne'] .profile__name { font-size: 22px; letter-spacing: 0.02em; border-bottom: 1px solid var(--border-strong); }
+[data-skin='nocturne'] .profile__name:hover { border-bottom-color: var(--accent); }
+[data-skin='nocturne'] .profile__meta { font-family: var(--nc-latin); font-variant-numeric: tabular-nums; letter-spacing: 0.03em; }
+[data-skin='nocturne'] .section { padding-block: var(--space-6); border-top: var(--nc-hair-line); }
+[data-skin='nocturne'] .section__head { margin-bottom: var(--space-4); }
+/* 章节题：衬线小标（CJK 走宋体位，正是「书卷章题」要的） */
+[data-skin='nocturne'] .section__title {
+  font-family: var(--font-serif); font-size: 17px; font-weight: 600; letter-spacing: 0.1em; color: var(--text);
+}
+[data-skin='nocturne'] .section__hint { line-height: 1.8; }
+[data-skin='nocturne'] .section__hint--inline { font-family: var(--nc-latin); font-size: 14px; letter-spacing: 0.04em; }
+/* 阶段目录：壳全拆，双栏目录行，选中态 = 底部 accent 粗线 + ✓（符号，合规） */
+[data-skin='nocturne'] .stage-grid { margin-top: 0; column-gap: var(--space-5); row-gap: 0; }
+[data-skin='nocturne'] .stage-option {
+  border: 0; border-bottom: var(--nc-hair-line); border-radius: 0; background: transparent;
+  padding: var(--space-3) 0; min-height: 60px; gap: var(--space-1);
+}
+[data-skin='nocturne'] .stage-option[aria-pressed='true'] { border-bottom: var(--nc-over-key); background: transparent; }
+[data-skin='nocturne'] .stage-option[aria-pressed='true'] .stage-option__short::after {
+  content: '✓'; font-family: var(--nc-latin); font-size: 13px; color: var(--accent); margin-left: 2px;
+}
+[data-skin='nocturne'] .stage-option__short { font-size: 15px; }
+[data-skin='nocturne'] .stage-option__count { font-family: var(--nc-latin); font-size: 13px; letter-spacing: 0.03em; }
+[data-skin='nocturne'] .stage-option:disabled { opacity: 0.4; }
+/* 台账行：右列是成句释义 → 14px 换行，不硬撑一行 */
+[data-skin='nocturne'] .setting-row { min-height: 60px; border-bottom: var(--nc-hair-line); }
+[data-skin='nocturne'] .setting-row:last-child { border-bottom: 0; }
+[data-skin='nocturne'] .setting-row__value { font-size: 14px; max-width: 46%; line-height: 1.6; color: var(--text-tertiary); }
+/* 大读数：Newsreader 40px，单位是小字排印注记；进度轨 = 2px 实线 */
+[data-skin='nocturne'] .stat { gap: var(--space-3); margin-top: var(--space-4); }
+[data-skin='nocturne'] .stat__num { font-family: var(--nc-latin); font-size: 40px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+[data-skin='nocturne'] .progress-track { height: 2px; border-radius: 0; background: var(--border); }
+[data-skin='nocturne'] .progress-track__bar { border-radius: 0; background: var(--accent); }
+/* 步进器：胶囊改排印框，数字大字位 */
+[data-skin='nocturne'] .stepper { border-radius: var(--radius-sm); background: transparent; border-color: var(--border-strong); }
+[data-skin='nocturne'] .stepper__btn { color: var(--text-secondary); }
+[data-skin='nocturne'] .stepper__value { font-family: var(--nc-latin); font-size: 18px; font-weight: 500; }
+/* 危险区：红线 + 红字，红只用在这里的「清空」 */
+[data-skin='nocturne'] .section--danger-zone { border-top: 1px solid var(--danger); }
+
+/* ---------- 13. 浮层：文档排印 -------------------------------------------- */
+/* sheet 是平铺纸页：直角、顶部一条通栏粗线（底色画在真元素上），
+   head/foot 用发丝线分区；dialog 是小裁片 */
+[data-skin='nocturne'] .sheet {
+  border: 0; border-top: var(--nc-hair-strong); border-radius: 0;
+  background: var(--surface); box-shadow: none;
+}
+[data-skin='nocturne'] .sheet__head { padding-bottom: var(--space-3); border-bottom: var(--nc-hair-line); }
+[data-skin='nocturne'] .sheet__title { font-family: var(--font-serif); font-size: 19px; font-weight: 600; letter-spacing: 0.12em; }
+[data-skin='nocturne'] .sheet__desc { line-height: 1.75; }
+[data-skin='nocturne'] .sheet__foot { padding-top: var(--space-4); border-top: var(--nc-hair-line); }
+[data-skin='nocturne'] .dialog { border: var(--nc-hair-strong); border-radius: var(--radius-sm); background: var(--surface); box-shadow: none; }
+[data-skin='nocturne'] .dialog__title { font-family: var(--font-serif); font-size: 19px; font-weight: 600; letter-spacing: 0.08em; }
+[data-skin='nocturne'] .dialog__text { line-height: 1.8; }
+/* 外观面板：卡片壳拆成双栏目录行（顶线 = 归属），选中 = 粗顶线；
+   inset 描线壳在零阴影皮肤下重画成 border，色值全走本皮肤令牌 */
+[data-skin='nocturne'] .skin-grid { gap: 0 var(--space-5); }
+[data-skin='nocturne'] .skin-card {
+  border: 0; border-top: var(--nc-hair-strong); border-radius: 0; background: transparent;
+  padding: var(--space-3) 0; color: var(--text);
+}
+[data-skin='nocturne'] .skin-card[aria-pressed='true'] { border-top: var(--nc-over-key); box-shadow: none; }
+[data-skin='nocturne'] .skin-card__swatch { border: 1px solid var(--border-strong); border-radius: 0; }
+[data-skin='nocturne'] .skin-card__name { font-size: 15px; }
+[data-skin='nocturne'] .skin-card__tag { font-size: 13px; line-height: 1.6; }
+[data-skin='nocturne'] .skin-sheet__row { margin-top: var(--space-5); padding-top: var(--space-4); border-top: var(--nc-hair-line); }
+[data-skin='nocturne'] .skin-sheet__label { font-size: 13px; font-weight: 600; letter-spacing: 0.14em; color: var(--text-tertiary); }
+/* 浅色档 border == sunken 会「边融进底」，segmented 换 border-strong 描边 */
+[data-skin='nocturne'] .segmented { border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
+[data-skin='nocturne'] .segmented__item { border-radius: var(--radius-sm); }
+[data-skin='nocturne'] .segmented__item[aria-pressed='true'] { background: var(--surface-raised); color: var(--text); box-shadow: none; }
+/* 导入 sheet：录入区是版面里的凹版，汇总行用发丝线分带 */
+[data-skin='nocturne'] .textarea { border-radius: var(--radius-sm); border-color: var(--border-strong); background: var(--surface-sunken); font-size: 14px; line-height: 1.8; }
+[data-skin='nocturne'] .parse-summary { padding-top: var(--space-2); border-top: var(--nc-hair-line); }
+[data-skin='nocturne'] .parse-summary strong { font-family: var(--nc-latin); font-size: 16px; }
+/* 说明气泡：小裁片，直角 + 一条边线 */
+[data-skin='nocturne'] .hint__pop { border: var(--nc-hair-strong); border-radius: var(--radius-sm); background: var(--surface-raised); box-shadow: none; }
+[data-skin='nocturne'] .hint__title { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }
+[data-skin='nocturne'] .hint__text { font-size: 14px; line-height: 1.8; }
+[data-skin='nocturne'] .hint__btn { border-color: var(--border-strong); border-radius: 50%; }
+
+/* ---------- 14. 断点 ------------------------------------------------------- */
+/* ≥768：自己的字号阶梯 + 内容列对齐 */
+@media (min-width: 768px) {
+  [data-skin='nocturne'] {
+    --page-x: 32px;
+    --fs-h1: 24px;
+    --fs-h2: 19px;
+    --fs-phonetic: 14px;
+    --fs-word: clamp(28px, 3.4vw, 36px);
+    --fs-meaning: 16px;
+    --dock-height: 80px;
+  }
+  /* 顶栏贴 --content-max 居中，和 .screen 里的首页同轴 */
+  [data-skin='nocturne'] .topbar { padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2)); }
+  [data-skin='nocturne'] .start { padding-top: var(--space-4); max-width: var(--content-max); margin-inline: auto; }
+  [data-skin='nocturne'] .today-card__figures { column-gap: var(--space-5); }
+  [data-skin='nocturne'] .dock { border-radius: var(--radius-md); }
+  [data-skin='nocturne'] .cal-figures { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  [data-skin='nocturne'] .cal-figure + .cal-figure { padding-left: var(--space-4); }
+}
+
+/* 窄屏（<480）：错词条目的右栏折到条目下方，360 零溢出 */
+@media (max-width: 479px) {
+  [data-skin='nocturne'] .mistake-row { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-2); }
+  [data-skin='nocturne'] .mistake-row__meta { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; column-gap: var(--space-3); }
+  [data-skin='nocturne'] .mistake-row__hint { max-width: none; text-align: left; }
+}
+
+/* 窄屏（<400）：顶栏小标签整条让位，保住三个 44px 按钮 */
+@media (max-width: 399px) {
+  [data-skin='nocturne'] .topbar__meta { display: none; }
+}
+
+/* ---------- 15. hover：只在真指针上 -------------------------------------- */
+@media (hover: hover) {
+  [data-skin='nocturne'] .icon-btn:hover { border-color: var(--border-strong); color: var(--text); }
+  [data-skin='nocturne'] .avatar-btn:hover { background: var(--surface-sunken); transform: none; }
+  /* hover：填实 accent + on-accent 反字（唯一一次实心 accent 登场） */
+  [data-skin='nocturne'] .btn--primary:hover:not(:disabled) {
+    background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+  }
+  [data-skin='nocturne'] .btn--text:hover:not(:disabled) { background: transparent; color: var(--text); }
+  [data-skin='nocturne'] .btn--text.btn--danger-text:hover:not(:disabled) { background: transparent; color: var(--danger); }
+  [data-skin='nocturne'] .btn--danger:hover:not(:disabled) { background: var(--accent-weak); }
+  [data-skin='nocturne'] .word-row--peekable:hover { background: var(--row-hover); }
+  [data-skin='nocturne'] .dock__btn:not(:disabled):hover { color: var(--text); border-top-color: var(--accent); }
+  [data-skin='nocturne'] .dock__nav--primary:not(:disabled):hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  [data-skin='nocturne'] .dock__toggle:hover { filter: none; }
+  /* 排印键的 hover 是「划线」，永远不填充 */
+  [data-skin='nocturne'] .answer-btn:hover { color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; }
+  [data-skin='nocturne'] .answer-btn--known:hover { color: var(--accent-hover); }
+  [data-skin='nocturne'] .answer-btn--unknown:hover { color: var(--danger); }
+  [data-skin='nocturne'] .answer-btn--ghost:hover { color: var(--text-secondary); }
+  [data-skin='nocturne'] .flash-card__reveal:hover { color: var(--accent); border-bottom-style: solid; }
+  [data-skin='nocturne'] .segmented__item:hover { color: var(--text); }
+  [data-skin='nocturne'] .stage-option:hover { border-bottom-color: var(--border-strong); }
+  [data-skin='nocturne'] .mistake-row:hover { background: var(--row-hover); }
+  [data-skin='nocturne'] .skin-card:hover { border-top-color: var(--accent); }
+}
+
+/* ---------- 16. reduced-motion：过渡与位移全部收起 ------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='nocturne'] .btn,
+  [data-skin='nocturne'] .btn--primary,
+  [data-skin='nocturne'] .answer-btn,
+  [data-skin='nocturne'] .icon-btn,
+  [data-skin='nocturne'] .avatar-btn { transition: none; }
+  [data-skin='nocturne'] .btn:active,
+  [data-skin='nocturne'] .answer-btn:active,
+  [data-skin='nocturne'] .dock__btn:active:not(:disabled),
+  [data-skin='nocturne'] .avatar-btn:active { transform: none; }
+  [data-skin='nocturne'] .word-list,
+  [data-skin='nocturne'] .scrim,
+  [data-skin='nocturne'] .sheet,
+  [data-skin='nocturne'] .dialog { animation: none; }
+  [data-skin='nocturne'] .study-progress__bar { transition: none; }
+}

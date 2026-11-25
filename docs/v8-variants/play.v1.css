@@ -1,0 +1,417 @@
+/* ==========================================================================
+   词笺 · 皮肤「燃点 PLAY」—— v8 候选 B（规约 v2 + 调研报告 §4.B 实测值）
+   --------------------------------------------------------------------------
+   主张：能按的东西都要看起来能按 —— 厚底边 / 沉下去 / 回弹。三版里唯一做情绪推力的。
+   三个标志组件：① 厚按钮 56px 胶囊 + `0 6px 0` 底边，:active 沉 6px 且底边归零
+                ② 今日额度点阵：.start__meta 改成键帽槽 + 10 格圆点 + 旁边两个数字
+                ③ 三枚币：.today-card__figures = 复习 / 逾期 / 连击（连击币深墨字压亮橙）
+   低密度：readouts / masthead / eyebrow / lede / spec 全关；首屏只 3 个指标。
+   硬线：可点面压深到 --accent #c74a08（白字 4.76:1）；亮橙 #ffb84d 只做币面，绝不上白字；
+         红只给逾期 / 错词 / 危险；2 字体族；3 档全硬底边零模糊；不许蓝紫渐变。
+   分区：1 令牌·浅 / 2 令牌·深 / 3 基底 / 4 顶栏 / 5 首页 / 6 今日带 / 7 按钮 /
+        8 首页之外 / 9 断点 / 10 hover / 11 减少动效
+   ========================================================================== */
+
+/* ==========================================================================
+   1. 令牌 · 浅色（奶油纸 + 燃橙）
+   ========================================================================== */
+
+[data-skin='play'] {
+  color-scheme: light;
+  --bg: #fffbf2; --surface: #ffffff; --surface-raised: #ffffff; --surface-sunken: #f6eedf; /* 键帽槽 */
+  --border: #ebe1cc; --border-strong: #d8c7a6; /* --border 1.26:1 只做装饰线，不当状态边界 */
+  --text: #1b1524; --text-secondary: #57506a; --text-tertiary: #6e6780; /* 17.24 / 7.36 / 5.19:1 on --bg */
+  --accent: #c74a08; --accent-hover: #b44207; --accent-press: #a33c06; --accent-weak: #ffe9d2; --on-accent: #ffffff;
+  --success: #0f7a45; --warning: #a15c00; --danger: #b92a22; /* 5.23 / 5.03 / 5.95:1 on --bg */
+  --streak: #ffb84d; --on-streak: #2a1d00; /* 连击币：亮橙面 + 深墨字 9.59:1 */
+  --mask: #e7d4b2; /* 规约 #f1e4cc 在奶油上仅 1.26:1（看不见），压深到 1.45:1 + 点阵材质 */
+  --scrim: rgba(27, 21, 36, 0.45); --row-hover: rgba(27, 21, 36, 0.04); --toggle-on: #ffe9d2;
+
+  --pl-grot: 'Space Grotesk', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --pl-sans: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-sans: var(--pl-sans); --font-serif: var(--pl-grot); /* 衬线全部落到 Grotesk：数字 / 单词 / display 同一族 */
+
+  --fs-display: 38px; --fs-h1: 24px; --fs-h2: 19px; --fs-body: 16px; --fs-small: 14px; /* 中文标签下限 */
+  --fs-word: clamp(22px, 6vw, 28px); --fs-phonetic: 13px; --fs-meaning: 15px; --fs-load: 14px;
+  --page-x: 20px; --content-max: 640px; --app-max: 760px; --dock-height: 84px;
+  --radius-sm: 14px; --radius-md: 18px; --radius-lg: 28px; --radius-full: 999px;
+  --shadow-sm: 0 2px 0 rgba(27, 21, 36, 0.1); --shadow-md: 0 4px 0 rgba(27, 21, 36, 0.12); --shadow-lg: 0 6px 0 rgba(27, 21, 36, 0.14);
+  --duration-fast: 140ms; --duration-base: 200ms; --duration-slow: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --pl-coin: min(100%, 104px); /* 币的直径：格子给不满 104 就整体跟着缩，永不为椭圆 */
+  --pl-press: 140ms; /* 位移过渡：120–160ms ease-out */
+  --pl-lip: var(--border-strong); --pl-lip-accent: var(--accent-press); /* 厚底边两档：中性 / 燃橙 */
+  --pl-bevel: rgba(255, 255, 255, 0.5); /* 币面内上高光（浮雕） */
+  --pl-dot: var(--text-tertiary); /* 点阵格 + leader dots：压在键帽槽上 4.65:1，看得见（不做半死不活的灰点） */
+  --pl-mask-dot: #a33c06; /* 遮挡材质：压深橙的点，在 --mask 上 4.51:1 */
+  --pl-t: transform var(--pl-press) var(--ease-out), box-shadow var(--pl-press) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+/* ==========================================================================
+   2. 令牌 · 深色（墨紫底，燃橙提亮一档，文字改深墨压亮面 —— 不是反相）
+   ========================================================================== */
+
+[data-skin='play'][data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #14121a; --surface: #1f1b28; --surface-raised: #292334; --surface-sunken: #1a1622;
+  --border: #322b41; --border-strong: #463c59;
+  --text: #f3f1f7; --text-secondary: #ada6b8; --text-tertiary: #9a95a6; /* 16.56 / 7.16 / 6.39:1 on --bg */
+  --accent: #ffa24d; --accent-hover: #ffb36f; --accent-press: #e0832f; --accent-weak: #33231a; --on-accent: #1b1206;
+  --success: #4ed18a; --warning: #e6b877; --danger: #ff7a70; /* 9.56 / 10.16 / 7.31:1 on --bg */
+  --streak: #ffb84d; --on-streak: #2a1d00;
+  --mask: #3b3150; /* 规约 #2a2436 在 --surface 上仅 1.13:1，提到 1.40:1 */
+  --scrim: rgba(0, 0, 0, 0.62); --row-hover: rgba(243, 241, 247, 0.05); --toggle-on: #33231a;
+  /* 深色档阴影重定义：黑底边在暗底上会糊掉 → 改成亮一档的浮雕边 + 1px 内上高光，零模糊 */
+  --shadow-sm: 0 2px 0 #4a3f63; --shadow-md: 0 4px 0 #4a3f63; --shadow-lg: 0 6px 0 #4a3f63;
+  --pl-lip: #4a3f63; --pl-bevel: rgba(243, 241, 247, 0.09); --pl-mask-dot: #ffb36f; /* --pl-dot 跟着深色 --text-tertiary 解算 */
+  --fs-word: clamp(22px, 5.6vw, 27px);
+}
+
+/* ==========================================================================
+   3. 基底 —— 顶部一层极淡暖光、焦点环、遮挡材质
+   ========================================================================== */
+
+[data-skin='play'] body { background-color: var(--bg); color: var(--text); font-family: var(--font-sans); }
+[data-skin='play'] * { font-variant-numeric: tabular-nums; }
+
+/* 暖光只有 45% 不透明度的 --accent-weak → transparent；禁彩虹 / 禁蓝紫渐变，也不上阅读面 */
+[data-skin='play'] .app {
+  background-color: var(--bg);
+  background-image: radial-gradient(135% 40% at 50% 0%, color-mix(in srgb, var(--accent-weak) 45%, transparent) 0%, transparent 68%);
+  background-repeat: no-repeat;
+}
+
+[data-skin='play'] ::selection { background: var(--accent); color: var(--on-accent); }
+[data-skin='play'] .app__main { scrollbar-color: var(--border-strong) transparent; }
+
+/* 焦点环：墨色 3px + 2px 空气（不用 accent 描在 accent 底上） */
+[data-skin='play'] :focus-visible { outline: 3px solid var(--text); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* 遮挡：糖果「刮刮面」——压深的 caramel 底 + 规则橙点 + 1.5px 内圈 */
+[data-skin='play'] .masked {
+  background-color: var(--mask);
+  background-image: radial-gradient(circle at 50% 50%, var(--pl-mask-dot) 1.5px, transparent 1.6px);
+  background-size: 8px 8px; border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mask) 70%, var(--text));
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+
+/* ==========================================================================
+   4. 顶栏 —— 色带（不是白底）：--accent-weak 面 + 底部 2px 燃橙
+   ========================================================================== */
+
+[data-skin='play'] .topbar { gap: var(--space-2); background: var(--accent-weak); border-bottom: 2px solid var(--accent); }
+[data-skin='play'] .topbar--bordered { border-bottom-color: var(--accent); }
+[data-skin='play'] .brand { gap: 8px; min-width: 0; }
+[data-skin='play'] .brand__name { font-family: var(--font-serif); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+[data-skin='play'] .brand__dot { width: 8px; height: 8px; background: var(--accent); transform: none; }
+
+/* ==========================================================================
+   5. 首页 —— 低密度：kicker 胶囊 + 38px hero + 额度点阵 + 厚按钮 + 报尾
+   ========================================================================== */
+
+/* 关掉：读数列 / 报头 / eyebrow（信息与点阵重复）/ lede（大圆角吃纵向）/ 工单表 */
+[data-skin='play'] .topbar__meta, [data-skin='play'] .readouts, [data-skin='play'] .start__masthead,
+[data-skin='play'] .start__eyebrow, [data-skin='play'] .start__lede, [data-skin='play'] .start__spec { display: none; }
+
+[data-skin='play'] .start { justify-content: flex-start; padding-top: var(--space-4); }
+
+/* 「四级 · DAILY LIST」实心胶囊：14px/700（含中文，不许掉到 12px），白字压在 #c74a08 = 4.76:1 */
+[data-skin='play'] .start__kicker {
+  display: inline-flex; align-self: flex-start; padding: 6px 14px;
+  background: var(--accent); color: var(--on-accent); border-radius: var(--radius-full);
+  font-family: var(--font-serif); font-size: 14px; font-weight: 700; line-height: 1.25; letter-spacing: 0.03em;
+  box-shadow: 0 3px 0 var(--pl-lip-accent);
+}
+
+/* 固定节拍（不靠居中留白）：kicker →16→ hero →20→ 点阵 →12→ 数字 →28→ 主按钮 →32→ 今日带 */
+[data-skin='play'] .start__body { margin-block: 0; }
+[data-skin='play'] .start__title {
+  margin-top: var(--space-4); font-family: var(--font-serif); font-size: var(--fs-display); font-weight: 700;
+  line-height: 1.08; letter-spacing: -0.025em; color: var(--text);
+}
+
+/* 额度点阵：键帽槽 + 10 格圆点（装饰，不代表已学几位），旁边只留今日额度 / 已学两个数字 */
+[data-skin='play'] .start__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin-top: 20px; }
+[data-skin='play'] .start__meta::before {
+  content: ''; flex: 1 1 100%; order: -1; height: 24px; border-radius: var(--radius-full);
+  background-color: var(--surface-sunken);
+  background-image: radial-gradient(circle at 50% 50%, var(--pl-dot) 4px, transparent 4.5px);
+  background-size: 10% 100%; background-repeat: repeat-x;
+}
+[data-skin='play'] .start__meta span { color: var(--text-secondary); font-size: var(--fs-small); }
+[data-skin='play'] .start__meta b { font-family: var(--font-serif); font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+[data-skin='play'] .start__actions { margin-top: 28px; }
+
+/* 报尾：胶囊 + leader dots；剩余空白全部落在报尾之前（margin-top: auto 钉底） */
+[data-skin='play'] .start__foot {
+  gap: var(--space-2); margin-top: auto; padding: 6px 12px; border-radius: var(--radius-full);
+  background: var(--surface-sunken); color: var(--text-tertiary); font-size: var(--fs-small);
+}
+[data-skin='play'] .start__rule { height: 8px; background: none; background-image: radial-gradient(circle at 50% 50%, var(--pl-dot) 2px, transparent 2.5px); background-size: 10px 8px; background-repeat: repeat-x; }
+/* 报尾本身已是键帽槽底，里面的链接胶囊改白面才分得出来 */
+[data-skin='play'] .start__foot .btn--text { background: var(--surface); }
+
+/* ==========================================================================
+   6. 今日带 —— 去掉卡片盒：日期 + 两个一级入口 + 三枚币 + 一行说明
+   ========================================================================== */
+
+[data-skin='play'] .today-card { margin-top: var(--space-6); padding: 0; gap: var(--space-4); background: none; border: 0; border-radius: 0; box-shadow: none; }
+[data-skin='play'] .today-card__head { flex-wrap: wrap; gap: var(--space-2); }
+[data-skin='play'] .today-card__label { font-family: var(--font-serif); font-size: var(--fs-small); font-weight: 700; color: var(--text-secondary); }
+[data-skin='play'] .today-card__links { margin-left: auto; gap: var(--space-2); }
+[data-skin='play'] .today-card__figures {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2);
+  align-items: start; justify-items: center; /* 币在各自格子里居中，别被拉宽 */
+}
+
+/* 第 1 格「新词」与点阵旁的数字重复（取证结论 2）→ 降级成右对齐的角标条 */
+[data-skin='play'] .today-card__figure:nth-child(1) {
+  grid-column: 1 / -1; justify-self: stretch; justify-content: flex-end; align-items: center; gap: 6px;
+  min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; font-size: 0;
+}
+[data-skin='play'] .today-card__figure:nth-child(1) b { display: none; }
+[data-skin='play'] .today-card__figure:nth-child(1) > span { font-size: var(--fs-small); }
+[data-skin='play'] .today-card__tag { padding: 2px 10px; border: 2px solid var(--accent); border-radius: var(--radius-full); font-family: var(--font-serif); font-weight: 700; color: var(--accent); }
+
+/* 三枚币：复习 / 逾期 / 连击 —— 正方形 + aspect-ratio 锁死，绝不出椭圆；硬底边 + 内上高光 = 浮雕 */
+[data-skin='play'] .today-card__figure:nth-child(n + 2) {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: var(--pl-coin); aspect-ratio: 1 / 1; padding: 6px;
+  border: 2px solid var(--border-strong); border-radius: var(--radius-full);
+  background: var(--surface); box-shadow: var(--shadow-md), inset 0 2px 0 var(--pl-bevel);
+  color: var(--text-secondary); font-size: var(--fs-small); line-height: 1.2; text-align: center;
+  white-space: normal; overflow-wrap: anywhere; /* 极端长的「128/150」在币内折行，绝不溢出成横向滚动 */
+}
+[data-skin='play'] .today-card__figure b { font-family: var(--font-serif); font-size: clamp(17px, 4.6vw, 22px); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--text); }
+
+/* 逾期币：红色只在「真的欠了」时出现（取证结论 1：首页常态不许用红） */
+[data-skin='play'] .today-card__figure:nth-child(3) b.is-warn { color: var(--danger); }
+[data-skin='play'] .today-card__figure:nth-child(3):has(.is-warn) { border-color: var(--danger); box-shadow: var(--shadow-md), inset 0 2px 0 var(--pl-bevel), inset 0 0 0 1px var(--danger); }
+
+/* 连击币：亮橙面 + 深墨字（9.59:1），绝不用白字 */
+[data-skin='play'] .today-card__figure:nth-child(4) {
+  border-color: color-mix(in srgb, var(--streak) 72%, var(--text)); background: var(--streak); color: var(--on-streak);
+  box-shadow: var(--shadow-md), inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+[data-skin='play'] .today-card__figure:nth-child(4) b { color: var(--on-streak); }
+
+/* 说明条：14px 压在 --accent-weak 圆角条上（t2 on weak = 6.46:1） */
+[data-skin='play'] .today-card__reason {
+  padding: 10px 14px; border-radius: var(--radius-md); background: var(--accent-weak);
+  color: var(--text-secondary); font-size: var(--fs-small); line-height: 1.55;
+}
+/* 减量 / 暂停：warning 压在 weak 上只有 4.41:1，文字留墨色，状态改用 4px 琥珀侧条 */
+[data-skin='play'] .today-card__reason.is-decrease, [data-skin='play'] .today-card__reason.is-paused { color: var(--text); box-shadow: inset 4px 0 0 var(--warning); }
+[data-skin='play'] .today-card__reason.is-increase { color: var(--text-secondary); }
+
+/* ==========================================================================
+   7. 按钮 —— 一套按压材质：厚底边 → 沉下去 → 底边收小 / 归零
+   ========================================================================== */
+
+/* 所有 700 字重的地方都走 Grotesk（Plex Sans 只托管到 600，700 会变成假粗） */
+[data-skin='play'] .btn { min-height: 48px; padding: 0 var(--space-5); border-radius: var(--radius-full); font-family: var(--font-serif); font-weight: 700; transition: var(--pl-t); }
+[data-skin='play'] .btn:active { transform: none; } /* 基础档的 scale(0.985) 关掉，位移只走下面各档 */
+
+/* ① 厚按钮：56 胶囊 + 6px 底边；按下沉 6px、底边归零（Duolingo 材质，本项目最辨识的一条） */
+[data-skin='play'] .btn--primary { min-height: 56px; background: var(--accent); color: var(--on-accent); border-color: transparent; font-size: 19px; font-weight: 700; box-shadow: 0 6px 0 var(--pl-lip-accent); }
+[data-skin='play'] .btn--primary:active:not(:disabled) { transform: translateY(6px); background: var(--accent-hover); box-shadow: 0 0 0 var(--pl-lip-accent); }
+[data-skin='play'] .btn--block { min-height: 56px; font-size: 19px; }
+
+/* 次级 / 文字 / 图标 / 头像：同一套厚 + 回弹，位移 2–3px（别抖） */
+[data-skin='play'] .btn--secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); box-shadow: 0 4px 0 var(--pl-lip); }
+[data-skin='play'] .btn--secondary:active:not(:disabled) { transform: translateY(3px); background: var(--surface-sunken); box-shadow: 0 1px 0 var(--pl-lip); }
+[data-skin='play'] .btn--text, [data-skin='play'] .btn--compact {
+  min-height: 44px; padding: 0 var(--space-3); background: var(--surface-sunken); color: var(--text-secondary);
+  font-size: var(--fs-small); box-shadow: 0 3px 0 var(--pl-lip);
+}
+[data-skin='play'] .btn--text:active:not(:disabled), [data-skin='play'] .btn--compact:active:not(:disabled) { transform: translateY(2px); background: var(--surface); box-shadow: 0 1px 0 var(--pl-lip); }
+[data-skin='play'] .btn--danger { background: var(--surface); color: var(--danger); border-color: var(--danger); box-shadow: 0 4px 0 var(--danger); }
+[data-skin='play'] .btn--danger:active:not(:disabled) { transform: translateY(3px); background: var(--accent-weak); box-shadow: 0 1px 0 var(--danger); }
+[data-skin='play'] .btn--danger-text { background: transparent; box-shadow: none; color: var(--danger); }
+[data-skin='play'] .btn:disabled { opacity: 1; background: var(--surface-sunken); color: var(--text-tertiary); border-color: var(--border); box-shadow: 0 4px 0 var(--border); }
+
+[data-skin='play'] .icon-btn { width: 44px; height: 44px; background: var(--surface); border: 2px solid var(--border); color: var(--text-secondary); box-shadow: 0 3px 0 var(--pl-lip); transition: var(--pl-t); }
+[data-skin='play'] .icon-btn:active { transform: translateY(2px); background: var(--surface-sunken); box-shadow: 0 1px 0 var(--pl-lip); }
+[data-skin='play'] .avatar-btn {
+  width: 44px; height: 44px; background: var(--accent); border: 2px solid var(--accent-press); color: var(--on-accent);
+  font-family: var(--font-serif); font-size: 17px; font-weight: 700; box-shadow: 0 3px 0 var(--pl-lip-accent); transition: var(--pl-t);
+}
+[data-skin='play'] .avatar-btn:active { transform: translateY(2px); background: var(--accent-press); box-shadow: 0 0 0 var(--pl-lip-accent); }
+
+/* ==========================================================================
+   8. 首页之外 —— 令牌会带到的每一页都补齐，不留半套
+   ========================================================================== */
+
+/* 列表：厚字 + 紧字距；行框仍靠 --border */
+[data-skin='play'] .word-list { border-top: 2px solid var(--border-strong); }
+[data-skin='play'] .word-row { border-bottom-color: var(--border); }
+[data-skin='play'] .word-row__word, [data-skin='play'] .flash-card__word { font-weight: 700; letter-spacing: -0.02em; }
+[data-skin='play'] .word-row__index { font-family: var(--font-serif); font-size: 13px; font-weight: 700; letter-spacing: 0; color: var(--text-tertiary); }
+[data-skin='play'] .word-row__ph { font-size: var(--fs-phonetic); }
+[data-skin='play'] .word-row--peekable:active { transform: translateY(2px); }
+
+/* 复习卡：一枚大「币盒」 */
+[data-skin='play'] .flash-card {
+  padding: var(--space-5); border: 2px solid var(--border-strong); border-radius: var(--radius-lg);
+  background: var(--surface); box-shadow: var(--shadow-md), inset 0 2px 0 var(--pl-bevel);
+}
+[data-skin='play'] .flash-card__reveal { font-size: var(--fs-small); font-weight: 700; color: var(--text-secondary); border-bottom: 2px dashed var(--border-strong); }
+[data-skin='play'] .session-toast { font-size: var(--fs-small); border-left: 4px solid var(--warning); color: var(--text); }
+
+/* 控制条：键帽槽底 + 2px 上沿 + 四枚厚键 */
+[data-skin='play'] .dock { padding: var(--space-2) var(--page-x) calc(var(--space-2) + env(safe-area-inset-bottom)); background: var(--surface-sunken); border-top: 2px solid var(--border-strong); }
+[data-skin='play'] .dock__btn {
+  min-height: 56px; gap: 2px; padding: var(--space-1) 6px; border: 2px solid var(--border-strong);
+  border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: var(--fs-small);
+  font-weight: 700; box-shadow: 0 4px 0 var(--pl-lip); transition: var(--pl-t);
+}
+[data-skin='play'] .dock__btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--pl-lip); }
+[data-skin='play'] .dock__state { font-size: var(--fs-small); font-weight: 500; letter-spacing: 0.02em; opacity: 1; color: var(--text-secondary); }
+[data-skin='play'] .dock__toggle[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: 0 4px 0 var(--pl-lip-accent); }
+[data-skin='play'] .dock__toggle[aria-pressed='true'] .dock__state { color: var(--on-accent); }
+[data-skin='play'] .dock__toggle[aria-pressed='false'] { background: var(--surface); border-style: dashed; border-color: var(--border-strong); color: var(--text-secondary); }
+[data-skin='play'] .dock__nav { background: var(--surface); color: var(--text-secondary); }
+[data-skin='play'] .dock__nav--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: 0 4px 0 var(--pl-lip-accent); }
+[data-skin='play'] .dock__btn:disabled { opacity: 1; background: var(--surface-sunken); border-color: var(--border); color: var(--text-tertiary); box-shadow: 0 4px 0 var(--border); }
+
+/* 答案键：三枚厚键坐在槽里（正常流，绝不 fixed / 100vw） */
+[data-skin='play'] .answer-dock { padding: var(--space-3) var(--page-x) calc(var(--space-3) + env(safe-area-inset-bottom)); background: var(--surface-sunken); border-top: 2px solid var(--border-strong); backdrop-filter: none; }
+[data-skin='play'] .answer-btn {
+  min-height: 56px; border: 2px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface);
+  color: var(--text); font-size: 16px; font-weight: 700; box-shadow: 0 4px 0 var(--pl-lip); transition: var(--pl-t);
+}
+[data-skin='play'] .answer-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--pl-lip); }
+[data-skin='play'] .answer-btn--known { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: 0 4px 0 var(--pl-lip-accent); }
+[data-skin='play'] .answer-btn--known:active:not(:disabled) { background: var(--accent-hover); box-shadow: 0 0 0 var(--pl-lip-accent); }
+[data-skin='play'] .answer-btn--unknown { color: var(--danger); border-color: var(--danger); box-shadow: 0 4px 0 var(--danger); }
+[data-skin='play'] .answer-btn--unknown:active:not(:disabled) { box-shadow: 0 1px 0 var(--danger); }
+[data-skin='play'] .answer-btn--ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--text-secondary); }
+
+/* 浮层：厚底边重新声明（吸底抽屉向上出边，对话框向下） */
+[data-skin='play'] .scrim { background: var(--scrim); }
+[data-skin='play'] .sheet { border-top: 2px solid var(--border-strong); border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--surface); box-shadow: 0 -4px 0 rgba(27, 21, 36, 0.12); }
+[data-skin='play'][data-theme='dark'] .sheet { box-shadow: 0 -4px 0 #4a3f63; }
+[data-skin='play'] .dialog { border: 2px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-lg); }
+[data-skin='play'] .sheet__title, [data-skin='play'] .dialog__title, [data-skin='play'] .empty__title,
+[data-skin='play'] .section__title { font-family: var(--font-serif); font-weight: 700; letter-spacing: -0.02em; }
+[data-skin='play'] .sheet__desc, [data-skin='play'] .dialog__text, [data-skin='play'] .empty__text { font-size: var(--fs-small); line-height: 1.65; color: var(--text-secondary); }
+[data-skin='play'] .textarea { border: 2px solid var(--border-strong); border-radius: var(--radius-md); font-size: var(--fs-small); }
+
+/* 我的 / 设置：槽 + 厚键；含中文的小标签一律抬到 14px */
+[data-skin='play'] .section { border-top: 2px solid var(--border-strong); }
+[data-skin='play'] .section__title, [data-skin='play'] .section__hint, [data-skin='play'] .setting-row__value,
+[data-skin='play'] .stat__unit, [data-skin='play'] .stage-option__desc, [data-skin='play'] .stage-option__count,
+[data-skin='play'] .profile__meta, [data-skin='play'] .cal-figure dt { font-size: var(--fs-small); color: var(--text-secondary); letter-spacing: 0; }
+[data-skin='play'] .stat__num { font-family: var(--font-serif); font-size: 34px; font-weight: 700; letter-spacing: -0.03em; }
+[data-skin='play'] .segmented { gap: 4px; padding: 5px; border-radius: var(--radius-md); background: var(--surface-sunken); }
+[data-skin='play'] .segmented__item { border-radius: var(--radius-sm); font-size: var(--fs-small); font-weight: 700; }
+[data-skin='play'] .segmented__item[aria-pressed='true'] { background: var(--surface); box-shadow: 0 2px 0 var(--pl-lip); }
+[data-skin='play'] .stage-option { border: 2px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+[data-skin='play'] .stage-option[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-weak); box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 30%, transparent); }
+[data-skin='play'] .stage-option__short, [data-skin='play'] .setting-row__label { font-weight: 700; }
+[data-skin='play'] .progress-track { height: 14px; padding: 2px; background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--border); }
+[data-skin='play'] .progress-track__bar { background-color: var(--accent); background-image: radial-gradient(circle at 50% 50%, var(--accent-weak) 1.5px, transparent 1.6px); background-size: 8px 100%; }
+
+/* 日历：币的缩小版 */
+[data-skin='play'] .cal-day { border: 2px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-sm), inset 0 2px 0 var(--pl-bevel); }
+[data-skin='play'] .cal-day--today { border-color: var(--accent); }
+[data-skin='play'] .cal-day__badge { padding: 2px 10px; border: 0; background: var(--accent); color: var(--on-accent); font-size: var(--fs-small); font-weight: 700; letter-spacing: 0; }
+[data-skin='play'] .cal-day__badge--quiet { background: var(--surface-sunken); border: 2px solid var(--border-strong); color: var(--text-secondary); }
+[data-skin='play'] .cal-day__weekday, [data-skin='play'] .cal-batch__k, [data-skin='play'] .cal-day__empty,
+[data-skin='play'] .cal-day__reason, [data-skin='play'] .cal-note, [data-skin='play'] .cal-section__hint { font-size: var(--fs-small); }
+[data-skin='play'] .cal-load, [data-skin='play'] .cal-title__tag { border-width: 2px; border-color: var(--border-strong); font-weight: 700; }
+[data-skin='play'] .cal-note--warn { border-left: 4px solid var(--warning); color: var(--text); }
+
+/* 空状态别散架：只剩标题 + 一句说明 + 一枚厚按钮 */
+[data-skin='play'] .empty { gap: var(--space-3); padding: var(--space-7) 0; }
+[data-skin='play'] .mistakes-empty__title { font-family: var(--font-serif); font-weight: 700; letter-spacing: -0.02em; }
+/* 学习中副行 + 错词本：中文小标签全部抬到 14px（13px 以下只给拉丁 / 数字） */
+[data-skin='play'] .study-bar__sub, [data-skin='play'] .mistake-row__meaning,
+[data-skin='play'] .mistake-row__meta, [data-skin='play'] .mistake-quiz__meta,
+[data-skin='play'] .mistakes-empty__text { font-size: var(--fs-small); color: var(--text-secondary); }
+[data-skin='play'] .mistake-row__word, [data-skin='play'] .mistake-row__badge { font-weight: 700; }
+
+/* IBM Plex Sans 只托管到 600：凡 700 字重一律落到 Space Grotesk（中文自动回退系统粗体） */
+[data-skin='play'] .dock__btn, [data-skin='play'] .answer-btn, [data-skin='play'] .segmented__item,
+[data-skin='play'] .flash-card__reveal, [data-skin='play'] .cal-day__badge, [data-skin='play'] .cal-load,
+[data-skin='play'] .cal-title__tag, [data-skin='play'] .stage-option__short, [data-skin='play'] .setting-row__label,
+[data-skin='play'] .skin-card__name, [data-skin='play'] .skin-sheet__label, [data-skin='play'] .mistake-row__badge {
+  font-family: var(--font-serif);
+}
+
+/* 外观选择卡：长成当前皮肤的币 + 厚边 */[data-skin='play'] .skin-card { gap: var(--space-2); padding: var(--space-2); border: 2px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+[data-skin='play'] .skin-card[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-weak); box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 30%, transparent); }
+[data-skin='play'] .skin-card__name, [data-skin='play'] .skin-sheet__label { font-size: var(--fs-small); font-weight: 700; }
+[data-skin='play'] .skin-card__latin { font-size: 13px; } /* 拉丁 / 数字小标签才允许 13px */
+[data-skin='play'] .skin-card__tag { font-size: var(--fs-small); }
+
+/* ==========================================================================
+   9. 768+ —— 自己的一档令牌 + 主卡 / 三币 2:1 分栏（CTA 仍通栏在左栏）
+   ========================================================================== */
+
+@media (min-width: 768px) {
+  [data-skin='play'] {
+    --page-x: 32px; --fs-display: 44px; --fs-h1: 26px; --fs-h2: 21px; --fs-small: 14px;
+    --fs-word: clamp(26px, 3vw, 30px); --fs-phonetic: 14px; --fs-meaning: 16px;
+    --content-max: 640px; --dock-height: 88px;
+  }
+  [data-skin='play'] .start { padding-top: var(--space-6); }
+  [data-skin='play'] .start__body {
+    display: grid; grid-template-columns: minmax(0, 1fr) 296px; align-items: start;
+    column-gap: var(--space-6); row-gap: 20px; max-width: var(--content-max);
+  }
+  [data-skin='play'] .start__title { grid-column: 1; grid-row: 1; margin-top: 0; }
+  [data-skin='play'] .start__meta { grid-column: 1; grid-row: 2; margin-top: 0; }
+  [data-skin='play'] .start__actions { grid-column: 1; grid-row: 3; margin-top: 0; }
+  [data-skin='play'] .today-card { grid-column: 2; grid-row: 1 / span 3; margin-top: 0; }
+  /* 币的行高由 aspect-ratio 决定，跨 3 行的币排比左栏高时多出的空白只落在最后一行（CTA 下方），
+     不会把 kicker→hero→点阵→CTA 的节拍撑开；日期与两个入口靠 flex-wrap 换行 */
+  [data-skin='play'] .start__foot { max-width: var(--content-max); }
+  [data-skin='play'] .dock { width: 100%; max-width: var(--content-max); margin: 0 auto var(--space-4); padding: var(--space-2); border: 2px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+  [data-skin='play'] .dock__btn { min-height: 60px; }
+  [data-skin='play'] .word-row { padding-block: var(--space-4); }
+}
+
+/* ==========================================================================
+   10. hover —— 只给真指针：抬 1px + 底边长 1px，位移绝不超过 2px
+   ========================================================================== */
+
+@media (hover: hover) {
+  [data-skin='play'] .btn--primary:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 7px 0 var(--pl-lip-accent); }
+  [data-skin='play'] .btn--secondary:hover:not(:disabled) { background: var(--surface-sunken); transform: translateY(-1px); box-shadow: 0 5px 0 var(--pl-lip); }
+  [data-skin='play'] .btn--text:hover:not(:disabled), [data-skin='play'] .btn--compact:hover:not(:disabled) { background: var(--surface); color: var(--text); transform: translateY(-1px); box-shadow: 0 4px 0 var(--pl-lip); }
+  [data-skin='play'] .btn--danger:hover:not(:disabled) { background: var(--accent-weak); transform: translateY(-1px); }
+  [data-skin='play'] .icon-btn:hover { background: var(--surface-raised); color: var(--text); transform: translateY(-1px); box-shadow: 0 4px 0 var(--pl-lip); }
+  [data-skin='play'] .avatar-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 0 var(--pl-lip-accent); }
+  [data-skin='play'] .dock__btn:hover:not(:disabled) { background: var(--surface-raised); transform: translateY(-1px); box-shadow: 0 5px 0 var(--pl-lip); }
+  [data-skin='play'] .answer-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 0 var(--pl-lip); }
+  [data-skin='play'] .answer-btn--unknown:hover:not(:disabled) { box-shadow: 0 5px 0 var(--danger); }
+  [data-skin='play'] .answer-btn--ghost:hover:not(:disabled) { color: var(--text); transform: none; box-shadow: none; }
+  [data-skin='play'] .dock__toggle[aria-pressed='true']:hover:not(:disabled), [data-skin='play'] .dock__nav--primary:hover:not(:disabled),
+  [data-skin='play'] .answer-btn--known:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); box-shadow: 0 5px 0 var(--pl-lip-accent); }
+  [data-skin='play'] .stage-option:hover, [data-skin='play'] .segmented__item:hover, [data-skin='play'] .cal-day:hover,
+  [data-skin='play'] .skin-card:hover { border-color: var(--accent); }
+  [data-skin='play'] .skin-card:hover { background: var(--accent-weak); }
+}
+
+/* ==========================================================================
+   11. reduced-motion —— 位移全关，反馈改由颜色与底边表达
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='play'] *, [data-skin='play'] *::before, [data-skin='play'] *::after { transition-duration: 1ms; animation-duration: 1ms; animation-delay: 0ms; }
+  [data-skin='play'] .btn--primary:active:not(:disabled), [data-skin='play'] .btn--primary:hover:not(:disabled),
+  [data-skin='play'] .btn--secondary:active:not(:disabled), [data-skin='play'] .btn--secondary:hover:not(:disabled),
+  [data-skin='play'] .btn--text:active:not(:disabled), [data-skin='play'] .btn--compact:active:not(:disabled),
+  [data-skin='play'] .btn--danger:active:not(:disabled), [data-skin='play'] .icon-btn:active, [data-skin='play'] .icon-btn:hover,
+  [data-skin='play'] .avatar-btn:active, [data-skin='play'] .avatar-btn:hover, [data-skin='play'] .dock__btn:active:not(:disabled),
+  [data-skin='play'] .dock__btn:hover:not(:disabled), [data-skin='play'] .answer-btn:active:not(:disabled),
+  [data-skin='play'] .answer-btn:hover:not(:disabled), [data-skin='play'] .word-row--peekable:active { transform: none; }
+  /* 按下仍然「到底」：底边由 6px 收到 1px，用阴影而不是位移说「按到了」 */
+  [data-skin='play'] .btn--primary:active:not(:disabled) { background: var(--accent-hover); box-shadow: 0 1px 0 var(--pl-lip-accent); }
+  [data-skin='play'] .dock__btn:active:not(:disabled), [data-skin='play'] .answer-btn:active:not(:disabled) { box-shadow: 0 0 0 var(--pl-lip); }
+}

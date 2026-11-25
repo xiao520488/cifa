@@ -47,6 +47,15 @@
   --scale: #b4bbc4;
   --dot: #7a828b;
 
+  /* 首屏读数带 / 量具刻度表（面板底、无方向点阵、读数窗、窗内数字、通道码） */
+  --band-bg: #e9ecef;
+  --band-dot: rgba(12, 16, 19, 0.1);
+  --band-grid: 7px;
+  --win-bg: #f8f9fa;
+  --win-text: #0c1013;
+  /* 通道码底色是 band-bg，tertiary 在该底上不足 4.5:1，压深一档 */
+  --ch: #4f565e;
+
   /* 字号阶梯 */
   --fs-display: 30px;
   --fs-h1: 24px;
@@ -121,6 +130,13 @@
 
   --dot: #3a4149;
   --scale: #3d444d;
+
+  /* 读数带深色档：面板比页面底亮一档（raised），读数窗反向沉到纯黑 */
+  --band-bg: #171b21;
+  --band-dot: rgba(230, 232, 235, 0.07);
+  --win-bg: #0b0d0f;
+  --win-text: #e6e8eb;
+  --ch: #98a0a9;
 }
 
 /* ---------- 3. 外壳与顶栏 ------------------------------------------------ */
@@ -230,50 +246,89 @@
   letter-spacing: 0.04em;
 }
 
-/* 三个读数块 */
+/* 三联读数表盘 —— 首页首屏焦点。数字全来自调度引擎（今日/批数/已学），
+   面板只做无方向点阵纹理 + 框线，绝不画假指针、假填充、假环形。 */
 [data-skin='instrument'] .readouts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding-inline: var(--page-x);
-  border-bottom: 1px solid var(--border);
+  align-items: stretch;
+  padding: var(--space-3) var(--page-x) var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
+  /* 底色画在真元素上 */
+  background-color: var(--band-bg);
+  background-image: radial-gradient(circle, var(--band-dot) 0.8px, transparent 0.9px);
+  background-size: var(--band-grid) var(--band-grid);
 }
 
 [data-skin='instrument'] .readout {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  justify-content: center;
+  gap: 5px;
   min-width: 0;
-  padding: 6px 0 8px;
+  padding-left: var(--space-3);
+}
+
+[data-skin='instrument'] .readout:first-child {
+  padding-left: 0;
 }
 
 [data-skin='instrument'] .readout:nth-child(2),
 [data-skin='instrument'] .readout:nth-child(3) {
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--border-strong);
 }
 
 [data-skin='instrument'] .readout__k {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.14em;
   line-height: 1;
-  color: var(--text-tertiary);
+  /* tertiary 在 band-bg 上掉到 4.2:1，按真实底色升一档 */
+  color: var(--text-secondary);
 }
 
+/* 通道编号：固定拉丁号（非数据、非进度） */
+[data-skin='instrument'] .readout__k::after {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ch);
+}
+
+[data-skin='instrument'] .readout:nth-child(1) .readout__k::after {
+  content: 'CH01';
+}
+
+[data-skin='instrument'] .readout:nth-child(2) .readout__k::after {
+  content: 'CH02';
+}
+
+[data-skin='instrument'] .readout:nth-child(3) .readout__k::after {
+  content: 'CH03';
+}
+
+/* 读数窗：窗体只是框线 + 反色底，数字才是真数据 */
 [data-skin='instrument'] .readout__v {
+  display: block;
+  width: 100%;
+  padding: 7px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--win-bg);
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 27px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   line-height: 1;
-  color: var(--text);
+  text-align: center;
+  color: var(--win-text);
   font-variant-numeric: tabular-nums slashed-zero;
-}
-
-/* 开始页不显示读数块（改由 .start__spec 显示自检读数） */
-[data-skin='instrument'] .app:has(.start) .readouts {
-  display: none;
 }
 
 /* 14 段刻度进度尺 */
@@ -305,9 +360,18 @@
   transition: width var(--duration-slow) var(--ease-out);
 }
 
-/* ---------- 4. 开始页：开机自检 ------------------------------------------ */
+/* ---------- 4. 开始页：读数台 -------------------------------------------- */
+/* 功能介绍句已随 DOM 删除；首页首屏焦点上移到 .readouts 读数表盘，
+   正文流从「自检台」直接开始，不再为标题预留位置。 */
+
+/* 首页顶栏的小读数让位给读数带，避免同一数字上下各出现一次 */
+[data-skin='instrument'] .app:has(.start) .topbar__meta {
+  display: none;
+}
+
+/* 100dvh − 52 顶栏 − ~90 读数带 − 底部呼吸 */
 [data-skin='instrument'] .start {
-  min-height: calc(100dvh - 52px - var(--space-6));
+  min-height: calc(100dvh - 148px);
   padding-top: 0;
 }
 
@@ -360,10 +424,9 @@
 [data-skin='instrument'] .start__kicker {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   padding-top: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.18em;
   line-height: 1.2;
@@ -371,55 +434,29 @@
   color: var(--text-tertiary);
 }
 
-[data-skin='instrument'] .start__kicker::before {
-  content: '';
-  width: 10px;
-  height: 1px;
-  flex: none;
-  background: var(--amber);
-}
-
 [data-skin='instrument'] .start__body {
   flex: 1;
-  justify-content: center;
+  /* 高屏上把余量均摊到各块之间，任何一处空洞都不会超过 140px */
+  justify-content: space-evenly;
   margin-block: 0;
 }
 
+/* eyebrow 升为量具刻度表的表头：360 实测单行（≈210px < 320px 可用），
+   clamp 兜底降档 + balance/keep-all 保证绝不折出孤「·」或孤字 */
 [data-skin='instrument'] .start__eyebrow {
-  gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  line-height: 1.3;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-
-[data-skin='instrument'] .start__eyebrow::before {
-  width: 14px;
-  height: 1px;
-  background: var(--amber);
-}
-
-[data-skin='instrument'] .start__title {
-  margin-top: var(--space-3);
-  font-family: var(--font-sans);
-  font-size: var(--fs-display);
+  font-size: clamp(13px, 3.9vw, 15px);
   font-weight: 600;
-  line-height: 1.08;
-  letter-spacing: -0.028em;
-  color: var(--text);
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  text-wrap: balance;
+  word-break: keep-all;
+  color: var(--text-secondary);
 }
 
-[data-skin='instrument'] .start__lede {
-  margin-top: var(--space-3);
-  max-width: 28ch;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 1.55;
-  color: var(--text-secondary);
+/* 掐掉 app.css:360 的 18px 基线短线（装饰线不进伪元素） */
+[data-skin='instrument'] .start__eyebrow::before {
+  content: none;
 }
 
 /* 第 3 行起由四行自检读数替代重复的 .start__meta */
@@ -427,20 +464,27 @@
   display: none;
 }
 
+/* 量具刻度表：成框的量具面板，点阵是各向同性纹理（不携带量程方向）；
+   每行本身就是一笔真读数，绝不在无数据处画刻度 */
 [data-skin='instrument'] .start__spec {
   display: block;
-  margin-top: var(--space-5);
-  border-top: 1px solid var(--border-strong);
+  margin-top: var(--space-2);
+  padding: 2px var(--space-3) var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background-color: var(--surface);
+  background-image: radial-gradient(circle, var(--band-dot) 0.7px, transparent 0.8px);
+  background-size: var(--band-grid) var(--band-grid);
 }
 
 [data-skin='instrument'] .start__spec::before {
-  content: 'SELF-TEST';
+  content: 'MEASURE';
   display: block;
-  padding: var(--space-1) 0;
+  padding: var(--space-1) 0 5px;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   line-height: 1.2;
   color: var(--text-tertiary);
 }
@@ -450,29 +494,23 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 6px 0;
+  padding: 5px 0;
   border-bottom: 1px solid var(--border);
 }
 
+/* 表头分隔线画在真元素首行上，不画在伪元素里 */
+[data-skin='instrument'] .start__spec-row:first-child {
+  border-top: 1px solid var(--border);
+}
+
 [data-skin='instrument'] .start__spec-k {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.14em;
   line-height: 1;
   text-transform: uppercase;
   color: var(--text-tertiary);
-}
-
-[data-skin='instrument'] .start__spec-k::before {
-  content: '';
-  width: 10px;
-  height: 1px;
-  flex: none;
-  background: var(--amber);
 }
 
 [data-skin='instrument'] .start__spec-v {
@@ -486,29 +524,123 @@
 }
 
 [data-skin='instrument'] .start__actions {
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
 }
 
+/* 页脚两串中文都超过 4 字，字号必须进正文档（14px） */
 [data-skin='instrument'] .start__foot {
   align-items: center;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.12em;
-  line-height: 1.2;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  color: var(--text-tertiary);
+}
+
+/* 页脚短线回归基线发丝线：无真数据的 repeating 刻度缝已拆除（假刻度嫌疑） */
+
+/* ---------- 4b. 今日卡 → 副仪表 ------------------------------------------- */
+/* 主读数带之下的第二块读数面板：数字全是真数据，格线只是框线。 */
+[data-skin='instrument'] .today-card {
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+[data-skin='instrument'] .today-card__head {
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+[data-skin='instrument'] .today-card__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
 
-[data-skin='instrument'] .start__rule {
-  height: 6px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--border-strong) 0 1px,
-    transparent 1px 8px
-  );
+[data-skin='instrument'] .today-card__links {
+  gap: 0;
+}
+
+/* 入口按钮：终端式下划线，触控高度保住 44 */
+[data-skin='instrument'] .today-card__links .btn--text {
+  min-height: 44px;
+  padding-inline: var(--space-2);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+/* 四格副读数：360 下 2×2，768 起一行四格（见断点段） */
+[data-skin='instrument'] .today-card__figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+[data-skin='instrument'] .today-card__figure {
+  flex-wrap: wrap;
+  gap: 2px var(--space-2);
+  min-width: 0;
+  padding: 6px var(--space-2) 6px 0;
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+[data-skin='instrument'] .today-card__figure:nth-child(2),
+[data-skin='instrument'] .today-card__figure:nth-child(4) {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+[data-skin='instrument'] .today-card__figure:nth-child(3),
+[data-skin='instrument'] .today-card__figure:nth-child(4) {
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+
+[data-skin='instrument'] .today-card__figure b {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--text);
+}
+
+[data-skin='instrument'] .today-card__figure b.is-warn {
+  color: var(--warning);
+}
+
+[data-skin='instrument'] .today-card__figure b.is-accent {
+  color: var(--accent);
+}
+
+[data-skin='instrument'] .today-card__tag {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* 承诺句是长中文，基线 12px 不达 14px 红线，升档 */
+[data-skin='instrument'] .today-card__reason {
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* ---------- 按钮 ---------------------------------------------------------- */
@@ -1141,14 +1273,33 @@
     padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2));
   }
 
-  [data-skin='instrument'] .start__title {
-    max-width: 15ch;
+  /* 读数带加宽：窗体更高，数字升一档 */
+  [data-skin='instrument'] .readout__v {
+    padding: 10px 6px 11px;
+    font-size: 30px;
   }
 
   [data-skin='instrument'] .start__masthead,
   [data-skin='instrument'] .start__kicker,
   [data-skin='instrument'] .start__foot {
     max-width: var(--content-max);
+  }
+
+  /* 副读数改一行四格：缝线全部转成竖向分格 */
+  [data-skin='instrument'] .today-card__figures {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  [data-skin='instrument'] .today-card__figure:nth-child(2),
+  [data-skin='instrument'] .today-card__figure:nth-child(4) {
+    padding-top: 6px;
+    border-top: 0;
+  }
+
+  [data-skin='instrument'] .today-card__figure:nth-child(3) {
+    padding-left: var(--space-3);
+    border-top: 0;
+    border-left: 1px solid var(--border);
   }
 
   [data-skin='instrument'] .word-row {
@@ -1221,6 +1372,11 @@
     background: transparent;
   }
 
+  /* 副仪表入口：hover 时缝线转强调色（同一强调色，不新增色相） */
+  [data-skin='instrument'] .today-card__links .btn--text:hover:not(:disabled) {
+    border-bottom-color: var(--accent);
+  }
+
   [data-skin='instrument'] .dock__btn:not(:disabled):hover {
     background: var(--surface-sunken);
   }
@@ -1256,4 +1412,33 @@
   [data-skin='instrument'] .btn--primary:active:not(:disabled) {
     transform: none;
   }
+}
+
+/* ---------- v10 排印提档 ------------------------------------------------
+   仪表语言的「铭牌小字」同样是 10–11px，中文吃不住。这里只把含 >4 个汉字
+   的文本提到 14px 正文档；通道码（CH01–03）、MEASURE、单位符号这类拉丁/数字
+   微标签保持原档，它们靠等宽与字距分层。 */
+
+[data-skin='instrument'] .today-card__label,
+[data-skin='instrument'] .today-card__reason,
+[data-skin='instrument'] .start__foot,
+[data-skin='instrument'] .start__spec-v,
+[data-skin='instrument'] .profile__meta,
+[data-skin='instrument'] .section__title,
+[data-skin='instrument'] .section__hint,
+[data-skin='instrument'] .stage-option__desc,
+[data-skin='instrument'] .setting-row__value,
+[data-skin='instrument'] .stat__unit,
+[data-skin='instrument'] .study-bar__sub,
+[data-skin='instrument'] .sheet__desc,
+[data-skin='instrument'] .cal-kicker,
+[data-skin='instrument'] .cal-section__hint,
+[data-skin='instrument'] .cal-note,
+[data-skin='instrument'] .cal-foot {
+  font-size: 14px;
+}
+
+[data-skin='instrument'] .btn--primary,
+[data-skin='instrument'] .answer-btn {
+  font-size: 15px;
 }

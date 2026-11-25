@@ -1,5 +1,244 @@
 # 词笺 · 交付前 Design Review
 
+## v10 · 2026-11-25 · 五界面全站精修（bento / nocturne / desk / vinyl）+ 现有四套首页重排 + 全站中文排印提档
+
+**范围**：用户选定 A=bento / C=nocturne / D=desk / F=vinyl，E=deck 作废（四处注册摘掉，CSS 存档 `docs/v8-variants/deck.v1.css`）。
+四套入选皮肤从「只有首页」扩到**五个界面**（学习流 / 日历 / 错词本 / 我的 / 浮层）；现有四套（paper / foundry / instrument / broadsheet）**首页那句功能介绍随 DOM 真删**并重排；
+另外修掉两个**基线级**缺陷（`.stepper` 被裁、`.hint__btn` 触控 18px）与一轮**全站中文小字系统性不达标**。
+规约文件：`docs/SCREEN_SWEEP.md`。执行：8 路子代理各管一个 CSS 文件，浏览器与审计归我。
+
+| # | 检查项 | 结果 | 证据 | 建议 |
+|---|--------|------|------|------|
+| 1 | 首页功能介绍已删（8 套一致） | PASS | 实测 `hasTitle:false / hasLede:false`；`grep start__(title\|lede) src/styles` 仅剩注释；未用伪元素补回 | — |
+| 2 | 360 无横向滚动 / 截断 / 重叠 | PASS | 8 皮肤 × 5 界面 @360×640 = 40 组 `ovf:0 / nClip:0 / nOut:0` | — |
+| 3 | 三档视口信息层级一致（非缩放） | PASS | 768 与 1440 各 32 组全过；desk 768 起真侧栏、bento 磁贴跨格、nocturne 目录行、vinyl 圆盘升档 | — |
+| 4 | 五个界面都用了同一皮肤语言 | PASS | 每屏有可命名的结构动作（见 `docs/SCREEN_SWEEP.md` §3 + 下方必修 8 条） | — |
+| 5 | 正文对比 ≥4.5:1、大字 ≥3:1 | PASS | 216 组 DOM 实算 `nLow:0`（按元素**真实叠色**算，含半透明叠加） | — |
+| 6 | 深浅两档都清楚 | PASS | 390 档 8 皮肤 × 2 主题 × 7 界面 = 112 组 | — |
+| 7 | 中文正文 ≥14px（>4 汉字） | 达标（硬线） | 硬 FAIL（<13px）从 **92 处 → 0**；剩 38 处 13px 是宽度受限的卡片副标（`.skin-card__tag`），有意保留 | 若要 14px 一刀切，外观面板卡片会变两行 |
+| 8 | 触控目标 ≥44×44（含被裁后的可见尺寸） | PASS | 探针改为「可见盒 + 该轴是否还能滚到」；`.stepper__btn`、`.hint__btn`、`.segmented__item` 三处真缺陷已修 | — |
+| 9 | 固定头/底栏遮挡 | PASS | 常驻带都在 `.app` 正常流里（`order` / dock 本身是最后一个子元素），无 `fixed` 脱列 | — |
+| 10 | hover / active / focus-visible / disabled | PASS | 三套入选皮肤 v9 已实测；本轮新增 `.answer-btn`（nocturne 无填充排印键）、`.sheet__head`（desk 深色块）等 hover 档均在 `@media (hover:hover)` 内 | — |
+| 11 | 空 / 加载 / 出错 / 无权限 | 部分 PASS | **错词本空态已实测**（mistakes=0 天然命中，8 套全过）；首页 `.empty`（无词库）仍未实测——复现要把阶段切到空词池，会把当天新词计划结算成 0 并落盘 | 用一次性测试档案跑，别在真数据上试 |
+| 12 | 学习流各阶段 | 部分 PASS | 列表相已实测（8 套）；即时复习 / 总结页需答卡才进得去，会真的落库，故意没测 | 需要时先备份 `cijian.v1` 再进 |
+| 13 | 数字/日期格式统一 | PASS | 各皮肤把读数统一成 tabular + 补零；`已学 000 / 批数 04` 实测 | — |
+| 14 | 语义色正确 | PASS | 红只在 `is-warn` / 错词 / 危险区；nocturne 的错次徽标改描边不填红；vinyl 洋红不沾状态色 | — |
+| 15 | 静态装饰不伪装进度 | PASS | instrument 拆掉 `.start__rule` 6px 假刻度缝；desk 放弃假周内刻度；vinyl 唱针头绑 `__bar` 真宽度 | — |
+| 16 | 无裸色值 / 裸尺寸脱离 tokens | PASS | 裸值只在皮肤令牌块；新令牌一律 `--ds-/--nc-/--vy-/--fd-/--bs-` 前缀 | bento 沿用既有 `--bt-` 前缀（未做无谓改名） |
+| 17 | 相同组件跨页面一致 | PASS | 五界面都补了 `.btn/.sheet/.dialog/.skin-card/.cal-*/.mistake-*/.stat/.stepper` 档 | — |
+| 18 | 图标 / 圆角 / 阴影档位统一 | PASS | desk 0 档、nocturne 0 档、vinyl 1 档、bento 磁贴 2 档、foundry 硬投影 2 档 | — |
+| 19 | 字族数 ≤2 | 已知偏差 | broadsheet 声明 serif+sans+mono 三栈（v9 既有事实，中文位靠系统字体回退） | 要收就单独派一轮 |
+| 20 | 文案无错别字 / 占位符 | PASS | 皮肤层不产文案；`content` 只有拉丁与符号 | — |
+
+### 必须修（已全部修复并回归，附实测数字）
+
+1. **`.stepper` 在 390 被永久裁掉，「每日新词上限」的「+」几乎点不到**（基线缺陷，8 套全中）。实测：`.stepper` 盒子 `254-370`（w116）而子元素 `−` 255-299 / 值 299-354 / `+` **354-398**；第二行更糟：盒 `281-370`（w89），`+` 落在 **380-424**；`.app__main` 计算值 `overflow-x:hidden` → 不是可滚，是**裁掉**。根因：`.stepper` 自己的 `overflow:hidden` 让 flex 自动最小尺寸归零，被 `.setting-row` 挤窄到 116/89px，而子按钮 `flex:0 0 44px` 不肯收缩。修：`.stepper{flex:none}`（按 max-content 占 144.4px，标签列自己换行让位）。
+2. **`.hint__btn` 触控盒只有 18×18**：改成 44×44 真元素 + `margin:-13px` 回收布局足迹，18px 可见点移到 `::before{inset:13px}`，焦点环/hover 一并挪到 `::before`（否则会在透明大盒子上画一方框）。
+3. **全站中文小字系统性不达标**：探针实测基线有 **92 处**「>4 个汉字」的文本落在 11–13px，其中成句的说明文字最离谱——`.cal-hero__lede` 13px（23 汉字）、`.mistakes-empty__text` 13px（59 汉字）、`.cal-kicker/.cal-section__hint/.profile__meta/.stage-option__desc` 11–12px。修法：`app.css` 末尾加「v10 排印提档」块（只提字号，不动行高颜色；皮肤层特异性更高，各自定过的照旧），四套原皮肤再各补一块（它们自己压着 10–12px 的工业/报纸/铭牌小字）。结果：**硬 FAIL 92 → 0**。
+4. **foundry 首页报头 11px**：`.topbar__meta` 里那个无类名 `<span>` 写着「四级核心词」（5 汉字）在 11px → 提 13px 并把字距从 .08em 收到 .06em（仍是工单味）。顺带修掉它一条**静默丢数据**的旧规则：`@media(max-width:480px)` 用 `nth-child(-n+2)+nth-last-child(-n+2)` 想隐藏「第几批」，但报头只剩三个子节点，两条并集=全部 → 360 档整行数据消失。
+5. **foundry 强调读数 4.37:1**：`b.is-accent` 的 `--accent #cf3714` 压在 `--surface #f1f0ec` 上差一档 → 浅色档改 `#c23212`（4.90）；深色档不跟着压（会掉到 3.27）。
+6. **broadsheet 外观卡文字 2.15:1 → 3.45:1 → 7.85:1（两轮才修对）**：第一轮只换了文字色（2.15→3.45，仍不过）。真根因是**透明叠透明**：`.skin-grid{background:var(--border)}` 是 `rgba(20,20,15,.3)`，选中的卡片背景又是半透明 `--accent-weak`，两层叠在页底上把文字压成 3.45。把网格底换成不透明 `--surface-sunken` 后 7.85。**教训：半透明 token 当"面板底色"用，对比度必须按叠色后的真实底色算，不能按 token 名义值算。**
+7. **bento `.skin-card__latin` 4.34:1** → 文字改 `--text-secondary`。
+8. **vinyl `.segmented__item` 43px 宽**（胶囊里只有 1–2 位数字，padding 撑出 43）→ `min-width:44px`。
+9. **探针自己的四个洞（不修就永远看不到上面 1–3 条）**：
+   - 出列检查用「祖先有横滚就跳过」，而 `.app__main` 计算值 `overflow-x` 恒为非 visible → **整站出列检查长期失效**（v9 的 `nOut:0` 是假的）；
+   - 裁切盒没按轴分开：纵向可滚被当成裁切，页脚「换个阶段」44px 按钮报成 39px 假阳性；
+   - 裁切盒漏返 `top` 字段 → CTA 判据 `cb.top >= topbar.bottom` 恒为 NaN，**首页 CTA 恒判失败**；
+   - 44 判据无亚像素容差 → 43.6px 报缺陷。
+   现在改成：横向 `hidden|clip` = 永久裁掉（缺陷），横向 `auto|scroll` = 可滑到（豁免），纵向同理；触控取「可见盒 ∩ 元素盒」并留 0.5px 容差。
+10. **nocturne 一度被两轮"只回报不落盘"**：第三轮以「第一个工具调用必须是 edit」强制才落盘（636 行，五界面齐）。它的整文件写入把我手工补的块顶掉了——内容以它的版本为准，我重新全量审计通过。
+
+### 建议修（不阻塞，留给你决定）
+
+1. `warnTiny` 仍有 38 处 13px 中文（主要是 `.skin-card__tag` 卡片副标）：14px 会挤成两行、外观面板要滚更多，现按 13px 取舍。
+2. 首页 `.empty`（无词库）分支仍未实测；学习流的「即时复习 / 总结页」两相未截图（要答卡才进得去，会真的落库）。
+3. `desk` / `vinyl` 的"底部常驻带"只在家 + 学习流 + 浮层成立——日历与「我的」的 DOM 里没有 `.readouts` 宿主，CSS 造不出来；要严格五屏都有，得给那两屏加 DOM。
+4. `Hint.tsx:7` 的注释还在描述旧的 `::after` 热区（本轮没授权改 `.tsx`）；气泡定位改用 44 盒后偏移 13px，视觉仍在 clamp 内，但注释该更新。
+5. 顶栏缺 `env(safe-area-inset-top)`（全站既有基线问题，本轮范围外）。
+6. broadsheet 三栈字族（见清单 19）。
+7. `deck` 只作废未删档：`docs/v8-variants/deck.v1.css`。
+
+### 回归
+
+- [x] 每条必修都在同视口重测：390 档 8 皮肤 × 2 主题 × 7 界面 = **112 组 0 失败**
+- [x] 360×640：8 × 5 = **40 组 0 失败**；768×1024：8 × 4 = **32 组 0 失败**；1440×900：8 × 4 = **32 组 0 失败**
+- [x] 合计 **216 组**：溢出 0 / 对比度 0 / 触控 0 / 出列 0 / 文字裁切 0 / 中文硬线 0 / 空洞 >150 0 / snap 内衬丢失 0 / 首页 CTA 完整可见 全过
+- [x] **学习数据未被污染**：`cards:0 / mistakes:0 / 已学 000 / 未学 3846`，session 档每次进出都比对 `cijian.v1` 全文（`dataKept:true`，24 次）
+- [x] `tsc --noEmit` 0 错；`tokens.css` / `skin-hooks.css` 未动；`app.css` 只动了首页 + 三处基线修 + 排印提档块
+
+> ⚠️ **上面这组数字已被 v10.1 作废**（探针豁免逻辑有洞 + `dataKept` 只比对了 `cijian.v1`）。以 v10.1 节为准。
+
+## v10.1 · 2026-11-25 · 重基线：探针豁免逻辑真修 + 学习流两相 DOM 回归 + 中文小字清零
+
+**为什么作废 v10 的数字**：用户指出「祖先 `overflow-x` 计算值非 visible 就跳过出列检查」这条豁免本身是错的——
+`overflow-x:hidden` 的裁剪**就是**出列问题。旧写法把 `.app__main`（`overflow-x` 恒为 hidden）当成可滚祖先，
+等于把全站出列检查关掉；v10 的 `nOut:0` 与「216 组通过」都是在这个坏探针下测出来的。
+现在：**只有 `(auto|scroll)` 且 `scrollWidth > clientWidth`（纵向同理）才算真能滚到、才可豁免**；
+同时新增纵向出列判据 `nOutY`（被 `overflow-y:hidden` 永久裁掉且纵向不可滚）。
+
+| 判据 | 结果 | 说明 |
+|---|---|---|
+| 390×844 × 明暗 × 8 界面 × 8 皮肤 | **128 组 0 失败** | 界面数从 7 拆到 8（导入面板单列一档） |
+| 360×640 × 浅 × 6 界面 × 8 皮肤 | **48 组 0 失败** | |
+| 768×1024 × 浅 × 6 界面 × 8 皮肤 | **48 组 0 失败** | |
+| 1440×900 × 浅 × 6 界面 × 8 皮肤 | **48 组 0 失败** | |
+| 合计 | **272 组 0 失败** | 溢出 / 真实叠色对比 / 可见触控盒 / 出列（横+纵）/ 文字截断 / 中文硬线 / 空洞 / snap 内衬 / CTA 完整 全 0 |
+| `outYTotal`（新判据） | **0** | 全站没有被 `overflow-y:hidden` 永久裁掉的内容 |
+| `warnTiny`（>4 汉字 <14px） | **92 → 38 → 0** | 本轮把最后 38 处清零，见必修 3 |
+| 学习流两相 DOM 级回归 | **16 组 × 2 相 = 32 次探针 0 失败** | 即时复习 + 总结，明暗各 8 套；不截图（要答卡），触控/对比/截断/出列全覆盖 |
+
+### v10.1 新抓到的东西（全部已修）
+
+1. **第二个存储键 `cijian.scheduler.v1`——之前所有「数据未污染」的结论都不成立**。
+   学习状态（`cards / unlearned / days / mistakes / immediate`）全在这个 44KB 的键里，`cijian.v1` 只有 profile 和会话开关。
+   为补「两相 DOM 检查」必须答卡，**真的把今天 20 个词学掉了**，而 `dataKept` 只比对 `cijian.v1`，一路报 true。
+   处理：按 `learnedOn` 把 20 张卡精确退回 `unlearned` 队首 + 清 `days[today].newLearned` + 归零即时计数，
+   复核 `cards:0 / unlearned:3846 / newLearned:0 / mistakes:0`，首页读数复原 `今日20 / 批数04 / 已学000`。
+   两个审计脚本现在**同时快照-还原-校验两个键**；跑答卡的脚本还在备份前加了一次自愈（`scrub`）——
+   否则被超时打断后「还原成功」只是还原到脏状态（本轮实际踩过：`restored:true` 但 `cards:10`）。
+2. **探针第 5 个洞：祖先 `display:none` 的后代仍被算成可见**。
+   子元素自己的 computed `display` 是 `inline`/`block`，不随祖先变 `none`；只有 `getBoundingClientRect()` 归零能证明它没渲染。
+   漏这行会把隐藏节点报成违规：instrument 首页 `.topbar__meta` 明明被
+   `.app:has(.start) .topbar__meta{display:none}` 藏了，却被算成「10px 硬失败」。
+3. **`.skin-card__tag` 的 38 处 13px 用「改短文案」清零，而不是提字号**（按用户第 2 条决定）。
+   8 条 tagline 原本是 9–14 个汉字的三段式说明（「暖纸台面、常驻深色抽屉、768 真侧栏」），压成**四字格**：
+   暖纸·朱砂 / 硬边·印章 / 琥珀·等宽 / 栏线·靛蓝 / 冷灰·磁贴 / 墨蓝·月光 / 洋红·唱片 / 抽屉·侧栏。
+   ≤4 汉字不触发硬线，13px 定稿，卡片不撑两行、面板不用多滚。改的是 `src/lib/skins.ts` 的文案，不是样式。
+4. **最后一批「>4 汉字且 <14px」的文本逐个提档**（不搞一刀切）：
+   foundry `.parse-summary/.issues` 11→14（「不会覆盖已有词库」8 汉字），且深色档 tertiary 只有 4.47:1 → 换 secondary；
+   foundry `.topbar__meta` 13→14；nocturne `.start__eyebrow / .cal-foot / .section__hint--inline` 13→14；
+   desk `.section__title / .cal-foot / .section__hint` 13→14（原来吃 `--fs-small`=13px 这个 token）；
+   paper `.today-card__label` 13→14；基线 `.session-done__note` 13→14（「不认识的词会回到明天的 1 天批次」22 汉字）。
+5. **Vite 会漏掉 `edit` 工具的写入**：改完 CSS/TS 后浏览器里计算值还是旧的（nocturne 两处 13px、skins.ts 第 8 条 tagline 都中招）。
+   表现是「改了没生效」，实际文件已落盘。处理：`(Get-Item file).LastWriteTime = Get-Date` 强制失效再复测。
+6. **相位脚本的三个自坑**（不是产品缺陷，但会让结论假通过/假失败）：
+   `waitForSelector` 的 timeout 不能当延时用（每步等满 2.5s → 整轮超时被杀）；
+   `querySelectorAll` 按文档序返回，`.answer-btn` 里「模糊」在「认识」前面，点模糊会把词退回队尾**永远考不完**；
+   即时复习是**每 10 个一组**，一组考完会退回 list 相位读下一批——只戳作答键会卡死，两种推进键都得戳。
+
+### v10.1 建议修
+
+1. 首页 `.empty`（无词库）分支仍未实测——复现要把阶段切到空词池，会结算当天新词计划；建议用一次性测试档案。
+2. 即时复习 / 总结两相有了 DOM 级回归但**仍无截图**。要补图就用快照-回滚（脚本已具备），并在报告里标注「该组跑测会临时改动学习状态，已回滚」。
+3. `desk` / `vinyl` 底部常驻带在日历与「我的」两屏没有 DOM 宿主——已批准用 `persistentReadouts` 开关补，**属于 commit B**，不在本次基线内。
+4. `Hint.tsx:7` 注释仍描述旧 `::after` 热区；顶栏缺 `env(safe-area-inset-top)`；broadsheet 声明 3 个字族——既有基线问题，本轮范围外。
+
+## v9 · 2026-11-25 · 三版结构级重做（desk 案头 / deck 叠章 / vinyl 唱盘）〔**已作废**：出列判据当时被探针的豁免逻辑整体关掉，`nOut:0` 不可信；`deck` 亦已按用户选择作废〕
+
+**范围**：新增三套皮肤 `src/styles/skins/{desk,deck,vinyl}.css` + 注册；`play` 作废（四处注册摘掉，CSS 存档 `docs/v8-variants/play.v1.css`）；
+`bento`/`nocturne` 按用户要求原样保留。**现有四套皮肤与 `app.css`/`tokens.css`/`skin-hooks.css`/组件 DOM 仍一行未改。**
+本轮两条新方针：① 首页功能介绍（`.start__title` + `.start__lede`）在新皮肤里**删除**；② 三版必须占**互斥的骨架轴**（栏 / 栈 / 横），数据不必全放首页。
+
+| # | 检查项 | 结果 | 证据 | 建议 |
+|---|--------|------|------|------|
+| 1 | 360 无横向滚动 / 截断 / 重叠 | PASS | `docs/screenshots/v9/v9-{desk,deck,vinyl}-light-360.png`，24 组矩阵 `ovf:0` 全清 | — |
+| 2 | 三档视口信息层级一致（非简单缩放） | PASS | desk 360 竖轨→768 真侧栏（`main` 让到 `217,61 546×839`）；deck 章高 240→264；vinyl 轮 120/96→128/104 且第 4 盘由半切变全露 | — |
+| 3 | 长内容撑破容器 | PASS | 360 档注入「学术英语高级词汇扩展包 · 128466 词」+ 长承诺句 + 「错词本 128」：三版 `scrollWidth==clientWidth==360`、出列元素 0（`v9-*-longcontent-360.png`） | — |
+| 4 | 固定头/底栏遮挡 | PASS | desk 侧栏与 vinyl 底带都在 `.app` 的 flex/grid 正常流里（`order` 交换，非 `fixed`）；CTA 判据要求 `top ≥ topbar 下缘` 且 `bottom ≤ 滚动口下缘`，24/24 通过 | — |
+| 5 | 首页无功能介绍 | PASS | 三版 `.start__title/.start__lede` 计算值 `display:none`（实测 `titleDisp:"none"`）；全文无中文伪元素 `content`（grep 复核） | 现有四套仍保留，是否全局删除等用户拍板 |
+| 6 | 标题与正文 ≥1.25 倍 | PASS | desk 27/14、deck 72/14、vinyl 27/14 | — |
+| 7 | 正文对比 ≥4.5:1、大字 ≥3:1 | PASS | 24 组 DOM 实算 `nLow:0`（deck 深色页脚 4.16 已修，见必须修 7） | — |
+| 8 | 深浅两档都清楚 | PASS | 明暗各 12 组全过；三版语义色两档各写一遍 | — |
+| 9 | 语义色正确 | PASS | 红色只出现在 `is-warn`/危险位；vinyl 逾期盘只在 `:has(b.is-warn)` 点 `--warning`，洋红 accent 不沾状态 | — |
+| 10 | 同层级间距一致 | PASS | deck 章间 `gap:10` + 唇边 `-14`；vinyl 网格 `row-gap:20`；desk 台账行 `min-height:44` | — |
+| 11 | 相关靠近 / 无关拉开 | PASS | vinyl 三轮呼吸行把「标题↔货架头↔轮↔页脚」拉开（实测最大单处 108–123px，阈值 140 内） | — |
+| 12 | hover / active / focus-visible / disabled | PASS | 实测：desk CTA `#20623F→#1A5235`、deck `#17171A→#2A2A2E + translateY(-1px)`、vinyl `#A62A5E→#8E2250 + translateY(-1px)`，移开均复原；焦点环 2px + offset 2px 三版各有；`prefers-reduced-motion` 下 deck 位移归零（`transform:none`） | `:active` 按 CSS 源码核对（点主按钮会真的进入学习会话） |
+| 13 | 键盘 Tab 顺序 | PASS | 三版一致：日历 → 外观 → 我的 → 主按钮 → 学习日历 → 换个阶段 | vinyl 多一个停靠点＝横轮容器本身（Chrome 可滚动区域可聚焦，标准行为） |
+| 14 | 点击目标 ≥44×44 | PASS | 24 组 `nSmall:0`；外观面板 9 张卡在 390 两列 / 768 四列均 ≥44（`v9-picker-390.png`） | 「我的」页那个 18×18 帮助按钮是基线就有，paper 同样存在 |
+| 15 | 空 / 加载 / 出错 / 无权限 | 部分 N/A | Boot 失败页与 `.empty` 分支未改；三版对 `.empty` 有基础适配但**仍未实测** | 见建议修 2 |
+| 16 | 文案无错别字 / 占位符 | PASS | 皮肤层不产文案；`content` 只有拉丁印章 01–07、`→`、`▶`、`CIJIAN · DAILY` | — |
+| 17 | 数字 / 日期格式统一 | PASS | desk 侧栏补零读数（04 / 000）；deck 题章拉丁日期 `2026 · 11 · 25` 与台账 `今日 · 11月24日 周二` 各一处，不再双报 | — |
+| 18 | 无裸色值脱离 tokens | PASS | 裸值只在皮肤令牌定义块；组件补丁一律 `var()`；三版各自定义 `--ds-*` / `--dk-*` / `--vy-*` 度量前缀 | — |
+| 19 | 相同组件跨页面一致 | PASS | 三版都补了 `.btn/.sheet/.dialog/.skin-card/.cal-*/.flash-card/.stat` 的底色描边圆角；实测「我的」页三版 `ovf:0 / nLow:0` | 精修度仍不如首页，见建议修 1 |
+| 20 | 图标 / 圆角 / 阴影档位统一 | PASS | desk 0 档阴影 + 直角轨；deck 3 档柔和 + 圆角 12；vinyl 1 档厚度 + 圆 999 盘 | — |
+| 21 | **结构互斥（本轮新增判据）** | PASS | 阅读轴：栏（desk）/ 栈（deck）/ 横（vinyl）；CTA 锚点：列底 sticky / 行动章内部 / 货架头药丸；chrome 移动：768 真侧栏 / 无 / 读数带沉底；首页数据量：7 / 首屏 1 / 6 | — |
+
+### 必须修（已全部修复并回归，附实测数字）
+
+1. **vinyl 主 CTA 在屏幕上根本看不见**：`.start__actions` 用 `position:absolute` 锚到 `.today-card`，而**两者是兄弟**——absolute 只认祖先，包含块退到视口，实测三档都是 `y=-2`（`258,-2 / 636,-2 / 1308,-2`）。改网格同层放置后 `absCount=0`、CTA `214,44` 完整可见。**审计判据同步收紧**：旧判据 `top < innerHeight && bottom > 0` 对负 top 恒真，这就是它当初没被抓到的原因。
+2. **vinyl 横轮第一盘贴屏边**：`scroll-snap-type:x mandatory` 把 `padding-inline-start` 的 20px 滚掉了（实测 `rail.scrollLeft=20`、`disc1.x=0`，而计算值 `padding-left:20px` 是对的）。加 `scroll-padding-inline-start/-end` → 现 `scrollLeft=0`、`disc1.x=20`。
+3. **deck 压栈永不发生**：`scrollHeight 820 / client 784` → 整页只能滚 36px，六章 sticky 偏移 0/26/52… 全部没机会触发，静止看就是六张等宽圆角卡（=本轮被否掉的「换色」）。改成一卡一章 + 不等高（240/138/118/118）+ 负 margin 唇边 → 余量 **248/240/264**，滚动后实测各章钉在 60/86/143/211/345/459/573/723。
+4. **deck 批数整块消失**：`.start__spec` 计算值 `display:none`——被 `skin-hooks.css` 的默认钩子压死（不是规则打架，是漏写）。批数 `todayBatchCount` 是**只有首页才有**的数据，皮肤层藏掉＝全站不可见。显式 `display:grid` 后实测 `208×38` 落在 hero 章右下。
+5. **deck 叠放漏写 `grid-column`**：hero 与批数行都只写 `grid-row:2`，自动布局新开了一条隐式列（实测 `.start` 计算 `cols: 429.6px 118.4px`，hero 被挤成 118px 窄条）。两格同时钉列 → `cols: 350px`、hero `350×240`。
+6. **desk 768 侧栏 700px 全黑空**：只有两格读数 + 底部把手，像没加载完。填法只用真结构：轨顶拉丁字标、读数格 `min-height:96`、通高缝线 + 末端把手（`flex:1` 吃余量）。**放弃**「7 格周内刻度」——没有真数据就是假进度。
+7. **deck 深色页脚 4.16:1 不达标**：`--text-tertiary #8f8c85` 压在页脚章面 `#2a2a2a` 上。抬到 `#9a9690` → 4.88，24 组 `nLow:0`。
+8. **desk / vinyl 大标题折行留孤「·」**：390/360 两行、行尾一个间隔号。`clamp(20px,5.6vw,27px)` + `text-wrap:balance` + `word-break:keep-all` + 关掉基线 `::before` 那根短线（它在 26px 标题前渲染成一个「—」，像误留字符）→ 实测单行。
+9. **desk 抽屉底色画在伪元素上导致审计误报**：轨内浅色文字被按页面底色算出 1.0:1（祖先背景链读不到 `::before` 的底色）。把底色改画在真实元素 `.start__masthead` 上——顺带少一个定位伪元素。
+10. **vinyl 单处 314px 空洞**：内容止于 y≈433、foot 在 725，中间一整片空纸。改三条 `1fr` 呼吸行均分余量，并把承诺句紧贴轮（注解不离开主体）→ 最大单处 108–123px。
+
+### 建议修（不阻塞，留给你决定）
+
+1. **三版仍只精修首页**。其它页只做了「不崩」兜底（实测「我的」页三版零溢出零对比度问题），选定后需按同一语言重做列表 / 复习 / 即时复习 / 日历 / 我的。
+2. **空状态仍未实测**：复现要把阶段切到无词表，而空词池会把当天新词计划结算成 0 并落盘（老坑），不该在真数据上试。
+3. deck / vinyl 用 `display:contents` 拆壳会丢 `.today-card` 的 `aria-label="今日学习摘要"`（可见补偿分别是「01–07 印章 + 日期条」与 `__label` 日期行）。要严格保住，只能保留外壳——那会牺牲版面自由度。
+4. desk 手机档与桌面档的批数宿主不同（手机在 `spec` 行、桌面在侧栏读数），两档要各查一遍。
+5. vinyl 横轮容器在 Chrome 里是一个额外 Tab 停靠点（可滚动区域可聚焦，标准行为）；不想要就得改 DOM 加 `tabindex="-1"`。
+6. `play` 只作废未删档：`docs/v8-variants/play.v1.css`。
+
+### 回归
+
+- [x] 每条必修都在同一视口重截（`docs/screenshots/v9/`，72 张）
+- [x] 最终 24 组矩阵（3 皮肤 × 明暗 × 390/360×640/768/1440）：溢出 0 / 对比度 0 / <44px 0 / 出列 0 / snap 内衬丢失 0 / 单处空洞 >140 0 / **CTA 完整可见 24/24**
+- [x] 长内容注入实测（360 档，三版 `scrollWidth==360`、出列 0）
+- [x] 交互态实测（hover 三版各自变化且可复原、焦点环 2px+2px、reduced-motion 位移归零）
+- [x] 外观面板 9 张卡：390 两列 / 768 四列，零溢出、零小目标
+- [x] `tsc --noEmit` 0 错；现有四套皮肤与 `app.css`/`tokens.css`/`skin-hooks.css` 未动
+
+## v8 · 2026-11-24 · 三版新皮肤首页（bento 磁贴 / play 燃点 / nocturne 夜航）
+
+**范围**：只新增三套皮肤 + 注册（`src/styles/skins/{bento,play,nocturne}.css`、`types.ts`、`skins.ts`、
+`storage.ts` 的 SKINS 白名单、`main.tsx` import、`SkinSheet` 说明文案改取 `SKINS.length`）。
+**现有四套皮肤与 `app.css` / 组件 DOM 一行未改**，切换走原有 `[data-skin]` 机制。
+
+| # | 检查项 | 结果 | 证据 | 建议 |
+|---|--------|------|------|------|
+| 1 | 360 无横向滚动 / 无截断 / 无重叠 | PASS | `docs/screenshots/v8/v8m-{bento,play,nocturne}-{light,dark}-360.png` 三版 × 明暗 `scrollWidth == clientWidth` | — |
+| 2 | 三档视口信息层级一致（非简单缩放） | PASS | 360 / 768 / 1440 各档截图：bento 读数条+不对称磁贴、play 单栏→双栏+圆币、nocturne 刊号行+两栏读数 在三档都保持同一层级 | — |
+| 3 | 长内容撑破容器 | PASS | 磁贴数字 `overflow-wrap: anywhere`；币内 `128/150` 折行不外溢（320 下币径 88 实测） | 极端三位数 + `↑+5` 角标同屏时磁贴会变高，阵型不齐（可接受） |
+| 4 | 固定头/底栏遮挡 | N/A | 首页无 dock；`.readouts` 在正常流 | — |
+| 5 | 标题与正文字号差 ≥1.25 | PASS | bento 22/14、play 38/16、nocturne 34/16 | — |
+| 6 | 正文行高 1.5–1.7 / 标题 1.1–1.3 | PASS | lede 1.65–1.75；标题 1.08–1.35 | — |
+| 7 | 每行字符数（中文 20–40） | PASS | lede `max-width: 34–46ch`，截图实测 24–34 字/行 | — |
+| 8 | 正文对比 ≥4.5:1、大字 ≥3:1 | PASS | 18 组（3 皮肤 × 明暗 × 360/768/1440）DOM 实算 **0 项不达标**（脚本 `scripts/audit-skins.js`） | — |
+| 9 | 深浅两档都清楚 | PASS | 明暗各 9 组全过；语义色两档都写齐（老坑已避） | — |
+| 10 | 语义色正确（不用强调色代替错误色） | PASS | 红色只出现在 `--danger` / 错词 / 危险操作；逾期=warning、复习=success、新词=accent | — |
+| 11 | 同层级间距一致（8pt） | PASS | bento 节拍 24/12/12/24/32 全走 `--space-*`；play 16/20/12/28/32 | — |
+| 12 | hover / active / focus-visible / disabled | PASS | 三版各有 `:hover`（包 `@media (hover: hover)`）、`:active`、`:focus-visible`、`:disabled`；实测 hover 三版背景/描边/位移均变化且移开可复原；焦点环 bento 2px teal、play 3px 墨、nocturne 2px 月光蓝 | `:active` 按 CSS 源码核对（浏览器里点主按钮会真的进入学习会话，故不实测） |
+| 13 | 键盘 Tab 顺序合理 | PASS | 顶栏日历 → 外观 → 我的 → 主按钮 → 卡内链接，与基线一致 | — |
+| 14 | 点击目标 ≥44×44 | PASS | 18 组 `smallTargets` 计数 **全 0** | — |
+| 15 | 空 / 加载 / 出错 / 无权限 | 部分 N/A | Boot 失败页与 `.empty` 分支未改；三版对 `.empty` 有基础适配但**未实测** | 见建议修 5 |
+| 16 | 文案无错别字 / 占位符 | PASS | 皮肤层不产文案；顺手修了外观面板写死的「四套排印系统」→ `SKINS.length` | — |
+| 17 | 数字 / 日期格式统一 | PASS | 读数条补零（20 / 04 / 000）为 bento 刻意的仪表感；其余沿用基线格式 | — |
+| 18 | 无裸色值脱离 tokens | PASS | 裸值只出现在皮肤令牌定义处；组件补丁一律 `var()` | — |
+| 19 | 相同组件跨页面一致 | PASS | 三版都重写了 `.btn/.dock/.answer-btn/.sheet/.dialog/.skin-card/.cal-*` 的底色描边圆角 | 精修度不等，见建议修 1 |
+| 20 | 图标风格 / 圆角 / 阴影档位统一 | PASS | bento 2/6/8 + 1 档；play 14/18/28/999 + 3 档全硬底边；nocturne 2/3/4 + 0 档 | — |
+
+### 必须修（已在交付前修复并回归）
+
+1. **bento 顶栏品牌名折成竖排两行**（`topbar__meta` 打开后挤压 `.brand`）→ `.brand__name` `flex:none + nowrap`、meta 改 `display:block` 并只留阶段名。回归：390/320/768 三档 `brand` 高度 15px 单行。
+2. **同屏四次报「今日新词 20」**（顶栏 / 读数条 / 工单表 / 磁贴）——Anki 26.10 被社区回滚的原罪 → 关 `.topbar__meta` 的数字位、`.start__spec` 整块关。回归：首屏 7 个指标、每个只出现一次。
+3. **bento 刻度尺 6/10 段实心 teal 被读成「复习完成 60%」**（真数据是 `0/0`）→ 刻度尺与 7 点链改为**零 accent** 纯装饰，「今天」那一格用空心描边（3.43 / 3.85:1）。
+4. **bento 深色主按钮整块 `#4fd1c5` 像告警条** → 深色档改 `--accent-weak` 底 + accent 描边与文字（7.33:1），左 4px 色条保留实心。
+5. **bento / play 纵向节奏「中间飘一块」**（`.start__body` 用 `margin-block:auto` 居中）→ 改固定节拍 + `.start__foot { margin-top: auto }` 钉底；bento 顺带修 `.start` 的 `min-height` 只扣顶栏 56px、没扣读数条 34px 造成的约 38px 幽灵滚动。回归：390 下 bento 页高 782 < 844、play 820 < 844。
+6. **play 三枚币是蛋形**（`111×88` + `border-radius:999` → 椭圆）→ `aspect-ratio: 1/1` + `minmax(0,1fr)` + `min(100%,104px)`。回归：320→88、360→101、390→104、768→93，全部 W=H。
+7. **nocturne 同屏三次报数 + 含中文 11–12px 小字** → 关工单表第 2/4 行；CJK 标签统一抬到 13px 起、成句中文 ≥14px。
+8. **nocturne 深色描边 1.3–1.9:1 当状态边界用** → 状态一律走填充色 / accent 描边（≥7.6:1），线只做装饰。
+
+### 建议修（不阻塞，留给你决定）
+
+1. **三版目前只精修首页**。其它页面（列表 / 复习 / 即时复习 / 日历 / 我的 / 浮层）只做了「不崩」兜底：底色、描边、圆角、中文小字下限。**选定某一版之后才值得把剩下五个界面按同一语言重做**。
+2. bento 的刻度尺与 7 点链、play 的额度点阵都是**静态装饰**，不接真数据——皮肤层拿不到数据，要接必须改 DOM。
+3. nocturne 顶栏下「刊号行 / kicker / eyebrow」三行小字信息略重复，可考虑砍掉 eyebrow。
+4. play 在 768 下左栏 CTA 以下留白偏大（内容短 + 报尾钉底）；可改成整块垂直居中，但会牺牲刚修好的节拍。
+5. **空状态（词库为空）没有实测**：要复现得把阶段切到「自定义」且无词表，而空词池会把当天的新词计划结算成 0 并落盘（老坑），不该在真数据上试。
+6. play 深色档币的 2px 装饰边只有 1.65:1（刻意按「装饰线」处理）。
+
+### 回归
+
+- [x] 每条必修都在同一视口重截过图（`docs/screenshots/v8/`，共 34 张）
+- [x] 最终全矩阵 18 组：溢出 0 / 对比度不达标 0 / 点击目标 <44 0 / 中文小字 0 / 出列 0 / CTA 在首屏 18/18
+- [x] `tsc --noEmit` 0 错；现有四套皮肤截图对照基线未变（`v8-baseline-paper.png`）
+
 ## v7 · 2026-11-24 · 日历格子信息层级（真机反馈）
 
 审查范围：学习日历「接下来 7 天」全部 7 格 + hero 短句 + 新增的 `?` 说明气泡｜

@@ -1,5 +1,121 @@
 # NOTES
 
+## 2026-11-25 · v10 全站精修交付（8 皮肤 × 5 界面）+ 三个基线级缺陷 + 中文排印系统性提档
+
+- **用户选定**：A=bento / C=nocturne / D=desk / F=vinyl 继续做全站；**E=deck 作废**（`types/storage/skins/main.tsx` 四处摘掉，CSS 存档 `docs/v8-variants/deck.v1.css`）。
+  四套入选皮肤已从「只有首页」扩到**五个界面**（学习流 / 日历 / 错词本 / 我的 / 浮层）；现有四套（paper/foundry/instrument/broadsheet）**首页那句功能介绍已删并重排**。
+- **那句介绍是"真删"不是"藏起来"**：`StudyScreen.tsx` 里 `.start__title`/`.start__lede` 两个节点删了（`chineseCount` 导入随之删），`app.css` 两条规则删了 → 8 套皮肤同时不再出现；实测 `hasTitle:false / hasLede:false`。
+  副作用：「今日批次」`todayBatchCount` 现在只剩 `.start__spec` 第 3 行一个宿主（顶栏报头 + 读数带各皮肤自己决定要不要显示），谁藏谁负责。
+- **三个基线级缺陷（8 套皮肤全中，改一处全站受益）**：
+  1. `.stepper` 在 390 被 `.app__main{overflow-x:hidden}` **永久裁掉**：盒 116/89px 而子元素需要 144px，「每日新词上限」的「+」落在 380-424 → 几乎点不到。根因是 `.stepper` 自己的 `overflow:hidden` 让 flex 自动最小尺寸归零。修：`.stepper{flex:none}`。
+  2. `.hint__btn` 触控盒 18×18。修：元素本体 44×44 + `margin:-13px` 回收布局，18px 可见点挪到 `::before{inset:13px}`，焦点环/hover 一起挪（否则会在透明大盒上画方框）。**遗留**：`Hint.tsx:7` 注释还写着旧 `::after` 热区。
+  3. **中文小字系统性不达标**：基线 92 处「>4 汉字」的文本在 11–13px（`.cal-hero__lede` 13px/23 字、`.mistakes-empty__text` 13px/59 字、`.cal-kicker` 11px…）。修：`app.css` 末尾「v10 排印提档」块 + 四套原皮肤各补一块（它们自己压着工业/报纸小字）。硬 FAIL（<13px）**92 → 0**；剩 38 处 13px 是 `.skin-card__tag` 这类宽度受限的卡片副标，有意保留。
+- **审计脚本 `scripts/audit-screens.js`（新，跨界面用）自己有四个洞，修完才看见上面第 1 条**：
+  ① 「祖先横滚就跳过出列检查」遇上 `.app__main` 计算值 `overflow-x` 恒非 visible → **整站出列检查长期失效**（v9 那些 `nOut:0` 是假的）；② 裁切盒不分轴 → 纵向可滚被当裁切，页脚 44px 按钮报成 39px；③ 裁切盒漏返 `top` → CTA 判据 `NaN >= 60` **恒判失败**；④ 44 无亚像素容差 → 43.6px 假阳性。
+  现在按轴分：横向 `hidden|clip`=永久裁掉（缺陷）、`auto|scroll`=可滑到（豁免），触控取可见盒 ∩ 元素盒 + 0.5px 容差。**跑之前必须复制到 `C:\Users\xiao\.dsh\mcp\playwright-mcp\scripts\`**（`filename` 参数按 MCP 的 cwd 解析，不是工作区）。
+- **半透明叠半透明 = 对比度陷阱**：broadsheet 外观卡文字 2.15 → 3.45 → 7.85，两轮才找对根因（`.skin-grid{background:var(--border)}` 是 rgba + 选中卡 `--accent-weak` 也是 rgba，两层叠在页底上）。**结论：面板底色别用半透明 token，或按叠色后的真实底色算对比。**
+- **流程教训（重要）**：子代理会「回报很详细但一个字节没写」——第一轮 8 路全空，mtime 验证过。第三轮起派单加两句硬约束：**「第一个工具调用必须是 `edit`，不许先输出计划」** + 回报必须附 `Get-ChildItem <file> | Select-Object Length,LastWriteTime`。落盘率 0/8 → 8/8。
+  另外整文件 `write` 会顶掉别人同期手工补的块（nocturne 覆盖了我加的 §12 段）→ **同一文件只允许一个写者**，被覆盖后必须重新全量审计。
+- **实测状态**：216 组矩阵（390 档 8×2 主题×7 界面=112、360×640 40、768 32、1440 32）**0 失败**；`tsc` 0 错；截图 65 张在 `docs/screenshots/v10/`，报告 `DESIGN_REVIEW.md` v10，规约 `docs/SCREEN_SWEEP.md`（含 §6 落盘结果表）。
+  **学习数据没被污染**：`cards:0 / mistakes:0 / 已学 000 / 未学 3846`；session 档每次「进入→截图→退出本次学习」都比对 `cijian.v1` 全文（`dataKept:true`）——列表阶段本来就不落库（`SessionScreen.tsx` 头注释第 7 行），可以放心截图。
+- **仍未做**：首页 `.empty`（无词库）与学习流的即时复习/总结两相没截图（要落库）；`desk`/`vinyl` 的底部常驻带在日历与「我的」两屏没有 DOM 宿主；顶栏缺 `env(safe-area-inset-top)`（既有基线）；broadsheet 声明 3 个字族（既有）；**这批改动全部未提交**。
+- **下一步**：等用户点收哪套 / 是否提交 / 要不要把 13px 卡片副标也一刀切到 14px。
+
+## 2026-11-25 · v10 决策已定（用户拍板四条 + 三条附加要求），执行顺序：commit A 先落，commit B 做 DOM 分支
+
+- **① desk / vinyl 补 `.readouts` 宿主：批准，但有硬条件**（这是 commit B，**不许混进当前基线**）：
+  只在对应皮肤激活时渲染，或在 `src/lib/skins.ts` 的皮肤配置里加 `persistentReadouts: true` 开关，**其余 6 套 DOM 里不能出现该节点**；
+  内容必须与首页 `.readouts` **同源复用**（同一份 `allowedNew / todayBatchCount / learnedCount`），不准另造数据源；
+  回归矩阵要新增「日历 × 我的 × 8 皮肤 × 明暗」，覆盖溢出 / 真实底色对比 / 可见触控盒 / 出列裁切 / snap 内衬；
+  360 宽允许降级成单行紧凑态，但**必须在皮肤 CSS 里显式写**，不能靠裁切糊过去。
+- **② `.skin-card__tag` 保持 13px，不一刀切 14px**：理由=171px 宽下 14px 会两行、破坏卡片节奏、面板要多滚。
+  前提要做：**逐个扫**，凡内容 >4 个汉字的单独提字号或改短文案（`skins.ts` 里的 tagline 是文案宿主，改短算改数据不算改 DOM）；若全是 ≤4 字则 13px 定稿。
+  ⚠️ 实测现状：tagline 普遍 9–13 个汉字（「暖纸台面、常驻深色抽屉、768 真侧栏」），**不是 ≤4 字**，所以要逐个处理，不是直接定稿。
+- **③ 新用户一次性引导：暂缓**（用户不同意现在做，等后面再谈）。首页那句介绍保持彻底删除状态。
+- **④ 提交策略**：commit A = 当前已验证稳定点（两个基线 bug + 审计脚本修复 + 五屏精修 + 四套重排 + deck 作废 + 65 张截图）；commit B = 第①项 DOM 改动，独立回归、独立回滚粒度。
+  commit A 的 message 要点：`fix: stepper + 按钮裁切（flex:none，8 套同修）` / `fix: 中文小字 92 处硬失败归零` / `fix: 审计脚本豁免逻辑失效（v9 nOut:0 作废）` / `feat: 五屏精修 + 四套首屏重排` / `chore: deck 作废，存档 docs/v8-variants/deck.v1.css`，
+  并且**必须把证据链写进提交说明**：24 次 `dataKept:true`、`cards:0 / mistakes:0`、216 组矩阵、`tsc` 0 错。
+- **附加要求 A（探针逻辑要真修，不是打补丁）**：出列检查的豁免条件从「祖先 `overflow-x` 计算值非 visible 就跳过」改成
+  **「只有存在真正可滚的祖先（`scrollWidth > clientWidth` 且该轴 `overflow` 是 `auto|scroll`）才豁免」**；
+  `overflow-x:hidden` 造成的裁剪**本身就是出列问题，不能豁免**。修完 **v9 报告整体作废**，重新生成基线数字。
+- **附加要求 B（学习流两相不许裸奔）**：即时复习 / 总结页可以继续不截图（要答卡才进得去、会落库），
+  但回归**至少要加 DOM 级检查**：可见触控盒、文字截断、对比度。以后要截图的话：Playwright `storageState` 注入 + 测后恢复，
+  或接受污染后用 localStorage 快照回滚——**两种都必须在报告里显式标注**。
+- **当前状态**：deck 已作废、浏览器已复原 `paper / 浅色`、`tsc` 0 错、学习数据未污染。dev 5173 = job `pwsh-f6673db976c64f51`。
+
+
+
+
+## 2026-11-25 · v10.1 重基线：存储其实有两个键（大坑）、探针第 5 洞、中文小字清零
+
+- **⚠️ 最重要：学习状态不在 `cijian.v1`，在 `cijian.scheduler.v1`**（44KB：`cards / unlearned / days / mistakes / immediate / pendingLimit / lastSettlement`）。
+  `cijian.v1` 只有 `profile`（皮肤/主题/阶段/批大小）和 `session` 开关。之前所有「dataKept:true、数据没污染」的结论**只比对了前者，等于没守住**。
+  为补「即时复习/总结」两相的 DOM 检查必须答卡 → 真把今天 20 个词学掉了。已按 `learnedOn` 把卡退回 `unlearned` 队首 + 清 `days[today].newLearned` + 归零 `immediate` 计数，
+  复核 `cards:0 / unlearned:3846 / newLearned:0 / mistakes:0`、首页 `今日20 / 批数04 / 已学000` 复原。**两个审计脚本现在同时快照-还原-校验两个键。**
+- **回滚的正确姿势（可复用）**：`days[day].newLearned` 就是当天按 `unlearned` 从头取走的那批，所以「把它们 concat 回 `unlearned` 队首 + 从 `cards` 删掉 `learnedOn===day` 的项」是精确逆操作。
+  跑答卡的脚本（`scripts/audit-phases.js`）**备份前先 scrub 一次**——被超时打断后直接还原备份只会还原到脏状态（本轮踩过：`restored:true` 但 `cards:10`）。
+- **探针第 5 个洞**：祖先 `display:none` 时后代的 computed `display` 仍是 `inline/block`，**只有 `getBoundingClientRect()` 归零能证明没渲染**。
+  漏这行会把隐藏节点报成违规：instrument 首页 `.topbar__meta` 被 `.app:has(.start) .topbar__meta{display:none}` 藏了，却被 scan-tiny 报成 10px 硬失败。
+- **豁免逻辑真修（用户要求）**：出列检查只豁免「`(auto|scroll)` 且 `scrollWidth > clientWidth`」的真可滚祖先；`overflow-x:hidden` 的裁剪本身就是缺陷。
+  另加纵向判据 `nOutY`（全站 0）。**v9 报告整体作废**（它的 `nOut:0` 是在坏探针下测的），DESIGN_REVIEW 里已标注。
+- **新基线数字（以此为准）**：272 组 0 失败 = 390×明暗×8 界面×8 皮肤 128 + 360 48 + 768 48 + 1440 48；
+  学习流两相 16 组 × 2 相 = 32 次 DOM 探针 0 失败；`warnTiny` 92→38→**0**。
+- **`.skin-card__tag` 按用户第 2 条决定处理**：不一刀切 14px，而是把 8 条 tagline 改成**四字格**（暖纸·朱砂 / 硬边·印章 / 琥珀·等宽 / 栏线·靛蓝 / 冷灰·磁贴 / 墨蓝·月光 / 洋红·唱片 / 抽屉·侧栏），
+  ≤4 汉字不触发硬线 → 13px 定稿。改的是 `src/lib/skins.ts` 文案。其余 >4 汉字的 13px 逐个提 14px（foundry `.parse-summary` 11→14 且深色 tertiary 4.47 换 secondary、nocturne 三处、desk 三处吃 `--fs-small`、paper `.today-card__label`、基线 `.session-done__note`）。
+- **Vite 会漏 `edit` 工具的写入**：改完 CSS/TS 浏览器计算值仍是旧的（nocturne 两处、skins.ts 第 8 条都中招），文件其实已落盘。
+  处理 = `(Get-Item file).LastWriteTime = Get-Date` 强制失效再复测。**改完样式复测前先 touch，别信「改了没生效」。**
+- **相位脚本三个自坑（都修了）**：`waitForSelector` 超时不能当延时（整轮被杀）；`querySelectorAll` 文档序「模糊」在「认识」前面，点模糊会回队尾永远考不完；
+  即时复习是**每 10 个一组**，组清空会退回 list 相位读下一批 → 两种推进键都要戳。
+- **状态**：commit A 落这批；commit B（`persistentReadouts` 补 desk/vinyl 两屏常驻带）待做。浏览器已复原 `paper / 浅色`，临时键 `__bak_* / __p_*` 已删；截图 69 张在 `docs/screenshots/v10/`（48 张本轮重拍）。
+
+## 2026-11-25 · v9 三版结构级重做（desk / deck / vinyl）交付，五条 CSS 陷阱记牢
+
+- **产出**：新增 `src/styles/skins/{desk,deck,vinyl}.css`（案头＝768 真侧栏；叠章＝sticky 压栈遮挡；唱盘＝横向唱片轮 + 底部常驻读数带）；
+  `play` 作废（`types/storage/skins/main.tsx` 四处摘掉，CSS 存档 `docs/v8-variants/play.v1.css`）；`bento`/`nocturne` 按用户要求保留。
+  三版都删了首页功能介绍（`.start__title/.start__lede` `display:none`）。24 组矩阵 failCount 0，报告 `DESIGN_REVIEW.md` v9，图 `docs/screenshots/v9/`（72 张）。**仍未提交**。
+- **这轮学到的五条硬陷阱（比结论更值钱）**：
+  1. **`position:absolute` 只能锚祖先，不能锚兄弟**。`.start__actions` 与 `.today-card` 是 `.start__body` 的同层兄弟，把药丸 absolute 到「卡片右端」→ 包含块退到视口，实测 `y=-2`（按钮整个看不见）。
+     正解：`display:contents` 把两层壳拆开，让两者成为**同一个网格的同层成员**，用 `grid-row/column` 摆放。
+  2. **`scroll-snap-type:x mandatory` 会把滚动容器的 `padding-inline-start` 滚掉**（实测 `scrollLeft=20`、计算值 `padding-left:20px` 却贴屏边）。必须同时写 `scroll-padding-inline-start/-end`。
+  3. **网格叠放要同时钉 `grid-row` 和 `grid-column`**，只钉行会让 auto-placement **新开一条隐式列**（实测 `cols: 429.6px 118.4px`，hero 被挤成窄条）。
+  4. **`skin-hooks.css` 的默认 `display:none` 会压死皮肤里忘记显式打开的块**——批数 `todayBatchCount` 是「只有首页才有」的数据，漏写一次 `display:grid` 就等于全站丢失。任何被钩子默认关闭的结构，要用就要显式翻面。
+  5. **底色画在伪元素上，对比度审计读不到**：祖先背景链只走真元素的 `backgroundColor`，轨内浅色文字被按页面底色算成 1.0:1 误报。画在真实元素上既避免误报又少一个定位伪元素。
+- **审计脚本 `scripts/audit-skins.js` 这轮加了四个探针**（都是被真 bug 逼出来的）：CTA 必须**完整**在滚动口内且不被 topbar 裁（旧判据对负 top 恒真）、块间空洞 >140px、横滚容器静止态 `scrollLeft>1`、出列检查跳过横滚容器内的子元素（vinyl 第 4 盘「半切」是有意 affordance，不是溢出）。
+- **结构级差异的判据**（用户否掉「换色」后立的）：阅读轴 / 首屏焦点物种 / CTA 锚点 / chrome 是否移动 / 首页数据量 / 阴影语言 / 强调色，七条轴至少各占一条。详见 `docs/SKIN_CONCEPTS.md` v9 段与 `docs/research2/`（13 份跨领域笔记 + 三路收敛）。
+- **下一步**：用户从 5 套候选（bento / nocturne / desk / deck / vinyl）里选定后，把**剩下五个界面**按同一语言精修；
+  顺手可议：① 现有四套是否也删首页介绍（改 `app.css`/DOM，需批准）② 首启一次性引导替代它 ③ 提交这批改动。
+- **当前交接态（2026-11-25 上午，已交付等用户选）**：三版均已注册可切（外观面板 9 张卡，390 两列 / 768 四列）；
+  浏览器数据复原 `paper / 浅色`，`unlearned 3846 / cards 0 / days 2`；dev 5173 = job `pwsh-f6673db976c64f51`；
+  `git status` 有 6 个 M + 3 个新 CSS + `docs/research2/`(13 份) + `docs/screenshots/v9/`(72 张) + `scripts/audit-*.js`，**全部未提交**。
+
+
+
+## 2026-11-25 · v8 三版新皮肤交付 + 用户否掉「换色式」设计，要再来三版
+
+- **已交付**：新增三套皮肤 `src/styles/skins/{bento,play,nocturne}.css`（磁贴/燃点/夜航），**现有四套与 `app.css`、组件 DOM 一行未改**，
+  走原 `[data-skin]` 机制叠加；注册面 5 处：`types.ts` 的 `Skin` 联合、`skins.ts` 的 `SKINS`（含 swatch/darkBg/tagline）、
+  `storage.ts:61` 的 SKINS 白名单（**漏这里会导致 `profile.skin` 被清洗回 paper，切不过去**）、`main.tsx` import、
+  `SkinSheet.tsx` 说明文案改取 `SKINS.length`（原来写死「四套」）。
+- **审查**：`scripts/audit-skins.js` 跑 3 皮肤 × 明暗 × 360/768/1440 = 18 组，溢出/对比度/44px/中文小字/出列 **全 0**，
+  CTA 18/18 在首屏；报告 `DESIGN_REVIEW.md` v8，截图 `docs/screenshots/v8/`（34 张）。**改动未提交**。
+- **用户反馈（下一轮的硬要求）**：① 首页的 slogan「一页五个词，看一遍就会。」+ 玩法说明段**必须删掉**——
+  没有产品把功能介绍长期挂在首页，只在首次使用介绍一次；② 这三版被判定「基本是同一个 UI 换个色」，
+  **每版必须有自己的信息架构与版式骨架**，首页不必展示全部数据，多出来的指标可以挪到别的页面；
+  ③ **保留 A `bento` 与 C `nocturne`**，再重新设计三版（候选总数 5）；④ 调研要**跨领域**，别只看背单词 App。
+- **本轮踩到的坑（别再踩）**：
+  - 皮肤层不许改 DOM，所以「删文案」= 在新皮肤里 `.start__title/.start__lede { display:none }`，现有四套不动。
+  - **同一个数字同屏报多次**是 Anki 26.10 被社区要求回滚的原罪（bento 一度报了四次「今日 20」）；
+    静态装饰（刻度尺 / 7 点链 / 额度点阵）**不许长得像进度**——实心 accent 段会被读成假完成度，一律改淡灰装饰色。
+  - dev server 会喂**旧 CSS**（`node_modules/.vite` 缓存，源码对了运行是旧的）：`Stop-Process` + 删缓存 + 重启才可信。
+    当前 dev 5173 = job `pwsh-f6673db976c64f51`；preview 4173 仍是上个会话遗留的进程（不在 job 列表，只能 Stop-Process 重起）。
+  - 测皮肤必须**先导航到同源非 App 页 `/icon.svg` 再写 `cijian.v1.profile.skin`，然后导航回 `/`**；
+    在 App 页直接写会被 `pagehide` 的内存态回写覆盖。`audit-skins.js` 里直接改 `<html data-skin>` 不触发重渲染，快但只适合截图审查。
+  - **别在浏览器里点「开始背单词」**（`mouse.down/up` 也算点击）——会真的进入学习会话；误进了用「退出本次学习」零入库退出。
+- **下一步**：跨领域 UI 调研（健身/金融/音乐/阅读/天气/效率/游戏菜单/硬件品牌等）→ 定三版**结构不同**的方向 →
+  写 `docs/SKIN_CONCEPTS.md` v2 段落 → 三个子 agent 各写一个 CSS → 全矩阵审查 + design-review。
+  规约与技术约束文件：`docs/SKIN_CONCEPTS.md`、`docs/SKIN_BRIEF.md`（DOM 清单 + 令牌清单 + 硬指标，可直接复用）。
+
+
 ## 2026-11-24 · 收尾：待机维护状态锁更新——HEAD `4d1f381`
 
 - **提交链**（`dc33008` 之后）：`4d1f381` 日历格子信息层级重构（真机报的视觉误导，见下一条）。

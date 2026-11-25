@@ -52,8 +52,21 @@ export interface Wordbook {
 export type MeaningMode = 'auto' | 'main' | 'all';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
-/** 外观皮肤：一套完整的排印系统，与浅色/深色相互独立 */
-export type Skin = 'paper' | 'foundry' | 'instrument' | 'broadsheet';
+/**
+ * 外观皮肤：一套完整的排印系统，与浅色/深色相互独立。
+ * 前三套是 v1 的排印系（paper / foundry / instrument / broadsheet），
+ * 后三套是 v8 候选（bento 磁贴 / play 糖果 / nocturne 夜航），只做首页验证，
+ * 用户选定前不与旧皮肤互相替换。
+ */
+export type Skin =
+  | 'paper'
+  | 'foundry'
+  | 'instrument'
+  | 'broadsheet'
+  | 'bento'
+  | 'nocturne'
+  | 'desk'
+  | 'vinyl';
 
 export interface Profile {
   name: string;

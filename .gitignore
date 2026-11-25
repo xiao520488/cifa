@@ -6,3 +6,6 @@ dist/
 
 # ECDICT 源数据（约 63MB，用 scripts/build-books.ts 重新生成词库）
 .tmp-vocab/
+
+# 跑测临时目录（localStorage 快照、审计中间产物），不入库
+out/

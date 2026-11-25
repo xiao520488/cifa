@@ -1,0 +1,1313 @@
+/* ==========================================================================
+   词笺 · 皮肤「唱盘 VINYL」—— v9 三版之一（骨架轴：横）
+   --------------------------------------------------------------------------
+   主张：把首页的阅读轴整个翻倒 —— 主内容不是纵向文档流，是一条横向吸附的唱片轮，
+   外加底部一条常驻读数带（播放条语法）。七套皮肤里唯一的横向轴。
+   层级的三根柱子：① 横轮（128/104 圆盘=封面，曲名标签在盘下——第三轮实测：92 圆塞
+   「到期复习」必挤；出血到屏边、首盘内衬 20，第 4 盘半切 ≥28px＝可滑暗示）
+   ② 货架头内联药丸 CTA（「播放」与大标题同行右端，实测否定了 absolute 锚位——
+   兄弟节点不构成包含块；现在 body 开 contents、start 开网格，同层放置）
+   ③ 读数带沉底（order 交换，非 fixed：.app 有 max-width，fixed 在宽屏会脱列）。
+   字体（2 族）：Space Grotesk（盘上数字 / 大字 / UI）+ IBM Plex Mono（底带读数 / 小码）；
+   衬线槽位交给 Grotesk，杜绝衬线笔画。中文一律系统回退。
+   强调色只有洋红一处族：药丸、呼吸点、新词盘数字。红色专属逾期/错词/危险；
+   逾期盘只在 :has(b.is-warn) 时点亮 --warning，洋红绝不沾逾期。
+   阴影只有一档语义（唱片的厚度 0 3px 0 sunken，规约 F 明示属同一档），
+   --shadow-md/--shadow-lg 同值复用，禁三档齐上。
+   数据纪律：四个数只在盘上各一次；底带只留 批数/已学（今日格=盘1 重复，关）；
+   title/lede/meta/masthead/kicker 砍；首屏焦点大字挂 .start__eyebrow（阶段名+总词数，各一次）。
+   铁律：选择器全部以 [data-skin='vinyl'] 开头；零 important、零裸 root、不改 DOM、无外链。
+   分区：1 浅色令牌 / 2 深色令牌 / 3 基底与焦点 / 4 大标题位 / 5 砍壳 /
+         6 读数带沉底 / 7 货架头+药丸 / 8 横轮与盘 / 9 轮下承诺 / 10 按钮状态 /
+         11 foot 与空态 / 12 断点 / 13 hover / 14 动效降级 /
+          15 全站盘片语法 / 16 学习流 / 17 日历 / 18 错词本 / 19 我的 / 20 浮层 /
+          21 全站断点 / 22 全站 hover 与按下 / 23 全站动效降级
+   ========================================================================== */
+
+/* ---------- 1. 浅色档（温灰纸 + 洋红） ------------------------------------ */
+[data-skin='vinyl'] {
+  color-scheme: light;
+
+  /* 两族：Grotesk 管盘面与 UI，Mono 只管底带读数；serif 槽换成 Grotesk 杜绝衬线 */
+  --vy-grotesk: 'Space Grotesk', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC',
+    'Microsoft YaHei', system-ui, sans-serif;
+  --vy-mono: 'IBM Plex Mono', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', ui-monospace,
+    monospace;
+  --font-sans: var(--vy-grotesk);
+  --font-serif: var(--vy-grotesk);
+
+  --bg: #f7f5f2;            /* 温灰唱片架 */
+  --surface: #ffffff;       /* 盘片本身 */
+  --surface-raised: #ffffff;
+  --surface-sunken: #ece8e2; /* 唱片孔 / 盘的厚度边（唯一一档阴影的颜色） */
+  --border: #e4dfd8;         /* 1.2:1 级：只做分隔线与唱片纹，禁止当状态边界 */
+  --border-strong: #7e786f;  /* 4.0:1，够「状态边界 ≥3:1」 */
+  --text: #17141a;           /* 16.8:1 */
+  --text-secondary: #5b5560; /* 7.2:1 on surface —— 盘心标签用这档保 AA */
+  --text-tertiary: #6f6873;  /* 4.94:1 on bg / 5.38 on surface；不得压在 sunken（4.41） */
+  --accent: #a62a5e;         /* 洋红：白字 6.74:1，作大字文本 6.2:1 */
+  --accent-hover: #8e2250;
+  --accent-press: #7a1d45;
+  --accent-weak: #f6e7ee;    /* 弱底只给描边组件，不承载 tertiary 字 */
+  --on-accent: #ffffff;
+  --success: #2f6b4b;        /* 5.8:1 —— 浅深两档各写一遍，语义色老坑 */
+  --warning: #8a5a12;        /* 5.43 on bg / 5.91 on surface：逾期盘点亮用 */
+  --danger: #a33a46;         /* 红只给逾期错词危险，5.94 on bg */
+  --mask: #e7e1d9;
+  --scrim: rgba(23, 20, 26, 0.42);
+  --row-hover: rgba(23, 20, 26, 0.04);
+  --toggle-on: #f6e7ee;
+
+  /* 字号阶梯：首页焦点是 30px 阶段名与盘面数字，display 档收敛给别的页 */
+  --fs-display: 26px; --fs-h1: 20px; --fs-h2: 17px; --fs-body: 15px; --fs-small: 13px;
+  --fs-word: clamp(22px, 5.6vw, 28px); --fs-phonetic: 13px; --fs-meaning: 15px; --fs-load: 14px;
+
+  --page-x: 20px; --content-max: 640px; --app-max: 760px; --dock-height: 76px;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-full: 999px;
+
+  /* 一档阴影语义（盘厚边是 box-shadow 画的，不算第二档）；md/lg 同值复用 */
+  --shadow-sm: 0 1px 2px rgba(23, 20, 26, 0.06);
+  --shadow-md: 0 1px 2px rgba(23, 20, 26, 0.06);
+  --shadow-lg: 0 1px 2px rgba(23, 20, 26, 0.06);
+
+  /* 本案专用度量（--vy- 前缀，别撞 --bt/--pl/--nc） */
+  --vy-disc: 104px;       /* 盘=封面（<b> 本体），曲名在盘下。节拍按「第 4 盘半切≥28px」反推：
+                             ≥430 档 128/104/gap14 → d4 起 x=356+3×14=398 → 露 32px；
+                             390–429 档 120/96/gap10；≤389 档 112/88/gap8（见 §12，
+                             直接套 128/104 会让 390 的第 4 盘整个滚出屏外，硬指标反而破） */
+  --vy-disc-lg: 128px;    /* 主角盘（盘 1 新词） */
+  --vy-gap: 14px;         /* 轮距 */
+  --vy-label: 14px;       /* 含中文文本硬下限（曲名标签 14px） */
+  --vy-edge: #ece8e2;     /* 盘的厚度边色 */
+  --vy-pill-w: 132px;     /* 药丸最小宽：5 个汉字 15px + 三角 + 内距 */
+}
+
+/* ---------- 2. 深色档（墨槽独立重映射，非反色） ---------------------------- */
+[data-skin='vinyl'][data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #121113;
+  --surface: #1a191c;
+  --surface-raised: #232127;
+  --surface-sunken: #0e0d10; /* 深色上 sunken 比 bg 更深，盘孔仍读得出 */
+  --border: #2b2930;
+  --border-strong: #77717e;  /* 3.7-4.0:1：状态边界够 3:1 */
+  --text: #edeaf0;           /* 15.8:1 */
+  --text-secondary: #b6b0bd; /* 8.9:1 */
+  --text-tertiary: #948d9b;  /* 5.45 on surface / 5.87 on bg —— 全过 AA */
+  --accent: #f27da8;         /* 对 bg 7.42 / 对 on-accent 深墨 7.2:1 */
+  --accent-hover: #f796ba;
+  --accent-press: #d9648f;
+  --accent-weak: #37182a;
+  --on-accent: #2a0916;      /* 亮洋红面配深墨字，白字压亮洋红只有 ~2.4，禁止 */
+  --success: #74c694;
+  --warning: #e0a85c;
+  --danger: #ee8492;
+  --mask: #2a282e;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --row-hover: rgba(237, 234, 240, 0.05);
+  --toggle-on: #37182a;
+
+  /* 深色上暖墨投影不可见：阴影档改为「更深的厚度」+ 提亮盘缘，语义不变仍是一档 */
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --vy-edge: rgba(0, 0, 0, 0.55); /* 厚度边：深色下用黑缝（非纯黑色面），盘才「搁在架子上」 */
+}
+
+/* ---------- 3. 基底与焦点 -------------------------------------------------- */
+[data-skin='vinyl'] .app { background: var(--bg); }
+[data-skin='vinyl'] body,
+[data-skin='vinyl'] .screen { font-family: var(--font-sans); }
+[data-skin='vinyl'] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-skin='vinyl'] ::selection { background: var(--accent-weak); color: var(--text); }
+
+/* ---------- 4. 首屏焦点大标题：挂 .start__eyebrow，不挂 topbar__meta --------- */
+/* 实测否定 topbar 方案：60px 顶栏 + 三枚按钮塞不下 30px 大字，「词笺」被挤成竖排两行。
+   .topbar__meta 恢复 skin-hooks 的默认关闭（不开启、不覆盖）；大标题交给真实 DOM
+   .start__eyebrow（「四级核心词 · 3846 词」，全页唯一一次总数），左缘自动=屏幕内衬 20，
+   与轮的起始内衬对齐。kicker 保持关（阶段名不再复读）。 */
+[data-skin='vinyl'] .topbar { border-bottom: 1px solid var(--border); }
+[data-skin='vinyl'] .start__eyebrow {
+  display: block;                 /* 基线是 flex（自带 ::before 短线），block 后短线消失，无伪元素文本 */
+  grid-column: 1 / -1;
+  grid-row: 1;                    /* 独占整行 350px：27.3px×「四级核心词 · 3846 词」≈250 → 单行，行尾无孤「·」 */
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: clamp(26px, 7vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-transform: none;
+  color: var(--text);             /* 30px 大字：16.8:1 远超 3:1 */
+}
+
+/* ---------- 5. 砍壳：功能介绍与复读数据的全家桶 ---------------------------- */
+/* 硬规则：title/lede 已从 DOM 真删（原死选择器本轮已清，不得用伪元素把那句补回来）；meta/masthead 与盘/大标题复读，一并砍。
+   底带已留「批数」，spec 第 3 行文本「共 N 批 · 每批 M 词」因 React 散文本节点
+   无法拆开复用（需改 DOM 才能启用），spec 整体保持关闭。 */
+[data-skin='vinyl'] .start__meta,
+[data-skin='vinyl'] .start__masthead,
+[data-skin='vinyl'] .start__kicker,
+[data-skin='vinyl'] .start__spec { display: none; }
+
+/* 壳归位（第三轮实测定稿）：.start__body / .today-card / .today-card__head 三层壳全开
+   display:contents（今日卡的 aria-label 由可见的 __label「今日 · 11月24日 周二」补偿，
+   本项目已有先例），网格成员直接是：eyebrow / actions / __label / __links / __figures /
+   __reason / foot，全部显式行号。
+   行2、行7 是两条空的 1fr 呼吸行：剩余空间只落在「标题↔货架组」与「承诺句↔foot」
+   两处，货架组整体垂直居中且组内断裂被 row-gap(20) 封顶——不会再出 180px 空洞。
+   药丸彻底告别 absolute（第二轮实测：兄弟节点的 position:relative 不构成包含块，
+   药丸被钉去视口 y=-2）；本案仅存的 absolute 在 __figure 内部（锚=figure 自己），
+   只服务角标。 */
+[data-skin='vinyl'] .start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;   /* 列1=曲名，列2=Play 位 */
+  grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 1fr) auto auto minmax(0, 1fr) auto;
+  row-gap: 20px;
+  column-gap: var(--space-4);
+  min-height: calc(100dvh - 60px - 52px - env(safe-area-inset-bottom, 0px));
+  padding-top: var(--space-3);
+}
+[data-skin='vinyl'] .start__body { display: contents; margin-block: 0; }
+/* 第三层壳：today-card 与它的 head 一起 contents，子项直落网格 */
+[data-skin='vinyl'] .today-card,
+[data-skin='vinyl'] .today-card__head { display: contents; }
+
+/* ---------- 6. 读数带沉底：order 交换（实测 390 下 y=816，零溢出） ---------- */
+[data-skin='vinyl'] .app__main { order: 2; }
+[data-skin='vinyl'] .readouts {
+  order: 3;
+  flex: none;                    /* 别被 flex 列压扁 */
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 8px var(--page-x) calc(8px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--border); /* 装饰分隔，--border 级灰，不标状态 */
+}
+/* 「今日」格 = 盘 1 新词的复读，关；只留 批数/已学 */
+[data-skin='vinyl'] .readout:nth-child(1) { display: none; }
+/* 带左缘一枚微型盘当「封面缩略图」：纯 CSS 静态装饰，无进度语义 */
+[data-skin='vinyl'] .readouts::before {
+  content: '';
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--surface-sunken) 0 3px, var(--surface) 3.5px 10px,
+    var(--border) 10.5px 11px, var(--surface) 11.5px 100%);
+  border: 1px solid var(--border);
+}
+[data-skin='vinyl'] .readout { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+[data-skin='vinyl'] .readout + .readout { border-left: 1px solid var(--border); padding-left: var(--space-4); }
+[data-skin='vinyl'] .readout__k { font-size: var(--vy-label); line-height: 1; color: var(--text-tertiary); }
+[data-skin='vinyl'] .readout__v {
+  font-family: var(--vy-mono); font-size: 18px; font-weight: 500; line-height: 1;
+  letter-spacing: 0.06em; font-variant-numeric: tabular-nums; color: var(--text);
+}
+/* 右缘呼吸点：常驻层唯一的活动指示（播放器在响的语法），accent 允许在此 */
+[data-skin='vinyl'] .readouts::after {
+  content: '';
+  margin-left: auto;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: vy-pulse 2.4s var(--ease-out) infinite;
+}
+@keyframes vy-pulse {
+  50% { opacity: 0.35; transform: scale(0.72); }
+}
+
+/* ---------- 7. 货架：曲名行(含 Play) / links / 轮 / 承诺句 ------------------ */
+/* 三层壳 contents 后这些全是 .start 的网格成员（壳定义在 §5）。行号=第二轮方案：
+   行1 eyebrow｜行3 __label(列1)+药丸(列2)｜行4 __links｜行5 轮｜行6 承诺｜行8 foot。 */
+[data-skin='vinyl'] .today-card__label {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: center;
+  min-width: 0;
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary); /* 7.2:1，不靠 tertiary 擦线 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;      /* 列1 = 350-132-16 = 202 ≥ 文本 161，正常不触发 */
+}
+[data-skin='vinyl'] .today-card__links {
+  grid-column: 1;
+  grid-row: 4;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);          /* 横排两枚，间距 16 */
+}
+/* 主 CTA = 药丸：行3 列2 右端 ——「曲名左、Play 右」，音乐 App 货架头语法，网格同层。 */
+[data-skin='vinyl'] .start__actions {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: end;
+  align-self: center;
+  margin: 0;
+}
+[data-skin='vinyl'] .start__actions .btn--primary {
+  width: auto; min-width: var(--vy-pill-w); min-height: 44px;  /* 盘不是按钮，但药丸是：44 守身 */
+  border-radius: var(--radius-full); padding: 0 18px 0 15px;
+  font-size: 15px; font-weight: 600; letter-spacing: 0.01em;
+  box-shadow: var(--shadow-sm);  /* 唯一一档浮起；厚度语义留给盘 */
+}
+/* ▶ 是拉丁符号短码（播放语法），不与「开始背单词」复读语义，合规 */
+[data-skin='vinyl'] .start__actions .btn--primary::before { content: '▶'; font-size: 10px; }
+[data-skin='vinyl'] .start__actions .btn--primary:focus-visible { outline-offset: 3px; }
+
+/* ---------- 8. 横轮：本案的轴 ------------------------------------------------ */
+/* 基线 __figures 是 flex-wrap:wrap —— 实测第 4 盘会掉第二行；显式 nowrap 才是一条轮。
+   出血用 margin-inline 负值，但内衬必须 padding-inline-start/-end **长手式分开写**：
+   实测 shorthand `padding-inline` 未生效（disc1.x=0 贴屏边），长手式可查可压。
+   静止态：railX=0（出血到缘）→ 第一盘 x=20（768 档 x=32）；末尾内衬同步，最后一盘不贴右缘。
+   scroll-padding 必须同步声明：否则 mandatory 吸附会把 padding-inline-start 那 20px 滚掉
+   （实测 rail.scrollLeft=20、disc1 贴屏边——吸附对齐要考虑 scroll-padding）。
+   轮自身 margin-block 归零：组内节奏全交给网格 row-gap，gap 探针才不会报轮。 */
+[data-skin='vinyl'] .today-card__figures {
+  grid-column: 1 / -1;
+  grid-row: 6;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--vy-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline-start: var(--page-x);
+  scroll-padding-inline-end: var(--page-x);
+  scrollbar-width: none;
+  margin-inline: calc(-1 * var(--page-x));
+  margin-block: 0;                 /* 组内节奏交给 row-gap:20，轮不再自带 24/28 大边距 */
+  padding-inline-start: var(--page-x);
+  padding-inline-end: var(--page-x);
+  padding-block: 4px 6px;          /* 只为角标 top:-2 与 snap 视觉留缝；厚度边落在 8px 标签间隙里 */
+}
+[data-skin='vinyl'] .today-card__figures::-webkit-scrollbar { display: none; }
+/* 「封面+曲名」语法（第三轮）：圆盘缩小到 <b> 本体，标签移到盘下方外——
+   92px 圆里塞「到期复习」必挤，而 104+ 盘面只放一个数字刚好是唱片封面。
+   figure 是列向 flex（盘 8px 间距 曲名），它自己 position:relative 当角标锚
+   ——absolute 只允许出现在这里，锚必须是祖先自己（第二轮 y=-2 的教训）。 */
+[data-skin='vinyl'] .today-card__figure {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  white-space: normal;
+  text-align: center;
+  font-size: var(--vy-label);
+  line-height: 1.2;
+  color: var(--text-secondary);    /* 曲名走 secondary：7.2:1 保 AA，不靠 tertiary 擦线 */
+  scroll-snap-align: start;
+}
+/* 盘体 = <b>：正圆、硬停圆心孔 + 两道纹（--border 级灰，非等分刻度，读不成进度） */
+[data-skin='vinyl'] .today-card__figure b {
+  flex: none;
+  width: var(--vy-disc);
+  height: var(--vy-disc);
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  font-family: var(--vy-grotesk);
+  font-size: 22px;                 /* 「8/14」≈ 52px ≤ 104 盘心，负字距防撑圆 */
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+  background: radial-gradient(circle, var(--surface-sunken) 0 3px, var(--surface) 3.5px 24px,
+    var(--border) 24.5px 25px, var(--surface) 25.5px 37px, var(--border) 37.5px 38px,
+    var(--surface) 38.5px 100%);
+  border: 1px solid var(--border-strong);  /* 3.0-4.4:1 实环 = 状态级边界，盘才从纸上「立」起来 */
+  box-shadow: 0 3px 0 var(--vy-edge);      /* 厚度边 = 本案唯一一档阴影（规约 F：同档语义） */
+}
+/* 主角盘：盘 1（新词）大一号，轮上有大小拍，不散成并排图标 */
+[data-skin='vinyl'] .today-card__figure:nth-child(1) b {
+  width: var(--vy-disc-lg);
+  height: var(--vy-disc-lg);
+  font-size: 30px;
+}
+/* ↑+5 / 计划 N：外挂盘右上角，拉丁角标 11px；「计划 N」两字+数字 14px 守中文下限 */
+[data-skin='vinyl'] .today-card__tag { position: absolute; top: -2px; right: -8px; font-size: 11px; }
+[data-skin='vinyl'] .today-card__figure > span:not(.today-card__tag) {
+  position: absolute;
+  top: 20px;
+  right: -6px;                     /* 外挂量 ≤ 轮距−6，绝不啃下一盘的边 */
+  font-size: var(--vy-label);
+  color: var(--text-tertiary);     /* 4.94:1 on bg，压在盘缘外侧的纸上 */
+}
+/* 逾期只在 :has(b.is-warn) 时点亮 --warning 的盘环与数字：洋红绝不沾逾期，红专属危险/错词 */
+[data-skin='vinyl'] .today-card__figure:has(b.is-warn) b { border-color: var(--warning); color: var(--warning); }
+[data-skin='vinyl'] .today-card__figure b.is-accent { color: var(--accent); } /* 6.74 on surface */
+
+/* ---------- 9. 轮下：承诺句是唯一进轮下的成句中文 -------------------------- */
+/* 有承诺句（存在第二个 reason）时，第一句说明含与盘重复的数字，折掉；
+   :last-of-type 保证「无论一两句，露出来的都是末句」，配一条 --border 级发丝分隔。 */
+[data-skin='vinyl'] .today-card__reason {
+  grid-column: 1 / -1;
+  grid-row: 7;    /* 紧贴轮（行6）：曲名与它的注解之间不许出现呼吸行；余量交给行 2/5/8 三处 */
+  margin: 0; font-size: var(--vy-label); line-height: 1.6;
+}
+[data-skin='vinyl'] .today-card__reason:first-of-type:not(:last-of-type) { display: none; }
+[data-skin='vinyl'] .today-card__reason:last-of-type { border-top: 1px solid var(--border); padding-top: var(--space-3); }
+/* 不设 color：让基线 is-{ok|increase|decrease|paused} 的色调（tertiary/secondary/warning）透出来 */
+
+/* ---------- 10. 按钮与链接的状态（首页触点） -------------------------------- */
+/* 货架头两枚文字链是卡区唯一的可点物：≥44 高由基线 .btn--text 兜住；
+   横向内距收到 12 给左侧 __label 让出 ~16px，缓解 360 档 ellipsis 截尾 */
+[data-skin='vinyl'] .today-card__links .btn--text {
+  font-size: var(--vy-label); color: var(--text-secondary);
+  border-radius: var(--radius-sm); padding-inline: var(--space-3);
+}
+[data-skin='vinyl'] .start__foot .btn--text { font-size: 13px; border-radius: var(--radius-sm); }
+[data-skin='vinyl'] .start__foot .btn--text:focus-visible,
+[data-skin='vinyl'] .today-card__links .btn--text:focus-visible,
+[data-skin='vinyl'] .start__actions .btn:focus-visible { outline-offset: 2px; }
+[data-skin='vinyl'] .start__actions .btn:disabled { opacity: 0.45; transform: none; box-shadow: none; } /* 基线 0.38 在洋红面上太糊 */
+
+/* ---------- 11. foot 与空态兜底 -------------------------------------------- */
+[data-skin='vinyl'] .start__foot {
+  grid-column: 1 / -1;
+  grid-row: 9;                      /* 行 2/5/7 是三条 1fr 呼吸行：剩余空间三等分，任何一处空洞都 ≤ 屏高余量的 1/3 */
+  padding-top: 0; font-size: var(--vy-label);
+  font-family: var(--vy-mono);      /* 「进度只存在这台设备」9 个汉字 —— 成句中文守 14px 下限 */
+}
+[data-skin='vinyl'] .start__foot > span:first-child { letter-spacing: 0.02em; color: var(--text-tertiary); }
+/* .empty（无词库）不散架：按钮走令牌，44+ 由基线兜住 */
+[data-skin='vinyl'] .empty .btn { border-radius: var(--radius-md); }
+
+/* ---------- 12. 断点 --------------------------------------------------------- */
+/* 390–429 档：盘收小半号（120/96, gap 10）——128/104 全尺寸要到 430+ 才能保住
+   「第 4 盘半切」的硬指标；320–389 档药丸不再与标题挤同列 → 回退为「标题行之下」
+   的通栏 48 条（actions=行2），货架组推到行4-7，两条呼吸行改挂 3/8；
+   盘径 112/88、gap 8 → 360 下 d4 起 x=332，露 28px。links 仍横排。 */
+@media (min-width: 390px) and (max-width: 429px) {
+  [data-skin='vinyl'] {
+    --vy-disc: 96px;
+    --vy-disc-lg: 120px;
+    --vy-gap: 10px;
+  }
+}
+@media (max-width: 389px) {
+  [data-skin='vinyl'] {
+    --vy-disc: 88px;
+    --vy-disc-lg: 112px;
+    --vy-gap: 8px;
+  }
+  [data-skin='vinyl'] .start { grid-template-rows: auto auto minmax(0, 1fr) auto auto auto auto minmax(0, 1fr) auto; }
+  [data-skin='vinyl'] .start__actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: stretch;
+  }
+  [data-skin='vinyl'] .start__actions .btn--primary {
+    width: 100%;
+    min-height: 48px;
+    border-radius: var(--radius-md); /* 通栏回退条不再当「药丸」，回到控件圆角 */
+  }
+  [data-skin='vinyl'] .today-card__label { grid-row: 4; }
+  [data-skin='vinyl'] .today-card__links { grid-row: 5; }
+  [data-skin='vinyl'] .today-card__figures { grid-row: 6; }
+  [data-skin='vinyl'] .today-card__reason { grid-row: 7; }
+  [data-skin='vinyl'] .start__foot { grid-row: 9; }
+  /* 窄档盘挤：角标外挂量收小到不啃下一盘的边 */
+  [data-skin='vinyl'] .today-card__tag { right: -4px; }
+  [data-skin='vinyl'] .today-card__figure > span:not(.today-card__tag) { right: -4px; }
+}
+
+/* 矮屏：读数带降为单行（k v 同排基线对齐），把 52px 的胃口压到 ~36px；
+   网格 row-gap 收到 14——360×640 下货架组+通栏药丸≈559px 会超 528 预算，压 gap 才不出纵滚 */
+@media (max-height: 640px) {
+  [data-skin='vinyl'] .start { row-gap: 14px; }
+  [data-skin='vinyl'] .readouts { padding-block: 7px; gap: var(--space-3); }
+  [data-skin='vinyl'] .readout { flex-direction: row; align-items: baseline; gap: 6px; }
+}
+
+/* 平板+：page-x/字号组自补（令牌文档要求），轮距放宽；盘径不再改（768 四盘全露，无需缩） */
+@media (min-width: 768px) {
+  [data-skin='vinyl'] {
+    --page-x: 32px;
+    --fs-display: 30px;
+    --fs-phonetic: 14px;
+    --fs-meaning: 16px;
+    --fs-word: clamp(26px, 2.6vw, 30px);
+    --dock-height: 80px;
+    --vy-gap: 16px;
+  }
+  [data-skin='vinyl'] .readout__v { font-size: 20px; }
+}
+
+/* ---------- 13. hover（只给能悬停的设备，触屏不粘滞） ----------------------- */
+@media (hover: hover) {
+  [data-skin='vinyl'] .start__actions .btn--primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-1px);      /* ≤2px，不抖不误触 */
+  }
+  [data-skin='vinyl'] .today-card__links .btn--text:hover:not(:disabled) { color: var(--text); }
+  [data-skin='vinyl'] .icon-btn:hover { background: var(--row-hover); color: var(--text); }
+  [data-skin='vinyl'] .avatar-btn:hover { background: var(--accent-weak); }
+}
+/* 按下：100-150ms 内完成、加深一档（基线 transform .985 已在，这里补药丸的「落进架子」） */
+[data-skin='vinyl'] .start__actions .btn--primary:active:not(:disabled) {
+  background: var(--accent-press);
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* ---------- 14. 动效降级：关呼吸点与位移，吸附轮保留（滚动不是动效） -------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='vinyl'] .readouts::after { animation: none; }
+  [data-skin='vinyl'] .btn,
+  [data-skin='vinyl'] .icon-btn,
+  [data-skin='vinyl'] .avatar-btn { transition: none; }
+  [data-skin='vinyl'] .start__actions .btn--primary:hover:not(:disabled) { transform: none; }
+  [data-skin='vinyl'] .start__actions .btn--primary:active:not(:disabled) { transform: none; }
+}
+
+/* ==========================================================================
+   v10 · 全站五界面（§15 起）
+   --------------------------------------------------------------------------
+   首页立的三根柱子在这里逐屏复制成同一门语言：
+   ① 圆盘——全站共用一条 --vy-record 渐变（圆心孔 + 两道 --border 级刻纹，百分比 stops
+      所以任何盘径都自适应）+ 同一档厚度边 0 3px 0 var(--vy-edge)；盘底先铺 --surface
+      真色再压渐变，对比一律按 --surface 算（深档 = #1a191c，实测语义色 6.3-8.5:1）。
+   ② 横向吸附轮——出血到屏边 + padding-inline 长手式内衬 + scroll-padding 内衬，三件齐全
+      （日历读数轮、胶囊轮都同一节拍；末枚半切 = 可滑暗示，有意为之）。
+   ③ 底部常驻带——.readouts 只在首页存在，其它页的常驻带就是 .answer-dock / .dock：
+      它们本来就是 .app flex 列最后一个非滚动子元素 → 天然吸底，绝不写 fixed。
+   语义纪律：认识=success、模糊=warning、不认识/错词=danger、逾期=warning；
+   洋红只做结构（主角盘环、唱针、呼吸点、选中环、指针点、封面字母），不参与状态判定。
+   数据纪律：盘里的数字全是 DOM 真值（序号 / 错次 / 读数 / 步进值）；进度不做假圆弧——
+   轨道 + 唱针头，针头锚在 .study-progress__bar 自己身上（absolute 不锚兄弟）。
+   ========================================================================== */
+
+/* ---------- 15. 全站盘片语法（令牌 + 常驻带 + 通用盘） -------------------- */
+[data-skin='vinyl'] {
+  --vy-record: radial-gradient(circle, var(--surface-sunken) 0 9%, var(--surface) 10% 26%,
+    var(--border) 26.5% 28%, var(--surface) 28.5% 46%, var(--border) 46.5% 48%,
+    var(--surface) 48.5% 100%);
+  --vy-ord: 40px;           /* 学习流行首序位盘 */
+  --vy-cal-disc: 88px;      /* 日历读数盘 */
+  --vy-cal-disc-lg: 104px;  /* 日历主角盘（第一枚，洋红环） */
+  --vy-btn-known: 96px;     /* 三张唱盘：认识最大 / 不认识次之 / 模糊最小 */
+  --vy-btn-unknown: 88px;
+  --vy-btn-fuzzy: 76px;
+  --vy-needle: 14px;        /* 进度轨上的唱针头 */
+  --vy-badge: 44px;         /* 今日 / 预估 小圆盘点 */
+  --vy-danger-weak: #f9eceb; /* danger 的 hover 弱底：红区不借洋红的 accent-weak */
+  --dock-height: 116px;     /* 盘比基线的方块按钮高，.flash 的居中预算跟着走 */
+}
+[data-skin='vinyl'][data-theme='dark'] {
+  --vy-danger-weak: #3a1a20;
+}
+
+/* 常驻带：首页 .readouts 的语法搬过来——实底 --bg 画在真元素上，上缘一条 --border 发丝，
+   基线那条半透明 + blur 的浮条取消（盘要搁在台面上，不是浮在内容上）。 */
+[data-skin='vinyl'] .answer-dock,
+[data-skin='vinyl'] .dock {
+  flex: none;
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) var(--page-x) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 盘面统一铺底：先 --surface 实色，再压刻纹渐变（渐变失配也不会变成透明盘） */
+[data-skin='vinyl'] .answer-btn,
+[data-skin='vinyl'] .word-row__index,
+[data-skin='vinyl'] .cal-figure dd,
+[data-skin='vinyl'] .cal-day__badge,
+[data-skin='vinyl'] .mistake-row__badge,
+[data-skin='vinyl'] .stat__num,
+[data-skin='vinyl'] .stepper__value,
+[data-skin='vinyl'] .avatar,
+[data-skin='vinyl'] .icon-btn {
+  background: var(--surface);
+  background-image: var(--vy-record);
+}
+
+/* 进度轨 = 唱臂导轨：真数据仍是 __bar 的宽度（0% 时没有填充＝没有假进度），
+   针头是位置指针，不是第二层读数。 */
+[data-skin='vinyl'] .study-progress,
+[data-skin='vinyl'] .progress-track {
+  height: 6px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  overflow: visible;
+}
+[data-skin='vinyl'] .study-progress { margin: 2px var(--page-x) 0; }
+[data-skin='vinyl'] .study-progress__bar,
+[data-skin='vinyl'] .progress-track__bar {
+  position: relative;   /* 针头的包含块是它自己——absolute 只认祖先 */
+  background: var(--accent);
+}
+[data-skin='vinyl'] .study-progress__bar::after,
+[data-skin='vinyl'] .progress-track__bar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(var(--vy-needle) / -2);
+  width: var(--vy-needle);
+  height: var(--vy-needle);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: radial-gradient(circle, var(--surface) 0 2.5px, var(--accent) 3px 100%);
+}
+
+/* ---------- 16. ① 学习流 -------------------------------------------------- */
+/* 顶栏读数走 Mono：批号与「还剩 N 个」是播放计数，不是标题 */
+[data-skin='vinyl'] .study-bar__title { font-size: 16px; font-weight: 600; letter-spacing: 0; }
+[data-skin='vinyl'] .study-bar__title-total { font-family: var(--vy-mono); letter-spacing: 0.02em; }
+[data-skin='vinyl'] .study-bar__sub {
+  margin-top: 2px;
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+/* 词表行 = 架上待播的曲目：行首一枚小圆盘压真序号（01…），行体通栏、发丝分隔 */
+[data-skin='vinyl'] .word-list { margin-top: var(--space-2); border-top: 1px solid var(--border); }
+[data-skin='vinyl'] .word-row {
+  grid-template-columns: var(--vy-ord) minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-3);
+  padding: var(--space-4) 0 var(--space-3);
+}
+[data-skin='vinyl'] .word-row__index {
+  width: var(--vy-ord);
+  height: var(--vy-ord);
+  margin-top: 3px;
+  padding: 0;
+  display: grid;
+  place-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 3px 0 var(--vy-edge);
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--text-secondary);   /* 7.2:1 / 深档 8.9:1，盘底按 --surface 算 */
+}
+[data-skin='vinyl'] .word-row__body { min-width: 0; }   /* 360：长词 + 音标在列内折，不撑破轨道 */
+[data-skin='vinyl'] .word-row__word { font-weight: 500; }
+[data-skin='vinyl'] .word-row__ph { font-family: var(--vy-mono); letter-spacing: 0.01em; }
+/* 读完一批的控制带：四枚胶囊不按四等分，按内容配比（上一批/看完收尾最长） */
+[data-skin='vinyl'] .dock {
+  grid-template-columns: 1fr 1fr 1.2fr 1.5fr;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+[data-skin='vinyl'] .dock__btn {
+  min-height: 52px;
+  padding: 4px 6px;
+  border-radius: var(--radius-full);
+  font-size: var(--vy-label);
+  font-weight: 500;
+}
+[data-skin='vinyl'] .dock__state { font-size: var(--vy-label); letter-spacing: 0.02em; opacity: 0.8; }
+[data-skin='vinyl'] .dock__toggle { border-color: var(--border-strong); }
+/* 两个开关态自己写一遍：基线那两条是 (0,2,0)，上面这条同权重且在后面，
+   不显式补就等着「已关/显示」糊成同一种灰。开＝沉底灰，关＝洋红描边胶囊。 */
+[data-skin='vinyl'] .dock__toggle[aria-pressed='true'] {
+  background: var(--toggle-on);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+[data-skin='vinyl'] .dock__toggle[aria-pressed='false'] {
+  background: var(--accent-weak);   /* 浅 #f6e7ee / 深 #37182a：洋红字 5.5 / 6.2:1 */
+  border-color: var(--accent);
+  border-style: dashed;
+  color: var(--accent);
+}
+[data-skin='vinyl'] .dock__nav svg { flex: none; width: 16px; height: 16px; }
+[data-skin='vinyl'] .dock__nav--primary { box-shadow: 0 3px 0 var(--vy-edge); }
+/* 三枚作答键 = 三张唱盘：直径分档做节拍，文案过长时 radius-full 自然长成胶囊（永不裁字）。
+   环与字都用语义色（认识 success / 模糊 warning / 不认识 danger），洋红一律不上键。 */
+[data-skin='vinyl'] .answer-dock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+[data-skin='vinyl'] .answer-btn {
+  flex: 0 0 auto;
+  min-width: var(--vy-btn-unknown);
+  min-height: var(--vy-btn-unknown);
+  height: var(--vy-btn-unknown);
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-strong);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .answer-btn svg { flex: none; width: 16px; height: 16px; }
+[data-skin='vinyl'] .answer-btn--known {
+  min-width: var(--vy-btn-known);
+  min-height: var(--vy-btn-known);
+  height: var(--vy-btn-known);
+  border-color: var(--success);
+  color: var(--success);   /* 6.31 浅 / 8.55 深（盘底 --surface） */
+}
+[data-skin='vinyl'] .answer-btn--fuzzy {
+  min-width: var(--vy-btn-fuzzy);
+  min-height: var(--vy-btn-fuzzy);
+  height: var(--vy-btn-fuzzy);
+  border-color: var(--warning);
+  color: var(--warning);   /* 5.91 浅 / 深档更亮 */
+}
+[data-skin='vinyl'] .answer-btn--unknown { border-color: var(--danger); color: var(--danger); }
+[data-skin='vinyl'] .answer-btn--ghost { border-color: var(--border); color: var(--text-tertiary); }
+/* 卡面 = 唱封：整块抬起来（底色在真元素上），头行右端那颗呼吸点是唯一动效 */
+[data-skin='vinyl'] .flash { gap: var(--space-4); padding-block: var(--space-5) var(--space-6); }
+[data-skin='vinyl'] .flash-card {
+  position: relative;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .flash-card__head { align-items: baseline; }
+[data-skin='vinyl'] .flash-card__head::after {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  align-self: center;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: vy-pulse 2.4s var(--ease-out) infinite;
+}
+[data-skin='vinyl'] .flash-card__ph {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  letter-spacing: 0.02em;
+}
+[data-skin='vinyl'] .flash-card__reveal {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--vy-label);
+}
+[data-skin='vinyl'] .session-toast {
+  font-size: var(--vy-label);
+  line-height: 1.65;
+  color: var(--warning);
+  border-left: 2px solid var(--warning);
+}
+/* 收尾屏：kicker 是 Mono 小标，两枚按钮回到首页那颗药丸的形状 */
+[data-skin='vinyl'] .session-done { gap: var(--space-3); padding-block: var(--space-6) var(--space-7); }
+[data-skin='vinyl'] .session-done__kicker {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .session-done__title {
+  font-size: clamp(24px, 6.6vw, 30px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+[data-skin='vinyl'] .session-done__text {
+  font-family: var(--vy-mono);
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .session-done__note {
+  font-size: var(--vy-label);
+  line-height: 1.7;
+  color: var(--text-secondary);
+  max-width: 38ch;
+}
+[data-skin='vinyl'] .session-done__actions { margin-top: var(--space-3); }
+[data-skin='vinyl'] .session-done__actions .btn { border-radius: var(--radius-full); }
+/* 问号也是微型唱片（44×44 热区仍由基线 .hint__btn::after 撑），气泡回到盘片厚度档 */
+[data-skin='vinyl'] .hint__btn { border-color: var(--border-strong); color: var(--text-secondary); }
+[data-skin='vinyl'] .hint__pop {
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .hint__title { font-size: 15px; }
+[data-skin='vinyl'] .hint__text { font-size: var(--vy-label); }
+
+/* ---------- 17. ② 学习日历：读数轮 = 首页那条唱片轮 ---------------------- */
+[data-skin='vinyl'] .cal-kicker {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .cal-title { font-size: var(--fs-h1); font-weight: 500; }
+[data-skin='vinyl'] .cal-title b { font-size: clamp(28px, 8vw, 34px); font-weight: 600; }
+[data-skin='vinyl'] .cal-title__sub {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .cal-title__tag { font-size: var(--vy-label); padding: 2px 10px; }
+[data-skin='vinyl'] .cal-hero__reason { font-size: var(--vy-label); line-height: 1.6; }
+/* DOM 是 dt→dd（标签在上），column-reverse 把盘抬到上、曲名压到盘下＝首页「封面+曲名」语法。
+   出血 / 内衬 / scroll-padding 三件齐全，否则第一枚盘会贴屏边（v9 实测坑）。 */
+[data-skin='vinyl'] .cal-figures {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--vy-gap);
+  margin-inline: calc(-1 * var(--page-x));
+  padding-inline-start: var(--page-x);
+  padding-inline-end: var(--page-x);
+  padding-block: 4px 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline-start: var(--page-x);
+  scroll-padding-inline-end: var(--page-x);
+  scrollbar-width: none;
+}
+[data-skin='vinyl'] .cal-figures::-webkit-scrollbar { display: none; }
+[data-skin='vinyl'] .cal-figure {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  scroll-snap-align: start;
+}
+[data-skin='vinyl'] .cal-figure dt {
+  font-size: var(--vy-label);
+  letter-spacing: 0;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+/* aspect-ratio:1 + 单行不换行：文本弦长恒 ≤ 直径，「12 / 25」只会把盘长大，不会裁字 */
+[data-skin='vinyl'] .cal-figure dd {
+  margin: 0;
+  display: grid;
+  place-content: center;
+  aspect-ratio: 1;
+  min-width: var(--vy-cal-disc);
+  padding: 12px 8px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 3px 0 var(--vy-edge);
+  font-family: var(--vy-grotesk);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+[data-skin='vinyl'] .cal-figure:first-child dd {
+  min-width: var(--vy-cal-disc-lg);
+  border-color: var(--accent);   /* 主角盘：洋红只当「正在播这一张」的结构环 */
+  font-size: 20px;
+}
+[data-skin='vinyl'] .cal-figure dd.is-warn { border-color: var(--warning); color: var(--warning); }
+/* 日期格：今日 / 预估做成小圆盘点，负荷槽是胶囊读数（复习靠 Mono 加粗，不靠洋红） */
+[data-skin='vinyl'] .cal-day__head { align-items: center; gap: var(--space-2); }
+[data-skin='vinyl'] .cal-day__date {
+  font-family: var(--vy-mono);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+[data-skin='vinyl'] .cal-day__weekday { font-size: var(--vy-label); color: var(--text-secondary); }
+[data-skin='vinyl'] .cal-day__badge {
+  display: grid;
+  place-content: center;
+  aspect-ratio: 1;
+  min-width: var(--vy-badge);
+  padding: 12px 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  box-shadow: 0 3px 0 var(--vy-edge);
+  font-size: var(--vy-label);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  color: var(--accent);
+  white-space: nowrap;
+}
+[data-skin='vinyl'] .cal-day__badge--quiet { border-color: var(--border-strong); color: var(--text-secondary); }
+[data-skin='vinyl'] .cal-load { font-size: var(--vy-label); padding: 3px var(--space-3); }
+[data-skin='vinyl'] .cal-load--primary {
+  padding: 4px var(--space-3);
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+[data-skin='vinyl'] .cal-load--primary .cal-load__v { font-family: var(--vy-mono); font-weight: 700; }
+[data-skin='vinyl'] .cal-load--quiet { border-style: dashed; }
+[data-skin='vinyl'] .cal-load--up { font-size: 13px; padding: 2px 9px; }
+[data-skin='vinyl'] .cal-load__dot { background: var(--accent); }  /* 曲目指针，非状态色 */
+[data-skin='vinyl'] .cal-batch { font-size: var(--vy-label); }
+[data-skin='vinyl'] .cal-batch__k { min-width: 4.6em; font-family: var(--vy-mono); }
+[data-skin='vinyl'] .cal-day__empty,
+[data-skin='vinyl'] .cal-day__reason,
+[data-skin='vinyl'] .cal-note,
+[data-skin='vinyl'] .cal-hero__lede,
+[data-skin='vinyl'] .cal-long__note,
+[data-skin='vinyl'] .cal-section__hint,
+[data-skin='vinyl'] .cal-foot { font-size: var(--vy-label); line-height: 1.7; }
+[data-skin='vinyl'] .cal-foot { font-family: var(--vy-mono); letter-spacing: 0.02em; }
+[data-skin='vinyl'] .cal-note { border-left-color: var(--border-strong); }
+[data-skin='vinyl'] .cal-note--warn { border-left-color: var(--warning); color: var(--warning); }
+[data-skin='vinyl'] .cal-long__value { font-size: var(--fs-body); }
+[data-skin='vinyl'] .cal-hero__actions .btn--primary {
+  min-width: var(--vy-pill-w);
+  border-radius: var(--radius-full);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .cal-hero__actions .btn--primary::before { content: '▶'; font-size: 10px; }
+
+/* ---------- 18. ③ 错词本：行首一枚盘 = 真错次 ---------------------------- */
+/* 行 = 三列台账：盘（错次）｜词条｜日期 + 排程。__meta 是无标签的 span，整行本身
+   就是 button 且 aria-label 已含「累计答错 N 次」→ 拆壳让 badge 直落第一列不丢语义。
+   钉 grid-row 与 grid-column 两边（只钉行会开出隐式列）。 */
+[data-skin='vinyl'] .mistake-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  align-items: center;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+[data-skin='vinyl'] .mistake-row__meta { display: contents; }
+[data-skin='vinyl'] .mistake-row__badge {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  justify-self: center;
+  align-self: center;
+  display: grid;
+  place-content: center;
+  aspect-ratio: 1;
+  min-width: 46px;
+  padding: 12px 5px;
+  border-radius: 50%;
+  border: 2px solid var(--danger);   /* 红＝错词 */
+  box-shadow: 0 3px 0 var(--vy-edge);
+  font-family: var(--vy-grotesk);
+  font-size: var(--vy-label);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--danger);              /* 6.45 浅 / 6.96 深，盘底按 --surface 算 */
+  white-space: nowrap;
+}
+[data-skin='vinyl'] .mistake-row__main { grid-column: 2; grid-row: 1 / span 2; }
+[data-skin='vinyl'] .mistake-row__word { flex-wrap: wrap; font-size: var(--fs-h2); }
+[data-skin='vinyl'] .mistake-row__ph { font-family: var(--vy-mono); font-size: 13px; }
+[data-skin='vinyl'] .mistake-row__meaning { font-size: var(--vy-label); line-height: 1.55; }
+[data-skin='vinyl'] .mistake-row__date {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  text-align: right;
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .mistake-row__hint {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: end;
+  text-align: right;
+  font-size: var(--vy-label);
+  color: var(--text-tertiary);
+}
+[data-skin='vinyl'] .mistake-quiz__meta {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+/* 空态＝一张空盘：只有盘面与厚度边，没有数字与刻度，读不出进度 */
+[data-skin='vinyl'] .mistakes-empty { gap: var(--space-3); padding-top: var(--space-6); align-items: center; }
+[data-skin='vinyl'] .mistakes-empty::before {
+  content: '';
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  background-image: var(--vy-record);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .mistakes-empty__title { font-size: var(--fs-h1); font-weight: 600; }
+[data-skin='vinyl'] .mistakes-empty__text {
+  font-size: var(--fs-body);
+  line-height: 1.75;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 42ch;
+}
+[data-skin='vinyl'] .mistakes-empty .btn { align-self: stretch; border-radius: var(--radius-full); }
+
+/* ---------- 19. ④ 我的：读数盘 + 封套 + 胶囊轮 -------------------------- */
+[data-skin='vinyl'] .profile { gap: var(--space-4); }
+[data-skin='vinyl'] .avatar {
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 3px 0 var(--vy-edge);
+  color: var(--accent);        /* 封面字母压在 --surface 上：6.2 浅 / 6.9 深 */
+  font-family: var(--vy-grotesk);
+}
+[data-skin='vinyl'] .profile__meta {
+  margin-top: var(--space-2);
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  color: var(--text-secondary);
+}
+/* 章节头 = 货架小标：Mono 标签 + 一颗洋红指针点（结构，不表状态） */
+[data-skin='vinyl'] .section__head { align-items: center; gap: var(--space-2) var(--space-3); }
+[data-skin='vinyl'] .section__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .section__title::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+[data-skin='vinyl'] .section__hint { margin-top: var(--space-3); font-size: var(--vy-label); line-height: 1.7; }
+[data-skin='vinyl'] .section__hint--inline { margin-top: 0; }
+/* 圆盘读数：DOM 里 .stat 只有两处宿主（每日新词 / 学习进度），第三枚交给步进器中央的
+   当前值——同为「盘上真数」，同一套圆 + 刻纹 + 厚度边。 */
+[data-skin='vinyl'] .stat { align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
+[data-skin='vinyl'] .stat__num {
+  display: grid;
+  place-content: center;
+  aspect-ratio: 1;
+  min-width: 96px;
+  padding: 18px 12px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 3px 0 var(--vy-edge);
+  font-family: var(--vy-grotesk);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+[data-skin='vinyl'] .stat__unit { font-size: var(--vy-label); color: var(--text-secondary); }
+[data-skin='vinyl'] .stepper { padding: 2px; background: var(--surface); border-color: var(--border-strong); }
+[data-skin='vinyl'] .stepper__value {
+  min-width: 44px;
+  height: 40px;
+  display: inline-grid;
+  place-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-family: var(--vy-mono);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* 阶段 = 一排封套；选中靠洋红环 + 弱底（基线已有），形状回到方形封套 */
+[data-skin='vinyl'] .stage-grid { gap: var(--space-3); margin-top: var(--space-3); }
+[data-skin='vinyl'] .stage-option {
+  gap: var(--space-1);
+  min-height: 72px;
+  padding: var(--space-3);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .stage-option[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  box-shadow: none;
+}
+[data-skin='vinyl'] .stage-option__short { font-size: var(--fs-h2); font-weight: 600; }
+[data-skin='vinyl'] .stage-option__count {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .stage-option__desc {
+  font-size: var(--vy-label);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .setting-row {
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: var(--space-3) 0;
+}
+[data-skin='vinyl'] .setting-row > div { min-width: 0; }
+[data-skin='vinyl'] .setting-row__label { font-size: var(--fs-body); }
+[data-skin='vinyl'] .setting-row__value { font-size: var(--vy-label); color: var(--text-secondary); }
+/* 文字链按钮（我的页「快速切换 / 打开 / 删除」）：44 高由基线 .btn--text 兜住，
+   字号提到 14 守中文下限，形状仍是药丸 */
+[data-skin='vinyl'] .section .btn--text,
+[data-skin='vinyl'] .setting-row .btn--text { font-size: var(--vy-label); border-radius: var(--radius-full); }
+[data-skin='vinyl'] .btn--danger-text,
+[data-skin='vinyl'] .btn--text.btn--danger-text { color: var(--danger); }
+[data-skin='vinyl'] .btn--danger:hover:not(:disabled),
+[data-skin='vinyl'] .btn--text.btn--danger-text:hover:not(:disabled) {
+  background: var(--vy-danger-weak);
+  color: var(--danger);
+}
+
+/* ---------- 20. ⑤ 浮层：胶囊轮 + 唱封面板 -------------------------------- */
+/* 分段器＝横滑胶囊轮（同一套 snap + scroll-padding 内衬，窄容器里自己滚不破 360） */
+[data-skin='vinyl'] .segmented {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: 2px 0 4px;
+  background: transparent;
+  border-radius: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline-start: 2px;
+  scroll-padding-inline-end: 2px;
+  scrollbar-width: none;
+}
+[data-skin='vinyl'] .segmented::-webkit-scrollbar { display: none; }
+[data-skin='vinyl'] .segmented__item {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 44px; /* 胶囊里的数字只有 1–2 位，靠 padding 撑出来会差 1px，探针按 44 判 */
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--vy-label);
+  white-space: nowrap;
+  scroll-snap-align: start;
+}
+[data-skin='vinyl'] .segmented__item[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--toggle-on);   /* 浅 #f6e7ee / 深 #37182a，洋红字 5.5 / 6.2:1 */
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+[data-skin='vinyl'] .setting-row .segmented { flex: 0 1 208px; min-width: 0; margin-top: 0; }
+[data-skin='vinyl'] .scrim { background: var(--scrim); }
+/* sheet＝抬起的唱封：圆角与首页盘语言同一档（--radius-lg 14），顶心一条唱片槽抓手 */
+[data-skin='vinyl'] .sheet {
+  position: relative;             /* 抓手钉在自己身上，不锚兄弟 */
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+[data-skin='vinyl'] .sheet::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+[data-skin='vinyl'] .sheet__head { padding-top: var(--space-2); }
+[data-skin='vinyl'] .sheet__title { font-size: var(--fs-h1); font-weight: 600; letter-spacing: -0.01em; }
+[data-skin='vinyl'] .sheet__desc { font-size: var(--vy-label); line-height: 1.7; color: var(--text-secondary); }
+[data-skin='vinyl'] .sheet__foot .btn,
+[data-skin='vinyl'] .dialog__actions .btn { min-height: 48px; border-radius: var(--radius-full); }
+[data-skin='vinyl'] .sheet__foot .btn--primary { box-shadow: 0 3px 0 var(--vy-edge); }
+[data-skin='vinyl'] .sheet__foot .btn--primary::before { content: '▶'; font-size: 10px; }
+[data-skin='vinyl'] .dialog {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .dialog__title { font-size: var(--fs-h1); font-weight: 600; }
+[data-skin='vinyl'] .dialog__text { font-size: var(--fs-body); line-height: 1.7; color: var(--text-secondary); }
+[data-skin='vinyl'] .dialog__actions { gap: var(--space-2); margin-top: var(--space-4); }
+/* 外观卡＝一排封套，色板里的 accent 收成圆点（每张卡自己就是一张迷你唱片） */
+[data-skin='vinyl'] .skin-grid { gap: var(--space-3); }
+[data-skin='vinyl'] .skin-card {
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--vy-edge);
+}
+[data-skin='vinyl'] .skin-card__swatch { border-radius: var(--radius-sm); }
+[data-skin='vinyl'] .skin-card__accent { border-radius: 50%; }
+[data-skin='vinyl'] .skin-card__name { font-size: var(--vy-label); }
+[data-skin='vinyl'] .skin-card__tag { font-size: var(--vy-label); line-height: 1.5; color: var(--text-secondary); }
+[data-skin='vinyl'] .skin-card[aria-pressed='true'] { box-shadow: inset 0 0 0 1px var(--accent); }
+[data-skin='vinyl'] .skin-sheet__label {
+  font-family: var(--vy-mono);
+  font-size: var(--vy-label);
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+[data-skin='vinyl'] .textarea {
+  border-radius: var(--radius-md);
+  border-color: var(--border-strong);
+  font-size: var(--vy-label);
+  line-height: 1.75;
+}
+[data-skin='vinyl'] .parse-summary { font-size: var(--vy-label); }
+[data-skin='vinyl'] .parse-summary strong { font-family: var(--vy-mono); font-size: 15px; }
+[data-skin='vinyl'] .issues { font-size: var(--vy-label); }
+[data-skin='vinyl'] .issues li { align-items: baseline; }
+
+/* ---------- 21. 全站断点 -------------------------------------------------- */
+/* ≤389：三张唱盘各收小一档（360 实测 91+68+88 + 2×8 = 255 ≤ 可用 280），日历盘同步收小 */
+@media (max-width: 389px) {
+  [data-skin='vinyl'] {
+    --vy-btn-known: 88px;
+    --vy-btn-unknown: 80px;
+    --vy-btn-fuzzy: 68px;
+    --vy-cal-disc: 80px;
+    --vy-cal-disc-lg: 96px;
+    --vy-ord: 36px;
+    --vy-badge: 42px;
+    --dock-height: 108px;
+  }
+  [data-skin='vinyl'] .stat__num { min-width: 88px; font-size: 24px; }
+  [data-skin='vinyl'] .mistake-row { column-gap: var(--space-2); }
+}
+/* 矮屏：盘不再吃满高度，卡面自带居中预算交给 .flash */
+@media (max-height: 640px) {
+  [data-skin='vinyl'] {
+    --vy-btn-known: 84px;
+    --vy-btn-unknown: 76px;
+    --vy-btn-fuzzy: 66px;
+    --vy-cal-disc: 80px;
+    --vy-cal-disc-lg: 92px;
+    --dock-height: 104px;
+  }
+  [data-skin='vinyl'] .flash { padding-block: var(--space-3) var(--space-4); }
+  [data-skin='vinyl'] .dock__btn { min-height: 48px; }
+}
+/* 平板+：盘放大一档，但 .dock 仍是通栏常驻带（基线那档会把它变成居中浮起的小卡片） */
+@media (min-width: 768px) {
+  [data-skin='vinyl'] {
+    --vy-btn-known: 104px;
+    --vy-btn-unknown: 96px;
+    --vy-btn-fuzzy: 84px;
+    --dock-height: 124px;
+  }
+  [data-skin='vinyl'] .dock {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    border-inline: 0;
+    border-bottom: 0;
+    box-shadow: none;
+  }
+}
+
+/* ---------- 22. 全站 hover 与按下 ---------------------------------------- */
+/* 触屏无 hover：提盘 / 落盘只在可悬停设备上做，位移 ≤2px；
+   按下＝唱片压回架子（translateY + 去厚度边），与首页药丸同一语法。 */
+@media (hover: hover) {
+  [data-skin='vinyl'] .answer-btn:hover,
+  [data-skin='vinyl'] .dock__nav:hover:not(:disabled),
+  [data-skin='vinyl'] .stage-option:hover,
+  [data-skin='vinyl'] .segmented__item:hover,
+  [data-skin='vinyl'] .skin-card:hover,
+  [data-skin='vinyl'] .mistake-row:hover { transform: translateY(-1px); }
+  [data-skin='vinyl'] .flash-card__reveal:hover { border-color: var(--accent); color: var(--text); }
+  [data-skin='vinyl'] .mistake-row:hover { background: var(--row-hover); }
+  /* 未选中态才回收成灰边 / 深字：否则 hover 会把「已选中」的洋红环与字压掉（同权重比顺序） */
+  [data-skin='vinyl'] .stage-option:not([aria-pressed='true']):hover { border-color: var(--border-strong); }
+  [data-skin='vinyl'] .segmented__item:not([aria-pressed='true']):hover { color: var(--text); }
+  [data-skin='vinyl'] .cal-figure:hover dd:not(.is-warn),
+  [data-skin='vinyl'] .stat__num:hover { border-color: var(--accent); }
+}
+[data-skin='vinyl'] .answer-btn:active,
+[data-skin='vinyl'] .dock__btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+/* 按下时揭掉刻纹，让基线那档 --surface-sunken 实底透出来（否则 shorthand 之下的渐变会盖住反馈） */
+[data-skin='vinyl'] .icon-btn:active,
+[data-skin='vinyl'] .answer-btn:active,
+[data-skin='vinyl'] .segmented__item:active,
+[data-skin='vinyl'] .stepper__value:active { background-image: none; }
+[data-skin='vinyl'] .answer-btn:focus-visible,
+[data-skin='vinyl'] .dock__btn:focus-visible,
+[data-skin='vinyl'] .segmented__item:focus-visible,
+[data-skin='vinyl'] .stage-option:focus-visible,
+[data-skin='vinyl'] .skin-card:focus-visible,
+[data-skin='vinyl'] .mistake-row:focus-visible,
+[data-skin='vinyl'] .flash-card__reveal:focus-visible,
+[data-skin='vinyl'] .cal-hero__actions .btn:focus-visible,
+[data-skin='vinyl'] .session-done__actions .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-skin='vinyl'] .answer-btn:focus-visible { outline-offset: 3px; }
+[data-skin='vinyl'] .cal-hero__actions .btn:disabled,
+[data-skin='vinyl'] .session-done__actions .btn:disabled,
+[data-skin='vinyl'] .mistakes-empty .btn:disabled { opacity: 0.45; box-shadow: none; transform: none; }
+
+/* ---------- 23. 全站动效降级 ---------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='vinyl'] .flash-card__head::after { animation: none; }
+  [data-skin='vinyl'] .answer-btn,
+  [data-skin='vinyl'] .dock__btn,
+  [data-skin='vinyl'] .segmented__item,
+  [data-skin='vinyl'] .stage-option,
+  [data-skin='vinyl'] .skin-card,
+  [data-skin='vinyl'] .mistake-row,
+  [data-skin='vinyl'] .flash-card__reveal { transition: none; }
+  [data-skin='vinyl'] .answer-btn:hover,
+  [data-skin='vinyl'] .answer-btn:active,
+  [data-skin='vinyl'] .dock__btn:active:not(:disabled),
+  [data-skin='vinyl'] .dock__nav:hover:not(:disabled),
+  [data-skin='vinyl'] .stage-option:hover,
+  [data-skin='vinyl'] .segmented__item:hover,
+  [data-skin='vinyl'] .skin-card:hover,
+  [data-skin='vinyl'] .mistake-row:hover { transform: none; }
+}

@@ -1,0 +1,794 @@
+/* ==========================================================================
+   词笺 · 皮肤「磁贴 BENTO」—— v8 再设计候选 A
+   --------------------------------------------------------------------------
+   主张：首页不是广告位，是一台可核对的仪表。slogan 降级成小标题，数字升级为读数与磁贴。
+   层级只靠三件事撑：磁贴面差（白磁贴浮在冷灰纸上，不靠线框）、不对称阵型（1 大 + 2 小 + 1 长）、
+   一处 teal 信号（读数与刻度用 mono，状态边界一律 ≥3:1 的线，装饰线 #DEDED8 只做分隔）。
+   字体（2 族）：IBM Plex Mono（数字 / 读数 / 单位 / 角标，+ 字距 + tabular-nums）
+   + IBM Plex Sans（标题与正文）；衬线槽位也交给 Plex Sans，杜绝任何衬线笔画。
+   与 instrument 拉开：浅色原生、圆角 2/6/8（不是全 0）、teal 而非琥珀、无满页刻度网格、标签不做大字距排印。
+   范围（v10 全站精修）：首页已定稿（那句功能介绍的节点已从 DOM 真删，指向它的死选择器已清，不用伪元素补句）；五个界面走同一磁贴语言，任何一屏不退回单列流水账——①学习流＝条状进度磁贴 + 小磁贴列表 + sunken 托盘不等宽 dock；②日历＝读数磁贴阵（1 大 2 小 1 长）+ 双列日格阵；③错词本＝红边磁贴行 + 右侧计数小格；④我的＝身份磁贴 + 大读数磁贴 + 台账行；⑤浮层＝sheet 头带 + teal 边标题、sunken 托盘分段器、dialog 不等分动作阵。
+         首页五屏之外，其余界面精修见 8B–8F；本节只留全站兜底与小字下限。
+   铁律：全部选择器以 [data-skin='bento'] 开头（深色加 [data-theme='dark']）；
+        零 important、零裸 root、不改 DOM、不引外链资源。
+   分区：1 浅色令牌 / 2 深色令牌 / 3 基底与焦点 / 4 顶栏 / 5 首页 / 6 today 主磁贴 /
+        7 按钮 / 8 全站兜底与小字下限 / 8B 学习流 / 8C 日历 / 8D 错词本 / 8E 我的 / 8F 浮层 / 9 断点 / 10 hover / 11 动效降级
+   ========================================================================== */
+
+/* ---------- 1. 浅色档（原生）：冷灰纸 + teal 信号 --------------------------- */
+[data-skin='bento'] {
+  color-scheme: light;
+  /* 数字 / 读数 / 单位 / 顶栏元信息 / 角标走 Mono；标题正文走 Sans；serif 槽位交给 Sans，杜绝衬线 */
+  --font-mono: 'IBM Plex Mono', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei',
+    ui-monospace, monospace;
+  --font-sans: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+  --font-serif: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+
+  --bg: #f1f1ee; --surface: #ffffff; --surface-raised: #ffffff; --surface-sunken: #e7e7e2;
+  --border: #deded8;         /* 1.19:1：只做分隔线与装饰，禁止当状态边界 */
+  --border-strong: #8b8b84;  /* 规约 #b9b9b1 实测只有 1.74:1，够不上「状态边界 ≥3:1」→ 压深一档 3.03:1 */
+  --text: #15161a; --text-secondary: #56585f;
+  --text-tertiary: #6a6c73;  /* 4.63:1 on --bg，最低档；不得压在 sunken 上（那里只有 4.23） */
+  --accent: #0e7c86;         /* 实心面 + 白字 4.95:1；作描边 4.37:1 ≥3 */
+  --accent-hover: #0b646c;   /* 文字级 teal：6.08:1（规约明确 accent 只铺面，teal 当字要压深） */
+  --accent-press: #09555c; --accent-weak: #dcedee; --on-accent: #ffffff;
+  --success: #14684a; --warning: #94500a; --danger: #a8332a;  /* 红只给逾期 / 错词 / 危险操作 */
+  --mask: #dddad2; --scrim: rgba(18, 20, 24, 0.5); --row-hover: rgba(21, 22, 26, 0.04);
+  --toggle-on: #dcedee;
+
+  --fs-display: 20px; --fs-h1: 18px; --fs-h2: 16px; --fs-body: 15px; --fs-small: 13px;
+  --fs-word: clamp(22px, 6vw, 27px); --fs-phonetic: 13px; --fs-meaning: 15px; --fs-load: 14px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 40px; --space-8: 56px;
+  --page-x: 20px; --content-max: 640px; --app-max: 760px; --dock-height: 72px;
+  --radius-sm: 2px; --radius-md: 6px; --radius-lg: 8px; --radius-full: 999px;
+  /* 只用一档阴影：md / lg 同值，禁三档齐上 */
+  --shadow-sm: 0 1px 0 rgba(21, 22, 26, 0.06);
+  --shadow-md: 0 1px 0 rgba(21, 22, 26, 0.06);
+  --shadow-lg: 0 1px 0 rgba(21, 22, 26, 0.06);
+  --duration-fast: 140ms; --duration-base: 200ms; --duration-slow: 280ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* 本皮肤专用度量 */
+  --bt-gap: 8px;       /* 磁贴间距（= 分隔观感，靠面差不靠粗线） */
+  --bt-tile-r: 6px;    /* 磁贴圆角：只有读数条与刻度用方角 */
+  --bt-num: 26px;      /* 大磁贴读数 */
+  --bt-num-sm: 20px;   /* 小磁贴读数：大小两级，禁止四格等大 */
+  --bt-label: 14px;    /* 含中文文本的字号下限（11–13px 只给拉丁 / 数字） */
+  --bt-tick: 10%;      /* 大磁贴底部 10 段空刻度：段宽 = 一格 10% */
+}
+
+/* ---------- 2. 深色档：墨青独立重映射（非反色），线即状态 ------------------- */
+[data-skin='bento'][data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0d1013; --surface: #14181d; --surface-raised: #1b2027; --surface-sunken: #10151a;
+  --border: #272d34;         /* 1.37:1：只做分隔 */
+  --border-strong: #6a7683;  /* 规约 #3c444e 只有 1.93:1，够不上状态边界 ≥3:1 → 提亮一档 4.12:1 */
+  --text: #e9edf1; --text-secondary: #9aa2ac;
+  --text-tertiary: #7c858f;  /* 4.76:1 on surface / 5.10 on bg；不得压在 accent-weak 上（3.65） */
+  --accent: #4fd1c5; --accent-hover: #6fe0d5; --accent-press: #35b3a8;
+  --accent-weak: #123236;    /* 实心面一律用 --surface-raised；弱底只给描边组件当底 */
+  --on-accent: #052225;      /* 亮 teal 面 + 深墨字 8.92:1（白字压亮 teal 只有 2.1，禁止） */
+  --success: #6fd39f; --warning: #e0a955; --danger: #f08177;
+  --mask: #2b3540; --scrim: rgba(0, 0, 0, 0.62); --row-hover: rgba(233, 237, 241, 0.05);
+  /* 规约 mask #1b2228 与磁贴面只差 1.11:1，看不出「被盖住」→ 提到 1.43:1 */
+  --toggle-on: #123236;
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* 深色只有一档平阴影，且 sunken 槽压在磁贴上只差 1.03:1：槽改用 --bg，磁贴改用描边撑起阵型 */
+[data-skin='bento'][data-theme='dark'] .today-card__figures { background: var(--bg); }
+[data-skin='bento'][data-theme='dark'] .today-card__figure { border-color: var(--border-strong); }
+
+/* ---------- 3. 基底与焦点 -------------------------------------------------- */
+[data-skin='bento'] .app { background: var(--bg); }
+[data-skin='bento'] body, [data-skin='bento'] .screen { font-family: var(--font-sans); }
+[data-skin='bento'] :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+[data-skin='bento'] .btn:focus-visible,
+[data-skin='bento'] .icon-btn:focus-visible,
+[data-skin='bento'] .avatar-btn:focus-visible { outline-offset: 2px; }
+[data-skin='bento'] ::selection { background: var(--accent-weak); color: var(--text); }
+
+/* 数字 / 读数 / 单位：一律 Plex Mono + tabular-nums；仪表感来自等宽，不是来自衬线 */
+[data-skin='bento'] .readout__v,
+[data-skin='bento'] .today-card__figure b, [data-skin='bento'] .today-card__tag,
+[data-skin='bento'] .today-card__label, [data-skin='bento'] .topbar__meta,
+[data-skin='bento'] .stat__num, [data-skin='bento'] .cal-figure dd,
+[data-skin='bento'] .cal-day__date, [data-skin='bento'] .cal-long__value,
+[data-skin='bento'] .cal-load, [data-skin='bento'] .word-row__index,
+[data-skin='bento'] .study-bar__title, [data-skin='bento'] .study-bar__sub,
+[data-skin='bento'] .session-done__text, [data-skin='bento'] .mistake-row__meta,
+[data-skin='bento'] .stepper__value, [data-skin='bento'] .cal-batch__k,
+[data-skin='bento'] .cal-title b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- 4. 顶栏 + 三格读数条 ------------------------------------------- */
+[data-skin='bento'] .topbar {
+  min-height: 56px; gap: var(--space-2);
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+[data-skin='bento'] .brand { align-items: center; gap: 7px; min-width: 0; }
+[data-skin='bento'] .brand__name {
+  flex: none; white-space: nowrap; font-size: 15px; font-weight: 600; letter-spacing: 0.02em;
+}
+[data-skin='bento'] .brand__dot { flex: none; width: 4px; height: 4px; border-radius: 0; background: var(--accent); transform: none; }
+/* 顶栏元信息只留阶段名（今日 / 批数 归读数条），不换行、超宽走 ellipsis，品牌名绝不被挤成竖排 */
+[data-skin='bento'] .topbar__meta {
+  display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-mono); font-size: var(--bt-label); font-weight: 500;
+  letter-spacing: 0.02em; line-height: 1.2; color: var(--text-tertiary);
+}
+[data-skin='bento'] .topbar__meta > span:nth-child(2),
+[data-skin='bento'] .topbar__meta > span:nth-child(3) { display: none; }
+[data-skin='bento'] .icon-btn {
+  width: 44px; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-secondary);
+}
+[data-skin='bento'] .avatar-btn {
+  width: 44px; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--accent-weak); color: var(--accent-hover);  /* teal 当字用压深档：5.70:1 */
+  font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+}
+
+/* 读数条：紧接顶栏，三等分 + 1px 竖分隔；上线装饰、下线是区块边界（≥3:1） */
+[data-skin='bento'] .readouts {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-inline: var(--page-x);
+  background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border-strong);
+}
+[data-skin='bento'] .readout {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2);
+  min-width: 0; padding: 7px var(--space-3) 8px 0;
+}
+[data-skin='bento'] .readout + .readout { border-left: 1px solid var(--border); padding-left: var(--space-3); }
+[data-skin='bento'] .readout__k { font-family: var(--font-mono); font-size: var(--bt-label); font-weight: 500; line-height: 1; color: var(--text-tertiary); }
+[data-skin='bento'] .readout__v { font-size: 17px; font-weight: 600; letter-spacing: 0.08em; line-height: 1; color: var(--text); }
+/* 钩子：报头与 kicker 关闭（v2：指标只走读数条 + 磁贴两处） */
+[data-skin='bento'] .start__masthead, [data-skin='bento'] .start__kicker { display: none; }
+
+/* ---------- 5. 首页：固定节拍纵向排（顶部起排，空白全留给报尾之前）--------- */
+/* 顶栏 60 + 读数条 34 = 94：基线 min-height 只扣顶栏，读数条开起来会多出约 38px 幽灵滚动，
+   报尾「钉底」就变成卡在折线外，所以按实高扣掉（env 是刘海安全区）。 */
+[data-skin='bento'] .start {
+  padding-top: 0; justify-content: flex-start; min-height: calc(100dvh - 94px - env(safe-area-inset-top, 0px));
+}
+[data-skin='bento'] .start__body { margin-block: 0; }
+[data-skin='bento'] .start__eyebrow {
+  font-family: var(--font-mono); margin-top: var(--space-5); gap: 0;  /* 读数条下沿 → 24 */
+  font-size: var(--bt-label); font-weight: 500; letter-spacing: 0.04em;
+  text-transform: none; color: var(--text-tertiary);
+}
+[data-skin='bento'] .start__eyebrow::before { content: none; }  /* 去掉自带的横线 */
+/* 首页那句功能介绍的节点已从 DOM 真删：这里不留死选择器，也不用伪元素把那句话补回来 */
+[data-skin='bento'] .start__meta { display: none; }  /* 与读数条重复 */
+
+/* 工单表整块关掉：阶段归顶栏、今日 / 批数 / 已学 归读数条 —— 「今日新词 20」不再同屏报四次
+   （Anki 26.10 重复计数被回滚的教训）。首屏指标 = 读数条 3 + 磁贴 4 = 7 个，每个数只出现一次。 */
+[data-skin='bento'] .start__spec { display: none; }
+[data-skin='bento'] .start__actions { margin-top: var(--space-5); gap: var(--space-2); }  /* eyebrow → 24 */
+[data-skin='bento'] .start__foot {
+  margin-top: auto;  /* 剩余空白全部留在报尾之前；内容超高时自动塌成 padding-top */
+  align-items: center; gap: var(--space-3); padding-top: var(--space-5);
+  font-family: var(--font-mono); font-size: var(--bt-label); letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+[data-skin='bento'] .start__rule { height: 1px; background: var(--border); }
+
+/* ---------- 6. 磁贴组：1 大 + 2 小 + 1 长 的不对称阵型 --------------------- */
+[data-skin='bento'] .today-card {
+  gap: var(--space-2); margin-top: var(--space-6); padding: 12px var(--space-3) var(--space-3);  /* 主按钮 → 32 */
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); box-shadow: none;
+}
+[data-skin='bento'] .today-card__head { align-items: baseline; flex-wrap: wrap; gap: 4px var(--space-2); }
+[data-skin='bento'] .today-card__label {
+  font-size: var(--bt-label); font-weight: 500; letter-spacing: 0.04em;
+  text-transform: none; color: var(--text-tertiary);
+}
+[data-skin='bento'] .today-card__links { margin-left: auto; gap: 2px; }
+
+/* 槽：sunken 底 + 白磁贴，面差撑层级，不靠线框 */
+[data-skin='bento'] .today-card__figures {
+  display: grid; gap: var(--bt-gap); padding: var(--bt-gap);
+  border-radius: var(--radius-md); background: var(--surface-sunken);
+  grid-template-columns: 1.5fr 1fr 1fr;
+}
+[data-skin='bento'] .today-card__figure {
+  display: block; min-width: 0; padding: 10px var(--space-2) 11px; background: var(--surface);
+  border: 1px solid var(--border); border-inline-start: 3px solid var(--border-strong);
+  border-radius: var(--bt-tile-r); font-size: var(--bt-label); line-height: 1.4; color: var(--text-tertiary);
+  white-space: normal;  /* 基线 nowrap，不对称窄格里必须放行换行 */
+}
+/* 大磁贴 = 到期复习（DOM 第 2 格）：跨两行，只它允许阴影 */
+[data-skin='bento'] .today-card__figure:nth-child(2) {
+  position: relative; grid-column: 1; grid-row: 1 / span 2; padding-bottom: 30px;
+  box-shadow: var(--shadow-sm); border-inline-start-color: var(--success);
+}
+/* 两枚小磁贴：逾期（第 3 格）琥珀 / 新词（第 1 格）teal */
+[data-skin='bento'] .today-card__figure:nth-child(3) { grid-column: 2; grid-row: 1; border-inline-start-color: var(--warning); }
+[data-skin='bento'] .today-card__figure:nth-child(1) { grid-column: 3; grid-row: 1; border-inline-start-color: var(--accent); }
+/* 长磁贴 = 连续优秀（第 4 格）：横跨右两列 */
+[data-skin='bento'] .today-card__figure:nth-child(4) {
+  grid-column: 2 / span 2; grid-row: 2; border-inline-start-color: var(--border-strong);
+}
+
+/* 大磁贴底部 10 段空刻度：--border 淡灰底 + 磁贴面色刻缝，零 accent —— 不会被读成「完成 60%」 */
+[data-skin='bento'] .today-card__figure:nth-child(2)::after {
+  content: ''; position: absolute; left: var(--space-2); bottom: 11px;
+  width: calc(100% - var(--space-4)); height: 6px; border-radius: 1px;
+  background-color: var(--border);
+  background-image: repeating-linear-gradient(90deg, var(--surface) 0 1px, transparent 1px var(--bt-tick));
+}
+
+/* 长磁贴的 7 点链：6 点淡灰 + 最右一格只描边（=「今天」这一格还空着），不涂 accent。
+   装饰色统一用 --border（浅 1.35 / 深 1.28）：sunken 在深色磁贴上只有 1.03，等于看不见。 */
+[data-skin='bento'] .today-card__figure:nth-child(4)::after {
+  content: ''; display: block; width: 60px; height: 6px; margin-top: 7px; border-radius: 1px;
+  background-image:
+    linear-gradient(var(--surface) 0 0),
+    linear-gradient(var(--border-strong) 0 0),
+    repeating-linear-gradient(90deg, var(--border) 0 6px, transparent 6px 9px);
+  background-size: 4px 4px, 6px 6px, 100% 100%;
+  background-position: 55px 1px, 54px 0, 0 0;
+  background-repeat: no-repeat;
+}
+/* 新词被上限卡住 → <b> 变 is-warn，左竖条跟着转琥珀，别一边 teal 一边琥珀 */
+[data-skin='bento'] .today-card__figure:nth-child(1):has(b.is-warn) { border-inline-start-color: var(--warning); }
+[data-skin='bento'] .today-card__figure b {
+  display: block; font-size: var(--bt-num-sm); font-weight: 600;
+  letter-spacing: 0.02em; line-height: 1.1; color: var(--text);
+}
+[data-skin='bento'] .today-card__figure:nth-child(2) b { font-size: var(--bt-num); }
+[data-skin='bento'] .today-card__figure b.is-accent { color: var(--accent-hover); }  /* 文字级 teal */
+[data-skin='bento'] .today-card__figure b.is-warn { color: var(--warning); }
+[data-skin='bento'] .today-card__tag {
+  display: inline-block; margin-top: 2px; padding: 1px 5px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+[data-skin='bento'] .today-card__reason {
+  padding: 9px var(--space-3); border-radius: var(--bt-tile-r); background: var(--surface-sunken);
+  font-size: var(--bt-label); line-height: 1.6; color: var(--text-secondary);
+}
+[data-skin='bento'] .today-card__reason.is-decrease,
+[data-skin='bento'] .today-card__reason.is-paused { color: var(--warning); }
+
+/* ---------- 7. 按钮：52 方角主按钮 + 左 4px 色条，其余走描边 --------------- */
+[data-skin='bento'] .btn { border-radius: var(--radius-md); font-family: var(--font-sans); letter-spacing: 0.02em; }
+[data-skin='bento'] .btn--primary {
+  position: relative; overflow: hidden; min-height: 52px; padding: 0 var(--space-4);
+  background: var(--accent); color: var(--on-accent); font-size: 15px; font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+/* 左侧 4px 色条：teal 面上的一格弱底，纯装饰（想整条关掉删掉这条即可） */
+[data-skin='bento'] .btn--primary::before {
+  content: ''; position: absolute; inset-block: 0; left: 0; width: 4px; background: var(--accent-weak);
+}
+/* 箭头只给首页那颗主按钮：文字靠左、箭头靠右 */
+[data-skin='bento'] .start__actions .btn--primary {
+  justify-content: space-between; padding-inline: var(--space-5);
+}
+[data-skin='bento'] .start__actions .btn--primary::after {
+  content: '→'; font-family: var(--font-mono); font-size: 17px; font-weight: 500; line-height: 1;
+}
+[data-skin='bento'] .btn--primary:active:not(:disabled) {
+  background: var(--accent-press); transform: translateY(1px); box-shadow: none;
+}
+[data-skin='bento'] .btn--block { min-height: 52px; font-size: 15px; }
+[data-skin='bento'] .btn--text {
+  min-height: 44px; padding: 0 var(--space-2); font-size: var(--bt-label); color: var(--text-secondary);
+}
+[data-skin='bento'] .btn--compact { min-height: 44px; padding: 0 10px; font-size: var(--bt-label); }
+[data-skin='bento'] .btn--secondary { min-height: 48px; border-color: var(--border-strong); background: transparent; color: var(--text); }
+[data-skin='bento'] .btn--danger,
+[data-skin='bento'] .btn--danger-text { border-color: var(--danger); color: var(--danger); }
+/* 深色档 CTA 不铺满亮薄荷（#4fd1c5 整块在 #0d1013 上像告警条，会把眼睛从磁贴数字上抢走）：
+   弱底 + teal 字 + 1px accent 描边（accent 字压 accent-weak = 7.33:1），左侧 4px 色条保留实心。 */
+[data-skin='bento'][data-theme='dark'] .btn--primary {
+  background: var(--accent-weak); border-color: var(--accent); color: var(--accent);
+}
+[data-skin='bento'][data-theme='dark'] .btn--primary::before { background: var(--accent); }
+[data-skin='bento'][data-theme='dark'] .btn--primary:active:not(:disabled) {
+  background: var(--surface-sunken); border-color: var(--accent-press); color: var(--accent-press);
+}
+
+/* ---------- 8. 全站通用兜底：底色 / 描边重新声明 + 中文小字下限（精修见 8B–8F）---- */
+[data-skin='bento'] .word-row__word,
+[data-skin='bento'] .flash-card__word { font-family: var(--font-sans); font-weight: 600; letter-spacing: -0.01em; }
+[data-skin='bento'] .meaning { line-height: 1.6; }
+[data-skin='bento'] .masked { border-radius: var(--radius-sm); box-shadow: 0 0 0 2px var(--mask); }
+/* 单卡＝主磁贴：白面浮在冷灰纸上，左 3px teal 边给它「当前主角」的地位，阴影只此一档 */
+[data-skin='bento'] .flash-card {
+  padding: var(--space-5) var(--space-4); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--accent); border-radius: var(--radius-lg);
+  background: var(--surface); box-shadow: var(--shadow-sm);
+}
+/* dock / answer-dock / 进度条精修已升级为整屏结构，见 8B；这里只留 flash 卡与小字 */
+[data-skin='bento'] .answer-btn--unknown { color: var(--danger); }  /* 红只给错词 / 危险 */
+[data-skin='bento'] .answer-btn--ghost { color: var(--text-secondary); }
+[data-skin='bento'] .sheet { border: 1px solid var(--border-strong); background: var(--surface); box-shadow: var(--shadow-sm); }
+[data-skin='bento'] .dialog { border: 1px solid var(--border-strong); background: var(--surface-raised); box-shadow: var(--shadow-sm); }
+[data-skin='bento'] .section, [data-skin='bento'] .setting-row,
+[data-skin='bento'] .cal-hero, [data-skin='bento'] .cal-day { border-color: var(--border); }
+[data-skin='bento'] .stage-option,
+[data-skin='bento'] .skin-card { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+[data-skin='bento'] .stage-option[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-weak); }
+[data-skin='bento'] .stage-option[aria-pressed='true'] .stage-option__desc,
+[data-skin='bento'] .stage-option[aria-pressed='true'] .stage-option__count { color: var(--text-secondary); }
+/* segmented / stat / toast 的结构语言分别在 8F / 8E / 8B，这里只留读数与遮挡兜底 */
+[data-skin='bento'] .cal-figure dd { font-weight: 600; }
+[data-skin='bento'] .cal-day--past { opacity: 0.9; }  /* 0.72 叠 tertiary 小字会掉到 4.5 以下 */
+/* teal 当文字用一律压深一档（accent 作字 on bg 只 4.37:1，accent-hover 6.08:1） */
+[data-skin='bento'] .meaning__pos,
+[data-skin='bento'] .flash-card__reveal,
+[data-skin='bento'] .cal-day__badge { color: var(--accent-hover); font-size: var(--bt-label); letter-spacing: 0.02em; }
+[data-skin='bento'] .cal-day__badge--quiet { color: var(--text-tertiary); }
+
+/* 中文小字兜底：基线是 11–13px 的位置一律抬到 14px（硬指标：中文不得更小） */
+[data-skin='bento'] .section__title, [data-skin='bento'] .section__hint,
+[data-skin='bento'] .profile__meta, [data-skin='bento'] .setting-row__value,
+[data-skin='bento'] .stat__unit, [data-skin='bento'] .sheet__desc,
+[data-skin='bento'] .stage-option__desc, [data-skin='bento'] .stage-option__count,
+[data-skin='bento'] .skin-card__tag, [data-skin='bento'] .flash-card__reveal,
+[data-skin='bento'] .session-toast, [data-skin='bento'] .session-done__note,
+[data-skin='bento'] .parse-summary, [data-skin='bento'] .issues li,
+[data-skin='bento'] .hint__title, [data-skin='bento'] .hint__text,
+[data-skin='bento'] .mistake-row__meaning, [data-skin='bento'] .mistakes-empty__text,
+[data-skin='bento'] .textarea { font-size: var(--bt-label); }
+
+[data-skin='bento'] .cal-kicker, [data-skin='bento'] .cal-section__hint,
+[data-skin='bento'] .cal-figure dt, [data-skin='bento'] .cal-note,
+[data-skin='bento'] .cal-hero__lede, [data-skin='bento'] .cal-day__weekday,
+[data-skin='bento'] .cal-day__reason, [data-skin='bento'] .cal-day__empty,
+[data-skin='bento'] .cal-batch, [data-skin='bento'] .cal-long__note,
+[data-skin='bento'] .cal-foot { font-size: var(--bt-label); text-transform: none; }
+
+/* .empty 分支：主磁贴不在场时，用一颗描边块接住留白，别散成一堆左对齐文本 */
+[data-skin='bento'] .empty {
+  gap: var(--space-3); padding: var(--space-6) var(--space-4);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+}
+[data-skin='bento'] .empty__title { font-size: var(--fs-h1); font-weight: 600; }
+[data-skin='bento'] .empty__text { max-width: 40ch; font-size: var(--bt-label); color: var(--text-secondary); }
+[data-skin='bento'] .empty .btn--primary { min-height: 52px; }
+
+/* ---------- 8B. 学习流 Session：条状进度磁贴 + 小磁贴列表 + 不等宽 dock 托盘 ----- */
+/* 进度＝sunken 槽磁贴（10px 条，方形填充绑定 progressbar 真数据），不是 2px 发丝线 */
+[data-skin='bento'] .study-progress {
+  height: 10px; margin: var(--space-2) var(--page-x) 0; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface-sunken);
+}
+[data-skin='bento'] .study-progress__bar { border-radius: 0; background: var(--accent); }
+[data-skin='bento'] .study-bar__sub { font-size: var(--bt-label); }
+
+/* 新词列表＝小磁贴阵：一格 34px 等宽序号竖槽 + 内容列，词与词之间靠磁贴缝断开 */
+[data-skin='bento'] .word-list { display: grid; gap: var(--bt-gap); margin-top: var(--space-3); border-top: 0; }
+[data-skin='bento'] .word-row {
+  grid-template-columns: 34px minmax(0, 1fr); gap: 0 var(--space-2); padding: 10px var(--space-3) 10px 0;
+  border: 1px solid var(--border); border-radius: var(--bt-tile-r); background: var(--surface);
+}
+[data-skin='bento'] .word-row--peekable { margin-inline: 0; padding-inline: 0 var(--space-3); border-radius: var(--bt-tile-r); }
+[data-skin='bento'] .word-row__index {
+  padding: 7px 0 0; text-align: center; border-inline-end: 1px solid var(--border);
+  font-size: 13px; letter-spacing: 0;
+}
+/* 偷看按钮补到 44×44 触控下限（基线是一行 13px 文本按钮） */
+[data-skin='bento'] .flash-card__reveal { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; }
+
+/* 答题 dock＝sunken 托盘 + 不等宽磁贴：主键「认识」占大格，「不认识 / 模糊」窄格，无三兄弟等宽 */
+[data-skin='bento'] .answer-dock {
+  gap: var(--bt-gap); padding-block: var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-sunken); backdrop-filter: none; border-top: 1px solid var(--border);
+}
+[data-skin='bento'] .answer-btn {
+  gap: var(--space-1); min-height: 56px; border: 1px solid var(--border);
+  border-radius: var(--bt-tile-r); background: var(--surface); box-shadow: var(--shadow-sm);
+}
+[data-skin='bento'] .answer-btn--known { flex: 1.5 1 0; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+[data-skin='bento'] .answer-dock--review .answer-btn--known { flex-grow: 1.7; }
+[data-skin='bento'] .answer-dock--review .answer-btn--unknown { flex: 0.85 1 0; }
+[data-skin='bento'] .answer-dock--immediate .answer-btn--known { flex-grow: 1.8; }
+/* 深色档：大键不铺实心薄荷（同首页 CTA 逻辑）→ 弱底 + teal 字 + accent 描边 */
+[data-skin='bento'][data-theme='dark'] .answer-btn--known { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); }
+
+/* 列表段 ControlDock＝不等列 2×2 磁贴阵：两枚 toggle 一行，导航行里主推进键占大格 */
+[data-skin='bento'] .dock {
+  grid-template-columns: 1fr 1.6fr; gap: var(--bt-gap);
+  background: var(--surface-sunken); border-top: 1px solid var(--border);
+}
+[data-skin='bento'] .dock__btn {
+  min-height: 52px; border: 1px solid var(--border); border-radius: var(--bt-tile-r);
+  background: var(--surface); font-size: var(--bt-label);
+}
+[data-skin='bento'] .dock__state { font-size: var(--bt-label); opacity: 1; }  /* 基线 0.78 会把小字洗掉 */
+[data-skin='bento'] .dock__toggle[aria-pressed='true'] { background: var(--toggle-on); border-color: var(--border-strong); color: var(--text); }
+[data-skin='bento'] .dock__toggle[aria-pressed='false'] { background: var(--accent-weak); color: var(--accent-hover); }
+[data-skin='bento'] .dock__nav--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+[data-skin='bento'][data-theme='dark'] .dock__nav--primary { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); }
+
+/* Toast＝琥珀边小磁贴（状态提示不抢红） */
+[data-skin='bento'] .session-toast {
+  padding: 8px var(--space-3); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--warning); border-radius: var(--bt-tile-r);
+  background: var(--surface-sunken); color: var(--warning); font-size: var(--bt-label); line-height: 1.6;
+}
+/* 收尾屏＝kicker 角标磁贴 + note 磁贴 + 两枚动作并排（1.4:1），不走纵向裸列 */
+[data-skin='bento'] .session-done { gap: var(--space-3); padding-block: var(--space-5) var(--space-6); }
+[data-skin='bento'] .session-done__kicker {
+  align-self: flex-start; margin: 0; padding: 2px 8px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); background: var(--surface); font-family: var(--font-mono);
+  font-size: var(--bt-label); font-weight: 500; letter-spacing: 0.04em; text-transform: none; color: var(--text-tertiary);
+}
+[data-skin='bento'] .session-done__title { font-weight: 600; line-height: 1.35; }
+[data-skin='bento'] .session-done__text { font-size: var(--bt-label); }
+[data-skin='bento'] .session-done__note {
+  max-width: none; margin: 0; padding: 10px var(--space-3); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--border-strong); border-radius: var(--bt-tile-r);
+  background: var(--surface-sunken); color: var(--text-secondary);
+}
+[data-skin='bento'] .session-done__actions { flex-direction: row; gap: var(--bt-gap); margin-top: var(--space-2); }
+[data-skin='bento'] .session-done__actions .btn--primary { flex: 1.4 1 0; }
+[data-skin='bento'] .session-done__actions .btn--secondary { flex: 1 1 0; }
+/* 深色档：sunken 槽与 --surface 只差 1.03 → 槽改 --bg，磁贴靠描边 */
+[data-skin='bento'][data-theme='dark'] .study-progress,
+[data-skin='bento'][data-theme='dark'] .dock,
+[data-skin='bento'][data-theme='dark'] .answer-dock,
+[data-skin='bento'][data-theme='dark'] .session-toast,
+[data-skin='bento'][data-theme='dark'] .session-done__note { background: var(--bg); }
+[data-skin='bento'][data-theme='dark'] .study-progress,
+[data-skin='bento'][data-theme='dark'] .answer-btn,
+[data-skin='bento'][data-theme='dark'] .dock__btn,
+[data-skin='bento'][data-theme='dark'] .word-row { border-color: var(--border-strong); }
+[data-skin='bento'][data-theme='dark'] .answer-dock { border-top-color: var(--border-strong); }
+[data-skin='bento'][data-theme='dark'] .session-toast { border-color: var(--border-strong); border-inline-start-color: var(--warning); }
+[data-skin='bento'][data-theme='dark'] .session-done__note { border-color: var(--border-strong); border-inline-start-color: var(--border-strong); }
+
+/* ---------- 8C. 学习日历：读数磁贴阵（1 大 2 小 1 长）+ 双列日格阵（近排日宽格）---- */
+[data-skin='bento'] .cal-kicker { font-family: var(--font-mono); letter-spacing: 0.02em; }
+[data-skin='bento'] .cal-title { font-weight: 600; }
+[data-skin='bento'] .cal-title b { color: var(--accent-hover); font-weight: 600; }
+[data-skin='bento'] .cal-title__tag {
+  border-color: var(--border-strong); border-radius: var(--radius-sm); padding: 1px 6px;
+  font-family: var(--font-mono); font-size: var(--bt-label); color: var(--text-secondary);
+}
+[data-skin='bento'] .cal-title__tag.is-decrease,
+[data-skin='bento'] .cal-title__tag.is-paused { border-color: var(--warning); color: var(--warning); }
+
+/* 读数＝today 卡同款拓扑：到期复习占 2 列大格，逾期 / 今日已学 各 1 小格，连续优秀横跨整行 */
+[data-skin='bento'] .cal-figures {
+  gap: var(--bt-gap); margin-top: var(--space-4); padding: var(--bt-gap); border-top: 0;
+  border-radius: var(--radius-md); background: var(--surface-sunken);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+[data-skin='bento'] .cal-figure {
+  min-width: 0; padding: 8px 10px 9px; border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--border-strong); border-radius: var(--bt-tile-r); background: var(--surface);
+}
+[data-skin='bento'] .cal-figure:nth-child(1) { grid-column: 1 / span 2; grid-row: 1; border-inline-start-color: var(--success); }
+[data-skin='bento'] .cal-figure:nth-child(2) { grid-column: 3; grid-row: 1; border-inline-start-color: var(--warning); }
+[data-skin='bento'] .cal-figure:nth-child(3) { grid-column: 4; grid-row: 1; border-inline-start-color: var(--accent); }
+[data-skin='bento'] .cal-figure:nth-child(4) { grid-column: 1 / span 4; grid-row: 2; }
+[data-skin='bento'] .cal-figure dt { color: var(--text-secondary); }
+[data-skin='bento'] .cal-figure dd { font-size: var(--bt-num-sm); }
+[data-skin='bento'] .cal-figure:nth-child(1) dd { font-size: var(--bt-num); }
+
+/* 日格＝磁贴阵：双列等格，首格（最近的排期日）横跨整行做宽格；格子内负荷是方形小签 */
+[data-skin='bento'] .cal-days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--bt-gap); }
+[data-skin='bento'] .cal-day {
+  gap: var(--space-1); padding: 10px var(--space-2); border: 1px solid var(--border);
+  border-radius: var(--bt-tile-r); background: var(--surface);
+}
+[data-skin='bento'] .cal-day:first-child { grid-column: 1 / -1; border-inline-start: 3px solid var(--border-strong); }
+[data-skin='bento'] .cal-day--today { margin-left: 0; border-left: 3px solid var(--accent); }
+[data-skin='bento'] .cal-day__date { font-size: 16px; font-weight: 600; }
+[data-skin='bento'] .cal-day:first-child .cal-day__date { font-size: 20px; }
+[data-skin='bento'] .cal-day__badge { border-radius: var(--radius-sm); padding: 1px 5px; font-weight: 500; }
+[data-skin='bento'] .cal-day__badge--quiet { border-color: var(--border-strong); }
+[data-skin='bento'] .cal-load { border-radius: var(--radius-sm); font-size: var(--bt-label); }
+[data-skin='bento'] .cal-batch { flex-wrap: wrap; }
+
+/* 说明句全部走「条状磁贴」：句 = 一条，不再散成裸段落；长期块同语言 */
+[data-skin='bento'] .cal-note {
+  margin-top: var(--space-3); padding: 8px var(--space-3); border: 0;
+  border-inline-start: 3px solid var(--border-strong); border-radius: var(--bt-tile-r);
+  background: var(--surface-sunken); color: var(--text-secondary);
+}
+[data-skin='bento'] .cal-note--warn { border-inline-start-color: var(--warning); color: var(--warning); }
+[data-skin='bento'] .cal-hero__reason {
+  padding: 8px var(--space-3); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--warning); border-radius: var(--bt-tile-r); background: var(--surface);
+}
+[data-skin='bento'] .cal-long__value {
+  padding: 10px var(--space-3); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--border-strong); border-radius: var(--bt-tile-r); background: var(--surface);
+}
+[data-skin='bento'] .cal-section__head h2 { font-weight: 600; }
+[data-skin='bento'] .cal-foot {
+  margin-top: var(--space-5); padding-top: var(--space-3); border-top: 1px solid var(--border-strong);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+}
+/* 深色档：槽改 --bg；大格数字用亮 teal；描边提亮一档 */
+[data-skin='bento'][data-theme='dark'] .cal-figures,
+[data-skin='bento'][data-theme='dark'] .cal-note { background: var(--bg); }
+[data-skin='bento'][data-theme='dark'] .cal-figure,
+[data-skin='bento'][data-theme='dark'] .cal-day,
+[data-skin='bento'][data-theme='dark'] .cal-hero__reason,
+[data-skin='bento'][data-theme='dark'] .cal-long__value { border-color: var(--border-strong); }
+[data-skin='bento'][data-theme='dark'] .cal-figure:nth-child(1) { border-inline-start-color: var(--success); }
+[data-skin='bento'][data-theme='dark'] .cal-figure:nth-child(2) { border-inline-start-color: var(--warning); }
+[data-skin='bento'][data-theme='dark'] .cal-figure:nth-child(3) { border-inline-start-color: var(--accent); }
+[data-skin='bento'][data-theme='dark'] .cal-hero__reason { border-inline-start-color: var(--warning); }
+[data-skin='bento'][data-theme='dark'] .cal-title b { color: var(--accent); }
+
+/* ---------- 8D. 错词本：红边磁贴行 + 右侧「计数小格 / 台账两行」-------------------- */
+[data-skin='bento'] .mistakes__list { display: grid; grid-auto-rows: min-content; gap: var(--bt-gap); margin-top: var(--space-3); }
+[data-skin='bento'] .mistakes__list > li { min-width: 0; }
+/* 行＝磁贴：左 3px 红边是「错词」身份（红只给错词），右侧 meta 竖排成小台账列 */
+[data-skin='bento'] .mistake-row {
+  align-items: flex-start; gap: var(--space-1) var(--space-3); min-height: 64px;
+  padding: 10px var(--space-3); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--danger); border-radius: var(--bt-tile-r); background: var(--surface);
+}
+[data-skin='bento'] .mistake-row__word { font-family: var(--font-sans); font-size: 17px; }
+[data-skin='bento'] .mistake-row__ph { font-family: var(--font-mono); font-size: 13px; color: var(--text-tertiary); }
+[data-skin='bento'] .mistake-row__meta {
+  display: grid; gap: 3px; justify-items: end; align-content: start;
+  font-size: var(--bt-label); font-variant-numeric: tabular-nums;
+}
+/* 计数徽标＝小格方签（真数据：累计错次），压在 sunken 上靠 danger 描边定位 */
+[data-skin='bento'] .mistake-row__badge {
+  padding: 1px 6px; border: 1px solid var(--danger); border-radius: var(--radius-sm);
+  background: var(--surface-sunken); color: var(--danger); font-size: var(--bt-label); font-weight: 600;
+}
+/* 单测卡的账目＝通栏台账行（虚线分缝），复用 8B 的两键 dock */
+[data-skin='bento'] .mistake-quiz__meta {
+  padding-top: var(--space-2); border-top: 1px dashed var(--border); font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; font-size: var(--bt-label); line-height: 1.7; color: var(--text-secondary);
+}
+[data-skin='bento'] .mistakes-empty {
+  gap: var(--space-3); padding: var(--space-5) var(--space-4); border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface);
+}
+[data-skin='bento'] .mistakes-empty__title { font-size: var(--fs-h1); font-weight: 600; }
+[data-skin='bento'] .mistakes-empty .btn--primary { min-height: 52px; }
+/* 深色档 */
+[data-skin='bento'][data-theme='dark'] .mistake-row,
+[data-skin='bento'][data-theme='dark'] .mistakes-empty { border-color: var(--border-strong); }
+[data-skin='bento'][data-theme='dark'] .mistake-row { border-inline-start-color: var(--danger); }
+[data-skin='bento'][data-theme='dark'] .mistake-row__badge { border-color: var(--danger); background: var(--bg); }
+
+/* ---------- 8E. 我的：身份磁贴 + 大读数磁贴（数字格 + 长文槽）+ 台账行 ------------ */
+[data-skin='bento'] .profile {
+  gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface);
+}
+[data-skin='bento'] .avatar {
+  width: 56px; height: 56px; border: 1px solid var(--border); border-radius: var(--bt-tile-r);
+  background: var(--accent-weak); color: var(--accent-hover); font-size: 24px; font-weight: 600;
+}
+/* 章节小标＝等宽台账标：3px 左签条 + mono 14，全站统一 */
+[data-skin='bento'] .section__title {
+  display: inline-flex; align-items: center; padding-inline-start: 9px;
+  border-inline-start: 3px solid var(--border-strong); font-family: var(--font-mono);
+  font-weight: 600; letter-spacing: 0.02em; color: var(--text-secondary);
+}
+/* 大读数＝「数字磁贴 + 长文槽」一对：数字格 26px mono 带 teal 边，说明文字进 sunken 长槽 */
+[data-skin='bento'] .stat { display: flex; align-items: stretch; gap: var(--bt-gap); margin-top: var(--space-3); }
+[data-skin='bento'] .stat__num {
+  display: grid; place-items: center; flex: none; min-width: 96px; min-height: 64px; padding: 6px 12px;
+  border: 1px solid var(--border); border-inline-start: 3px solid var(--accent); border-radius: var(--bt-tile-r);
+  background: var(--surface); box-shadow: var(--shadow-sm); font-size: var(--bt-num); font-weight: 600; color: var(--text);
+}
+[data-skin='bento'] .stat__unit {
+  display: flex; align-items: center; flex: 1 1 auto; min-width: 0; padding: 6px var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--bt-tile-r); background: var(--surface-sunken);
+  font-size: var(--bt-label); line-height: 1.55; color: var(--text-secondary);
+}
+/* 主进度＝方角槽磁贴（真数据 learned/total），条不再发丝 */
+[data-skin='bento'] .progress-track {
+  height: 10px; margin-top: var(--space-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface-sunken);
+}
+[data-skin='bento'] .progress-track__bar { border-radius: 0; background: var(--accent); }
+[data-skin='bento'] .stage-option { border-inline-start: 3px solid var(--border-strong); }
+[data-skin='bento'] .stage-option[aria-pressed='true'] { border-color: var(--accent); border-inline-start-color: var(--accent); }
+[data-skin='bento'] .stage-option__count { font-family: var(--font-mono); }
+[data-skin='bento'] .setting-row__value { font-variant-numeric: tabular-nums; }
+[data-skin='bento'] .setting-row__label { font-weight: 500; }
+/* 步进器＝sunken 托盘 + 两枚 44 方签，中缝等宽数字 */
+[data-skin='bento'] .stepper {
+  gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+[data-skin='bento'] .stepper__btn {
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+  font-family: var(--font-mono); font-weight: 600;
+}
+[data-skin='bento'] .stepper__value { font-size: 17px; }
+/* 危险区＝整块红框磁贴（红只给危险操作，语义不变） */
+[data-skin='bento'] .section--danger-zone { padding: var(--space-4) var(--space-3); border: 1px solid var(--danger); border-radius: var(--radius-md); }
+[data-skin='bento'] .skin-grid { gap: var(--bt-gap); }
+[data-skin='bento'] .skin-card { border-inline-start: 3px solid var(--border-strong); }
+[data-skin='bento'] .skin-card__swatch { border-radius: var(--radius-sm); }
+[data-skin='bento'] .skin-card__latin { font-family: var(--font-mono); color: var(--text-secondary); }
+[data-skin='bento'] .skin-card[aria-pressed='true'] { border-color: var(--accent); border-inline-start-color: var(--accent); background: var(--accent-weak); box-shadow: none; }
+[data-skin='bento'] .skin-card[aria-pressed='true'] .skin-card__tag { color: var(--text-secondary); }
+/* 深色档 */
+[data-skin='bento'][data-theme='dark'] .profile,
+[data-skin='bento'][data-theme='dark'] .avatar,
+[data-skin='bento'][data-theme='dark'] .stat__num,
+[data-skin='bento'][data-theme='dark'] .stat__unit,
+[data-skin='bento'][data-theme='dark'] .progress-track,
+[data-skin='bento'][data-theme='dark'] .stepper,
+[data-skin='bento'][data-theme='dark'] .stepper__btn,
+[data-skin='bento'][data-theme='dark'] .stage-option,
+[data-skin='bento'][data-theme='dark'] .skin-card { border-color: var(--border-strong); }
+[data-skin='bento'][data-theme='dark'] .stat__unit,
+[data-skin='bento'][data-theme='dark'] .progress-track,
+[data-skin='bento'][data-theme='dark'] .stepper { background: var(--bg); }
+[data-skin='bento'][data-theme='dark'] .avatar { color: var(--accent); }
+[data-skin='bento'][data-theme='dark'] .stat__num { border-inline-start-color: var(--accent); }
+[data-skin='bento'][data-theme='dark'] .stage-option[aria-pressed='true'],
+[data-skin='bento'][data-theme='dark'] .skin-card[aria-pressed='true'] { border-color: var(--accent); border-inline-start-color: var(--accent); }
+
+/* ---------- 8F. 浮层：sheet 头带 + teal 边标题；托盘 + 方签的分段器；dialog 不等分阵 -- */
+[data-skin='bento'] .sheet {
+  border-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-lg);
+  padding-block: var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+}
+[data-skin='bento'] .sheet__head { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+/* sheet 标题与 8E 的章节标同语法：3px teal 左签条（浮层里只给这一处 teal 信号） */
+[data-skin='bento'] .sheet__title { padding-inline-start: 10px; border-inline-start: 3px solid var(--accent); font-weight: 600; }
+[data-skin='bento'] .sheet__body { margin-top: var(--space-3); min-height: 0; }
+[data-skin='bento'] .sheet__foot {
+  gap: var(--bt-gap); margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+[data-skin='bento'] .sheet__foot .btn--primary { flex: 1.5 1 0; }
+[data-skin='bento'] .sheet__foot .btn--secondary { flex: 1 1 0; }
+/* 分段器＝sunken 托盘 + 方签：选中态白面 + 1px 内描 teal 环（不做三块实心） */
+[data-skin='bento'] .segmented {
+  gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+[data-skin='bento'] .segmented__item { min-height: 44px; border-radius: var(--radius-sm); font-family: var(--font-mono); color: var(--text-secondary); }
+[data-skin='bento'] .segmented__item[aria-pressed='true'] { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+[data-skin='bento'] .skin-sheet__label { font-family: var(--font-mono); font-size: var(--bt-label); letter-spacing: 0.02em; color: var(--text-secondary); }
+/* 导入 sheet：输入＝sunken 磁槽；摘要＝两枚小签；问题清单＝琥珀边块内台账 */
+[data-skin='bento'] .textarea {
+  border-radius: var(--radius-md); background: var(--surface-sunken);
+  font-family: var(--font-mono); line-height: 1.75;
+}
+[data-skin='bento'] .parse-summary { gap: var(--bt-gap); align-items: stretch; }
+[data-skin='bento'] .parse-summary > span {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px; min-width: 0;
+  padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--bt-tile-r);
+  background: var(--surface-sunken); font-family: var(--font-mono); font-size: var(--bt-label); color: var(--text-secondary);
+}
+[data-skin='bento'] .parse-summary strong { color: var(--accent-hover); font-weight: 600; }
+[data-skin='bento'] .issues {
+  max-height: 132px; padding: 4px 10px; border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--warning); border-radius: var(--bt-tile-r); background: var(--surface-sunken);
+}
+[data-skin='bento'] .issues li { gap: 5px; border-bottom: 1px dashed var(--border); }
+[data-skin='bento'] .issues li:last-child { border-bottom: 0; }
+/* dialog＝居中磁贴：标题挂红签条（确认框都是危险操作），动作不等分 1 : 1.5 阵 */
+[data-skin='bento'] .dialog { border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+[data-skin='bento'] .dialog__title { padding-inline-start: 10px; border-inline-start: 3px solid var(--danger); font-size: 17px; }
+[data-skin='bento'] .dialog__text { font-size: var(--bt-label); }
+[data-skin='bento'] .dialog__actions {
+  display: grid; grid-template-columns: 1fr 1.5fr; justify-content: stretch;
+  gap: var(--bt-gap); margin-top: var(--space-4);
+}
+[data-skin='bento'] .dialog__actions .btn { width: 100%; }
+/* 说明气泡＝小磁贴：左签条 teal，底色画在真元素 */
+[data-skin='bento'] .hint__pop { border-inline-start: 3px solid var(--accent); }
+/* 深色档 */
+[data-skin='bento'][data-theme='dark'] .segmented,
+[data-skin='bento'][data-theme='dark'] .textarea,
+[data-skin='bento'][data-theme='dark'] .parse-summary > span,
+[data-skin='bento'][data-theme='dark'] .issues { background: var(--bg); }
+[data-skin='bento'][data-theme='dark'] .segmented,
+[data-skin='bento'][data-theme='dark'] .textarea,
+[data-skin='bento'][data-theme='dark'] .parse-summary > span,
+[data-skin='bento'][data-theme='dark'] .issues,
+[data-skin='bento'][data-theme='dark'] .dialog { border-color: var(--border-strong); }
+[data-skin='bento'][data-theme='dark'] .issues { border-inline-start-color: var(--warning); }
+[data-skin='bento'][data-theme='dark'] .parse-summary strong { color: var(--accent); }
+
+/* ---------- 9. 断点 -------------------------------------------------------- */
+@media (min-width: 768px) {
+  [data-skin='bento'] {
+    --fs-display: 22px; --fs-h1: 20px; --fs-h2: 17px; --fs-body: 16px;
+    --fs-word: clamp(26px, 3vw, 32px); --fs-phonetic: 14px; --fs-meaning: 16px;
+    --page-x: 32px; --bt-gap: 10px; --bt-num: 28px; --bt-num-sm: 22px;
+  }
+  /* 顶栏 + 读数条跟着内容列；磁贴阵型 3 列 → 4 列，大磁贴仍占 1 格跨两行 */
+  [data-skin='bento'] .topbar,
+  [data-skin='bento'] .readouts { padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2)); }
+  [data-skin='bento'] .readout { padding-bottom: 9px; }
+  [data-skin='bento'] .readout__v { font-size: 19px; }
+  [data-skin='bento'] .start,
+  [data-skin='bento'] .empty { max-width: var(--content-max); margin-inline: auto; }
+  [data-skin='bento'] .today-card__figures { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  [data-skin='bento'] .today-card__figure:nth-child(2) { grid-column: 1 / span 2; }
+  [data-skin='bento'] .today-card__figure:nth-child(3) { grid-column: 3; }
+  [data-skin='bento'] .today-card__figure:nth-child(1) { grid-column: 4; }
+  [data-skin='bento'] .today-card__figure:nth-child(4) { grid-column: 3 / span 2; }
+  [data-skin='bento'] .dock { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); }
+  /* 非首页桌面档：列表＝双列磁贴，日历＝三列（近排日占 2 列），控制条回单行且主推进键仍占大格 */
+  [data-skin='bento'] .study-progress { margin-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2)); }
+  [data-skin='bento'] .answer-dock { padding-inline: max(var(--page-x), calc((100% - var(--content-max)) / 2)); }
+  [data-skin='bento'] .word-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-skin='bento'] .cal-days { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  [data-skin='bento'] .cal-day:first-child { grid-column: 1 / span 2; }
+  [data-skin='bento'] .dock { grid-template-columns: 1fr 1fr 1.15fr 1.7fr; }
+}
+
+/* 窄屏（≤374）：只缩读数与间距，不对称阵型不许塌成等大 2×2 */
+@media (max-width: 374px) {
+  [data-skin='bento'] { --bt-num: 24px; --bt-num-sm: 18px; --bt-gap: 6px; }
+  [data-skin='bento'] .today-card__figure { padding: 9px var(--space-1) 10px var(--space-2); }
+  [data-skin='bento'] .today-card__figure:nth-child(2) { padding-bottom: 26px; }
+  [data-skin='bento'] .word-row { grid-template-columns: 30px minmax(0, 1fr); }
+  [data-skin='bento'] .cal-load { padding: 2px 5px; }
+  [data-skin='bento'] .cal-figure { padding: 7px 8px 8px; }
+  [data-skin='bento'] .stat__num { min-width: 84px; }
+}
+
+/* ---------- 10. hover：只认真指针设备 -------------------------------------- */
+@media (hover: hover) {
+  [data-skin='bento'] .icon-btn:hover { background: var(--surface-sunken); border-color: var(--border-strong); color: var(--text); }
+  [data-skin='bento'] .avatar-btn:hover { transform: none; border-color: var(--accent); }
+  [data-skin='bento'] .btn--primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  [data-skin='bento'][data-theme='dark'] .btn--primary:hover:not(:disabled) {
+    background: var(--surface-raised); border-color: var(--accent-hover); color: var(--accent-hover);
+  }
+  [data-skin='bento'] .btn--secondary:hover:not(:disabled) { background: var(--surface-sunken); }
+  [data-skin='bento'] .btn--text:hover:not(:disabled),
+  [data-skin='bento'] .btn--text.btn--danger-text:hover:not(:disabled) { color: var(--text); }
+  [data-skin='bento'] .word-row--peekable:hover { background: var(--row-hover); }
+  [data-skin='bento'] .word-row:hover { border-color: var(--border-strong); }
+  [data-skin='bento'] .mistake-row:hover { border-color: var(--border-strong); border-inline-start-color: var(--danger); }
+  [data-skin='bento'] .dock__btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-sunken); }
+  [data-skin='bento'] .answer-btn:hover:not(:disabled) { border-color: var(--border-strong); }
+  [data-skin='bento'] .answer-btn--known:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  /* 深色档大键：弱底 hover 时提亮一档，别回落到实心薄荷 */
+  [data-skin='bento'][data-theme='dark'] .answer-btn--known:hover:not(:disabled),
+  [data-skin='bento'][data-theme='dark'] .dock__nav--primary:hover:not(:disabled) {
+    background: var(--surface-raised); border-color: var(--accent-hover); color: var(--accent-hover);
+  }
+  [data-skin='bento'] .stage-option:hover { border-color: var(--border-strong); }
+  [data-skin='bento'] .segmented__item:hover { color: var(--text); }
+  [data-skin='bento'] .skin-card:hover { border-color: var(--accent); }
+  [data-skin='bento'] .flash-card__reveal:hover { color: var(--text); }
+}
+
+/* ---------- 11. 动效降级 --------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='bento'] .btn,
+  [data-skin='bento'] .icon-btn,
+  [data-skin='bento'] .avatar-btn,
+  [data-skin='bento'] .dock__btn,
+  [data-skin='bento'] .answer-btn,
+  [data-skin='bento'] .skin-card,
+  [data-skin='bento'] .study-progress__bar,
+  [data-skin='bento'] .progress-track__bar { transition: none; }
+  [data-skin='bento'] .btn:active,
+  [data-skin='bento'] .btn--primary:active:not(:disabled),
+  [data-skin='bento'] .dock__btn:active:not(:disabled),
+  [data-skin='bento'] .dock__toggle:hover,
+  [data-skin='bento'] .answer-btn:active,
+  [data-skin='bento'] .avatar-btn:active { transform: none; filter: none; }
+  [data-skin='bento'] .word-list,
+  [data-skin='bento'] .sheet,
+  [data-skin='bento'] .dialog,
+  [data-skin='bento'] .scrim { animation: none; }
+}

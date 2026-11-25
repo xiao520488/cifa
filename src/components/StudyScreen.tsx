@@ -8,7 +8,6 @@
  */
 
 import type { ReactNode } from 'react';
-import { chineseCount } from '../lib/words';
 import type { LevelMeta } from '../lib/types';
 import { IconCalendar, IconPalette } from './Icons';
 
@@ -115,15 +114,6 @@ export function StudyScreen({
               <div className="start__body">
                 <p className="start__eyebrow">
                   {stageMeta.name} · {totalCount} 词
-                </p>
-                <h1 className="start__title">
-                  一页{chineseCount(batchSize)}个词，
-                  <br />
-                  看一遍就会。
-                </h1>
-                <p className="start__lede">
-                  先顺着看一遍，再关掉中文考自己。每看完两批系统会抽查这一批新词，
-                  全部答过才算背完，没答完的明天重新从列表看起。
                 </p>
                 <div className="start__meta">
                   <span>

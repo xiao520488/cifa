@@ -1,0 +1,603 @@
+/* ==========================================================================
+   词笺 · 皮肤「案头 DESK」—— v9 再设计候选 D（互斥轴：栏 / 拓扑）
+   --------------------------------------------------------------------------
+   主张：首页是一台有抽屉的案。左边一列永远在的深色抽屉（手机档 = 44px 竖轨，≥768 长成真侧栏），
+   右边是「今天要做的事」：一条自上而下的台账（深色组头 → 四行数字 → 批注 → 承诺句便签），列底一条常驻动作条。
+   为什么这么排：七套现有皮肤在 768 以上全都只是「变宽的手机版」，本案把桌面双栏本身当发明；
+   主 CTA 锚在列底常驻缘（没有一版把按钮放底缘），读数从顶部条搬进左抽屉，同一个数一屏只报一次。
+   层级只靠三件事撑：栏（深色抽屉 vs 暖纸台面）、线（1px 通栏行底）、面（组头那条抽屉唇）。
+   阴影 0 档（--shadow-*: none，全部改用描边与底色分层），强调色只有松绿一色（CTA 面 / 新词数 / 焦点环 / 品牌点）。
+   字体（2 族）：IBM Plex Sans（界面 + 中文系统回退）+ IBM Plex Mono（轨内读数、台账数字）；
+   --font-serif 槽位一并交给 Plex Sans，杜绝衬线笔画。
+   数据纪律：≥768 抽屉 = 字标 + 批数 + 已学（「今日」读数与台账首行「新词」同数 → 关掉）；台账 = 4 个 __figure + 承诺句 + links；
+   手机档没有抽屉，批数改由 spec 第 3 行承担。首页大标语与功能说明两个节点已随 v10 从 DOM 与 app.css 真删
+   （本文件不得再为它们留选择器，也不得用伪元素把句子补回来）；本文件再砍 .start__meta / .topbar__meta / .start__kicker / spec 1·2·4 行
+   （阶段名只在章题 eyebrow 一处；今日新词 = figure 首行；已学 = 抽屉读数，日历 hero 与「我的」页另有等价展示）。
+   实测修正（第二轮）：① 章题改 clamp(20px,5.6vw,27px) + text-wrap:balance + word-break:keep-all，并关掉基线 ::before 短线
+   （它在 20–27px 大标题前渲染成误留的破折号，360 还会把「·」挤到行尾）；② kicker 关（与章题复读阶段名）；
+   ③ ≥768 抽屉补真实信息：轨顶拉丁字标 + 两格读数各 min-height 96px + 通高 1px 缝线接到轨底把手（无假刻度）。
+   铁律：全部规则以 [data-skin='desk'] 开头（深色档加 [data-theme='dark']）；零重要度覆盖、零根选择器污染、
+   不改 DOM、不引外链资源；语义色浅深两档各写一遍；hover 一律包进 @media (hover: hover)。
+   分区：1 浅色令牌 / 2 深色令牌 / 3 基底与焦点 / 4 顶栏 / 5 首页骨架（44px 抽屉）/ 6 台账·组头·批注 /
+        7 主 CTA 底缘条 / 8 ≥768 真侧栏 / 9 首页之外兜底 / 10 非首页深色抽屉顶栏 / 11 学习流 / 12 学习日历 / 13 错词本 / 14 我的 / 15 浮层 / 16 交互态 / 17 动效降级
+   ========================================================================== */
+
+/* ---------- 1. 浅色令牌：暖纸台面 + 常驻深色抽屉 + 松绿 --------------------- */
+[data-skin='desk'] {
+  color-scheme: light;
+  --font-sans: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-serif: 'IBM Plex Sans', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  --bg: #f4f1ea;                 /* 暖纸 */
+  --surface: #ffffff; --surface-raised: #ffffff; --surface-sunken: #eae5da;
+  --border: #dcd4c2;             /* 1.31:1 —— 只做行分隔与装饰，禁止当状态边界 */
+  --border-strong: #877f6c;      /* 3.52 bg / 3.98 white / 3.16 sunken —— 状态边界与台面缝线 */
+  --text: #1b1f1c;               /* 14.78:1 */
+  --text-secondary: #565c55;     /* 6.09 / 6.87 */
+  --text-tertiary: #5f655e;      /* 5.30 bg / 5.98 white / 4.76 sunken —— 三种底都过 4.5 */
+  --accent: #20623f;             /* 松绿：白字 7.29:1；作描边 6.46:1 */
+  --accent-hover: #1a5235; --accent-press: #14432b;   /* 白字 9.12 / 11.25 */
+  --accent-weak: #e3ece5;        /* 头像底：accent 文字压上来 6.04:1 */
+  --on-accent: #ffffff;
+  --success: #3a6b2f; --warning: #8a5a0b; --danger: #9b2c1f; /* 5.60 / 5.25 / 6.71 on bg —— 浅档单独写一遍 */
+  --mask: #e4ded0; --scrim: rgba(20, 22, 20, 0.46);
+  --row-hover: rgba(27, 31, 28, 0.045); --toggle-on: #e3ece5;
+
+  /* 抽屉面：浅深两档都是深色（案头的抽屉不随昼夜翻白），轨内文字另给一档 */
+  --rail: #1f2420; --ds-rail-ink: #f4f1ea; --ds-rail-muted: #a8af9f;
+  /* 13.98 / 6.98:1 on --rail；edge 是装饰级缝线，不承载状态；line 是深色块内控件的可辨描边（≈3.3:1 vs rail） */
+  --ds-rail-edge: rgba(244, 241, 234, 0.16);
+  --ds-rail-line: rgba(244, 241, 234, 0.38);
+
+  /* 含中文的最小档 = 14px：--fs-small 从基线 13 提到 14，全站小字一起受益 */
+  --fs-display: 26px; --fs-h1: 22px; --fs-h2: 20px; --fs-body: 16px; --fs-small: 14px;
+  --fs-word: clamp(22px, 5.6vw, 27px); --fs-phonetic: 13px; --fs-meaning: 15px; --fs-load: 14px;
+  --page-x: 20px; --content-max: 640px; --app-max: 760px; --dock-height: 76px;
+  --radius-sm: 2px; --radius-md: 4px; --radius-lg: 6px; --radius-full: 999px; /* 直角小圆角；轨内条目 0 */
+  --shadow-sm: none; --shadow-md: none; --shadow-lg: none;                     /* 0 档阴影 */
+  --duration-fast: 140ms; --duration-base: 200ms; --duration-slow: 280ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* 本案专用度量 */
+  --ds-rail-w: 44px;  /* 手机档抽屉宽：既是竖轨容身宽，也是 44px 最小点击列 */
+  --ds-cell: 12px;    /* 行文字与通栏行底之间的 gutter */
+  --ds-row: 44px;     /* 台账行最小高 */
+  --ds-cell-h: 96px;  /* 抽屉读数格高：≥768 首页侧栏、日历 cal-figure、「我的」stat 共用同一格语言 */
+  --ds-topbar: 60px;  /* 实测顶栏高：首页 min-height 要减掉它，否则平白多出一屏滚动 */
+}
+
+/* ---------- 2. 深色令牌：墨案 —— 独立重映射，不是反色 ---------------------- */
+[data-skin='desk'][data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #141613; --surface: #1b1e1b; --surface-raised: #232722; --surface-sunken: #101210;
+  --border: #2b2f29;             /* 1.24:1 —— 只分隔 */
+  --border-strong: #6b7268;      /* 3.67 bg / 3.39 surface / 3.79 sunken */
+  --text: #e8eae6;               /* 15.03 */
+  --text-secondary: #a9aea6;     /* 8.05 */
+  --text-tertiary: #8d938c;      /* 5.79 / 5.36 / 4.83 —— 连 raised 上都过 4.5 */
+  --accent: #63c48a;             /* 亮松绿：小字 8.49 on bg */
+  --accent-hover: #7cd19e; --accent-press: #4fb077;
+  --accent-weak: #16301f;        /* 弱底只给头像/选中面：accent 文字压上来 6.63:1 */
+  --on-accent: #06230f;          /* 亮绿面压白字只有 2.1 → 深色档一律反墨字 7.80:1 */
+  --success: #8fcc6b; --warning: #e0a955; --danger: #f08a72; /* 9.55 / 8.65 / 7.44 on bg —— 深档再写一遍 */
+  --mask: #2a2e29; --scrim: rgba(0, 0, 0, 0.62);
+  --row-hover: rgba(232, 234, 230, 0.05); --toggle-on: #16301f;
+  --rail: #0d0f0d; --ds-rail-ink: #e8eae6; --ds-rail-muted: #969d93; /* 15.89 / 6.91:1 on --rail */
+  --ds-rail-edge: rgba(232, 234, 230, 0.14);
+  --ds-rail-line: rgba(232, 234, 230, 0.42);
+  /* 阴影两档都是 none：深色档不补投影、不加内发光，层级继续靠栏与线（避免「发光最多一处」超额） */
+}
+
+/* ---------- 3. 基底、选区与焦点环 ------------------------------------------ */
+[data-skin='desk'] .app { background: var(--bg); }
+[data-skin='desk'] body, [data-skin='desk'] .screen { font-family: var(--font-sans); }
+[data-skin='desk'] ::selection { background: var(--accent-weak); color: var(--text); }
+[data-skin='desk'] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- 4. 顶栏：案子上沿一根横梁 -------------------------------------- */
+[data-skin='desk'] .topbar { background: var(--bg); border-bottom: 1px solid var(--border); } /* 阴影关掉后必须有线才分得开 */
+[data-skin='desk'] .brand__name { font-weight: 600; letter-spacing: 0.14em; }
+[data-skin='desk'] .brand__dot { border-radius: 0; }  /* 直角小方点：案头不做圆形装饰 */
+[data-skin='desk'] .topbar__meta { display: none; }   /* 「今日 N 词」与台账首行复读，顶栏 60px 也挤 */
+[data-skin='desk'] .icon-btn {
+  width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface);
+}
+[data-skin='desk'] .avatar-btn { border-radius: var(--radius-md); } /* 44×44 尺寸不动 */
+
+/* ---------- 5. 首页骨架：44px 抽屉 + 右列内容（手机档即默认档）------------- */
+/* .start 用负 margin 出血到屏边（不用视口宽单位）：左 44px 让给抽屉，右列自己补 gutter */
+[data-skin='desk'] .start {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-height: calc(100dvh - var(--ds-topbar) - var(--space-6)); /* 减顶栏与 .screen 的下留白：短内容时正好一屏 */
+  margin-inline: calc(-1 * var(--page-x));
+  padding: var(--space-4) var(--page-x) 0 var(--ds-rail-w);
+}
+/* 抽屉面：一条通高深色带，本案最大的结构发明，也是唯一常驻的深色块。
+   底色画在 .start__masthead 这个**真实元素**上，不画在 ::before 上——
+   伪元素的背景不在祖先背景链里，对比度审计会把轨内浅色文字按页面底色算（实测误报 1.0:1），
+   画在真元素上既让审计读得到真实底色，也少一个定位伪元素。 */
+/* 轨内只放日期（2026 · 11 · 25 全拉丁数字）；brand「词笺」topbar 已有，成句中文不进竖排 */
+[data-skin='desk'] .start__masthead {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+  position: absolute; top: 0; bottom: 0; left: 0; width: var(--ds-rail-w);
+  background: var(--rail); border-inline-end: 1px solid var(--ds-rail-edge);
+  padding: var(--space-4) 0; pointer-events: none; /* 抽屉面不吃点击 → 不留点击死区 */
+}
+[data-skin='desk'] .start__masthead-brand { display: none; }
+[data-skin='desk'] .start__masthead-meta {
+  order: -1;                    /* 日期钉在轨顶，缝线拖到底 */
+  writing-mode: vertical-rl; text-orientation: mixed;  /* 竖排书脊 */
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.14em; line-height: 1; color: var(--ds-rail-ink); white-space: nowrap;
+}
+[data-skin='desk'] .start__masthead-rule {
+  flex: 1 1 auto; width: 1px; min-height: 20px; background: var(--ds-rail-edge); /* 1px 缝线，不做实心段 */
+}
+/* 顶部小标关掉：它报「四级 · DAILY LIST」，与章题「四级核心词 · 3846 词」同屏两次报阶段名。
+   skin-hooks 默认就是关的，这里显式写出来当决策记录；拉丁串 DAILY 挪去 768 轨顶字标（第 8 节） */
+[data-skin='desk'] .start__kicker { display: none; }
+/* 正文列：基线 margin-block:auto 的居中必须先清零，否则整列会被推到画面中央 */
+[data-skin='desk'] .start__body { display: flex; flex-direction: column; flex: 1 1 auto; margin-block: 0; }
+
+/* ---------- 6. 章题 / 工单行 / 台账 / 组头 / 批注 -------------------------- */
+/* 删掉「大标语 + 说明段」后，右列顶端由 eyebrow 升格为章题：用真实 DOM 文本，不用伪元素补句子 */
+[data-skin='desk'] .start__eyebrow {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-top: 0; padding: var(--space-2) var(--ds-cell) var(--space-3);
+  font-family: var(--font-sans); font-size: clamp(20px, 5.6vw, 27px); font-weight: 600;
+  line-height: 1.25; letter-spacing: -0.01em; text-transform: none;
+  text-wrap: balance; word-break: keep-all; /* 兜底：某档字体回退变宽时折成两行等长，不留孤号 */
+  color: var(--text);           /* 大字档 ≥3:1；本案 14.78:1 */
+  border-bottom: 1px solid var(--border);
+}
+/* 基线那根 18px 短线在 20–27px 章题前会渲染成一个误留的「—」：直接关掉，章题靠底下通栏行线撑 */
+[data-skin='desk'] .start__eyebrow::before { display: none; }
+/* 首页大标语与功能说明两个节点已随 v10 从 DOM 与 app.css 一并删除（此处不留死选择器，也不许伪元素补句子）；
+   .start__meta（今日 N 词 · 已学 N 词）与台账、读数复读，仍在本层关掉 */
+[data-skin='desk'] .start__meta { display: none; }
+
+/* 工单表：手机档只留第 3 行「今日批次」——手机档没有抽屉，批数只有这一处可放 */
+/* 行底线通栏（盒子占满列宽、文字自补 gutter），台账与工单才像同一张纸上的两张表 */
+[data-skin='desk'] .start__spec { display: block; margin-top: var(--space-2); }
+[data-skin='desk'] .start__spec-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3);
+  min-height: var(--ds-row); padding-inline: var(--ds-cell); border-bottom: 1px solid var(--border);
+}
+[data-skin='desk'] .start__spec-row:nth-child(1),
+[data-skin='desk'] .start__spec-row:nth-child(2),
+[data-skin='desk'] .start__spec-row:nth-child(4) { display: none; } /* 阶段=章题；新词=figure 首行；已学=抽屉读数 */
+[data-skin='desk'] .start__spec-k { font-size: var(--fs-small); color: var(--text-secondary); }
+[data-skin='desk'] .start__spec-v {
+  font-family: var(--font-mono); font-size: var(--fs-small); color: var(--text);
+  font-variant-numeric: tabular-nums; text-align: end;
+}
+
+/* 卡片外壳取消：案头没有「卡」，只有台账。故意不拆 .today-card 的 contents——
+   留着外壳，① aria-label「今日学习摘要」不丢；② sticky 组头有真实的父盒可以贴着滚（网格项会被自己的格子限死） */
+[data-skin='desk'] .today-card {
+  display: flex; flex-direction: column; order: 1; margin-top: var(--space-4); padding-inline: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+}
+/* 四读数从卡内 59×34 小字升为整行台账：display:contents 把 __figure 提到卡这一层 */
+[data-skin='desk'] .today-card__figures { display: contents; }
+/* 组头 = 抽屉唇：sticky 深色分组头。实测必须给不透明底色 + z-index，否则滚动内容透穿 */
+[data-skin='desk'] .today-card__head {
+  position: sticky; top: 0; z-index: 6;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2) var(--space-3); flex-wrap: wrap; min-height: 52px;
+  margin-inline-end: calc(-1 * var(--page-x)); /* 向右出血到屏边：这条唇是抽屉的延伸 */
+  padding: var(--space-1) calc(var(--ds-cell) + var(--page-x)) var(--space-1) var(--ds-cell);
+  background: var(--rail); color: var(--ds-rail-ink);
+}
+[data-skin='desk'] .today-card__label {
+  min-width: 0; font-family: var(--font-sans); font-size: var(--fs-small); font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: var(--ds-rail-ink); overflow-wrap: anywhere;
+}
+[data-skin='desk'] .today-card__links { display: flex; align-items: center; gap: var(--space-1); flex: none; }
+[data-skin='desk'] .today-card__links .btn {
+  min-width: 44px; min-height: 44px; padding-inline: 8px; /* 基线 compact 的 16px 左右内距在 360 太挤 */
+  font-family: var(--font-sans); font-size: var(--fs-small); font-weight: 500; letter-spacing: 0;
+  color: var(--ds-rail-muted); font-variant-numeric: tabular-nums;  /* 6.98:1 on rail */
+}
+/* 台账行：左标签、右等宽数字，行底一根 1px 通栏分隔 */
+[data-skin='desk'] .today-card__figure {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-1) var(--space-2);
+  min-height: var(--ds-row); padding: 10px var(--ds-cell); border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans); font-size: var(--fs-small); color: var(--text-secondary);
+  white-space: normal;          /* 基线 nowrap 在 360 会把行顶宽：这里必须允许折 */
+}
+[data-skin='desk'] .today-card__figure > b {
+  order: 2; margin-inline-start: auto;  /* DOM 是「数字 标签」，视觉要「标签 …… 数字」 */
+  font-family: var(--font-mono); font-size: var(--fs-h2); font-weight: 500;
+  letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap;
+}
+[data-skin='desk'] .today-card__figure b.is-warn { color: var(--warning); }   /* 逾期/告警 = 琥珀，不给红 */
+[data-skin='desk'] .today-card__figure b.is-accent { color: var(--accent); }  /* 新词数 = 本案唯一的绿字 */
+[data-skin='desk'] .today-card__tag {
+  padding: 1px 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 11px; color: var(--text); /* 只描边，不铺实心 accent（实心段会被读成进度） */
+}
+/* 批注与承诺句：基线 12px 提到 14px（含中文正文下限），语气色保留基线的琥珀告警 */
+[data-skin='desk'] .today-card__reason {
+  padding: var(--space-3) var(--ds-cell) 0; font-size: var(--fs-small); line-height: 1.65; color: var(--text-secondary);
+}
+[data-skin='desk'] .today-card__reason.is-increase { color: var(--text-secondary); }
+[data-skin='desk'] .today-card__reason.is-decrease,
+[data-skin='desk'] .today-card__reason.is-paused { color: var(--warning); }
+/* 最后一句 = 「先复习后新词」承诺：本案把它当便签夹在台账尾巴上（缩进一格，与行文字对齐） */
+[data-skin='desk'] .today-card__reason:last-of-type {
+  margin: var(--space-3) var(--ds-cell) var(--space-2); padding: var(--space-3) var(--space-4);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-inline-start: 2px solid var(--border-strong); /* 3.5:1 的灰线夹边，不用实心绿段 */
+  color: var(--text);
+}
+/* 脚注：一句中文（9 字）+ 换阶段按钮；14px；360 挤不下就折行 */
+[data-skin='desk'] .start__foot {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3); margin-inline-end: calc(-1 * var(--page-x));
+  padding: var(--space-4) calc(var(--ds-cell) + var(--page-x)) var(--space-5) var(--ds-cell);
+  border-top: 1px solid var(--border); font-family: var(--font-sans); font-size: var(--fs-small);
+  color: var(--text-tertiary);
+}
+[data-skin='desk'] .start__rule { flex: 1 1 24px; min-width: 16px; height: 1px; background: var(--border); }
+[data-skin='desk'] .start__foot .btn--text { color: var(--text-secondary); }
+
+/* ---------- 7. 主 CTA：列底常驻动作条（七套皮肤没有一版把 CTA 放底缘）------ */
+[data-skin='desk'] .start__actions {
+  order: 2;                     /* DOM 里仍在台账之前，靠 order 把锚点挪到列底 */
+  position: sticky; bottom: 0; z-index: 7; display: block;
+  margin-inline-end: calc(-1 * var(--page-x)); /* 出血到屏边：台面下沿，不是浮岛（不吞滚动） */
+  padding: var(--space-3) calc(var(--ds-cell) + var(--page-x)) calc(var(--space-3) + var(--space-2) + env(safe-area-inset-bottom)) var(--ds-cell);
+  background: var(--bg);
+  border-top: 1px solid var(--border-strong); /* 0 阴影：靠一根 3.5:1 的线把条与滚动内容切开 */
+}
+[data-skin='desk'] .start__actions .btn--block {
+  min-height: 52px; border-radius: var(--radius-md); font-size: 17px; font-weight: 600; letter-spacing: 0.06em;
+}
+[data-skin='desk'] .start__actions .btn--block::after {
+  content: '→'; font-family: var(--font-mono); font-size: 16px; font-weight: 400; /* 符号短码，不承载信息、不复读任何文本 */
+}
+
+/* ---------- 8. ≥768：竖轨长成真侧栏（抽屉 + 工作面两列） ------------------- */
+@media (min-width: 768px) {
+  [data-skin='desk'] { --page-x: 32px; --fs-display: 30px; --fs-h1: 24px; --ds-cell: 16px; --ds-row: 48px; }
+
+  /* 必须用 .app:has(.start) 限定：否则日历 / 我的 / 列表页会多出一条空抽屉 */
+  [data-skin='desk'] .app:has(.start) {
+    display: grid; grid-template-columns: 212px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+  }
+  [data-skin='desk'] .app:has(.start) .topbar { grid-column: 1 / -1; grid-row: 1; } /* topbar 通栏（实测正常） */
+  /* 读数条从顶部横条搬进左栏 = 本案「栏」这条轴的落点 */
+  [data-skin='desk'] .app:has(.start) .readouts {
+    display: flex; flex-direction: column; grid-column: 1; grid-row: 2;
+    padding: var(--space-5) 0 0; background: var(--rail);
+    border-inline-end: 1px solid var(--ds-rail-edge); overflow: hidden;
+  }
+  /* 轨顶字标：kicker 关掉后「DAILY」这串拉丁归抽屉脸，纯装饰、不报任何数、不复读中文阶段名 */
+  [data-skin='desk'] .app:has(.start) .readouts::before {
+    content: 'CIJIAN · DAILY';
+    flex: none; padding-inline: var(--space-5); margin-bottom: var(--space-3);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1;
+    letter-spacing: 0.18em; color: var(--ds-rail-muted); white-space: nowrap;
+  }
+  /* 缝线 + 把手合成一个伪元素：flex:1 吃掉读数到轨底的空档，线随栏高伸缩（是真结构不是假刻度） */
+  [data-skin='desk'] .app:has(.start) .readouts::after {
+    content: '';
+    flex: 1 1 auto; min-height: var(--space-8); width: 40px;
+    margin: var(--space-3) auto var(--space-6) var(--space-5);
+    border-inline-start: 1px solid var(--ds-rail-edge); /* 通高 1px 缝线：抽屉的轨道 */
+    background: linear-gradient(var(--ds-rail-edge) 0 0) no-repeat left bottom / 40px 2px; /* 轨底把手 */
+  }
+  [data-skin='desk'] .app:has(.start) .readout {
+    display: flex; flex-direction: column; justify-content: center; gap: var(--space-1);
+    min-height: 96px; padding: var(--space-4) var(--space-5); /* 两格各自加高：轨内不再有大片空黑 */
+  }
+  [data-skin='desk'] .app:has(.start) .readout + .readout { border-top: 1px solid var(--ds-rail-edge); }
+  /* 「今日」读数与台账首行「新词」是同一个数 → 抽屉只留批数与已学，保证每个数只报一次 */
+  [data-skin='desk'] .app:has(.start) .readout:first-child { display: none; }
+  [data-skin='desk'] .app:has(.start) .readout__k {
+    /* 13px 而非 11px：轨内标签是两字中文，压到 11px 会踩「中文小字」红线 */
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    letter-spacing: 0.1em; line-height: 1; color: var(--ds-rail-muted);
+  }
+  [data-skin='desk'] .app:has(.start) .readout__v {
+    font-family: var(--font-mono); font-size: 34px; font-weight: 500; line-height: 1;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ds-rail-ink); /* 15.89:1 */
+  }
+  [data-skin='desk'] .app:has(.start) main.app__main { grid-column: 2; grid-row: 2; }
+
+  /* 内容列不再需要 44px 假轨：出血、竖轨、竖排日期一并收掉（日期归组头，不在两处报） */
+  [data-skin='desk'] .start { margin-inline: 0; padding: var(--space-5) 0 0; }
+  [data-skin='desk'] .start::before, [data-skin='desk'] .start__masthead { display: none; }
+  [data-skin='desk'] .start__spec { display: none; } /* 批数已进抽屉读数 */
+  /* 桌面档不出血：深色唇、动作条、脚注线全部收在台面列宽内，与行底线两端对齐 */
+  [data-skin='desk'] .today-card__head { margin-inline: 0; padding-inline: var(--ds-cell); }
+  [data-skin='desk'] .start__actions { margin-inline: 0; padding: var(--space-4) var(--ds-cell) calc(var(--space-4) + var(--space-2)); }
+  [data-skin='desk'] .start__actions .btn--block { max-width: 420px; } /* 台面宽 548：绿条不铺满 */
+  [data-skin='desk'] .start__foot { margin-inline: 0; padding-inline: var(--ds-cell); }
+}
+
+/* ---------- 9. 首页之外：只补「线代影 + 中文小字下限 + 等宽读数」 ---------- */
+[data-skin='desk'] .dock { border-top: 1px solid var(--border-strong); } /* 阴影归零后控制条靠线上沿分层 */
+[data-skin='desk'] .sheet, [data-skin='desk'] .dialog { border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
+[data-skin='desk'] .sheet { border-inline: 0; border-block-start: 1px solid var(--border-strong); }
+[data-skin='desk'] .word-row { border-radius: 0; }
+[data-skin='desk'] .stat__num, [data-skin='desk'] .cal-figure dd, [data-skin='desk'] .cal-load__v {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+}
+/* 短标签（≤2 字）收 13px；整句提示算正文，提到 14px —— 11px 大写衬线在本案一律读不动 */
+[data-skin='desk'] .cal-figure dt, [data-skin='desk'] .cal-kicker {
+  font-size: 13px; letter-spacing: 0.02em; text-transform: none;
+}
+[data-skin='desk'] .cal-section__hint, [data-skin='desk'] .setting-row__label,
+[data-skin='desk'] .skin-card__tag { font-size: var(--fs-small); letter-spacing: 0; }
+[data-skin='desk'] .skin-card, [data-skin='desk'] .skin-card__swatch { border-radius: var(--radius-sm); }
+
+/* ---------- 10. 非首页抽屉顶栏：四屏把深色抽屉搬到顶上 ---------------------
+   首页抽屉是 .app:has(.start) 专属网格，其它屏没有 .readouts，不复制同一网格；
+   统一动作 = .topbar--bordered（仅 Session / 日历 / 错词 / 我的 四屏有，首页 .topbar 无此类）
+   变成实底深色块：返回键 / 标题 / 头像在块内重排，文字对比按深色实底算——
+   标题 rail-ink 13.98（浅）/15.89（深），副题 muted 6.98/6.91，两档全过 4.5。 */
+[data-skin='desk'] .topbar.topbar--bordered {
+  background: var(--rail);
+  border-bottom: 0; /* 深色块与暖纸相接，栏色差自承重；原来的浅色发丝线撤掉 */
+}
+/* 抽屉面内的缝线：返回键与标题之间先分栏再落字 */
+[data-skin='desk'] .topbar--bordered .study-bar__info,
+[data-skin='desk'] .topbar--bordered .topbar__title {
+  padding-inline-start: var(--space-3);
+  border-inline-start: 1px solid var(--ds-rail-edge);
+}
+[data-skin='desk'] .topbar--bordered .study-bar__title { font-size: 16px; color: var(--ds-rail-ink); }
+[data-skin='desk'] .topbar--bordered .study-bar__title-total { color: var(--ds-rail-muted); }
+[data-skin='desk'] .topbar--bordered .study-bar__sub { font-size: var(--fs-small); color: var(--ds-rail-muted); } /* 「11/25 周二 · 还剩 3 个」含整句中文，深色块上走 14 下限 */
+[data-skin='desk'] .topbar--bordered .topbar__title { font-size: 17px; color: var(--ds-rail-ink); }
+[data-skin='desk'] .topbar--bordered .icon-btn {
+  width: 44px; height: 44px; background: transparent;
+  border: 1px solid var(--ds-rail-line); color: var(--ds-rail-ink);
+}
+[data-skin='desk'] .topbar--bordered .icon-btn:active { background: var(--ds-rail-edge); }
+/* 头像 = 抽屉脸上唯一的松绿小面：浅档白字 7.29 / 深档墨字 7.80，rail-line 描边保证与轨面分得开 */
+[data-skin='desk'] .topbar--bordered .avatar-btn {
+  background: var(--accent); border: 1px solid var(--ds-rail-line);
+  color: var(--on-accent); border-radius: var(--radius-md);
+}
+/* 松绿焦点环在深色实底上只有 2.16:1：深色块内一律换轨内墨白（收在 §16 大 focus 规则之后统一落地） */
+
+/* ---------- 11. 学习流：抽屉条 + 填充线 / 台账词行 / 列底常驻动作条 -------- */
+/* 进度线延续抽屉面：rail 深底即轨道，rail-ink 填充即台账充盈度；
+   长度绑 aria progressbar 的真进度（411 行内联 width），没有假刻度 */
+[data-skin='desk'] .study-progress { margin: 0; height: 4px; background: var(--rail); border-radius: 0; }
+[data-skin='desk'] .study-progress__bar { background: var(--ds-rail-ink); border-radius: 0; }
+/* 词表 = 台账：行线拉到屏边（负 margin 出血 + 行内 padding 收文字），一行一根通栏底线；
+   序位列右缘挂通高缝线——01/02 是账目栏位，grid item 默认 stretch，缝线随行高伸缩 */
+[data-skin='desk'] .word-list { margin-inline: calc(-1 * var(--page-x)); border-top: 1px solid var(--border-strong); }
+[data-skin='desk'] .word-row {
+  grid-template-columns: 34px minmax(0, 1fr); gap: 0 var(--space-4);
+  padding: var(--space-4) var(--page-x); border-bottom: 1px solid var(--border);
+}
+[data-skin='desk'] .word-row--peekable { margin-inline: 0; padding-inline: var(--page-x); border-radius: 0; }
+[data-skin='desk'] .word-row__index {
+  font-family: var(--font-mono); font-size: 12px; padding-top: 9px;
+  border-inline-end: 1px solid var(--border);
+}
+[data-skin='desk'] .word-row__word { font-weight: 600; }
+[data-skin='desk'] .word-row__ph { font-family: var(--font-mono); color: var(--text-secondary); }
+[data-skin='desk'] .meaning__pos { font-family: var(--font-mono); font-size: 0.95em; }
+/* 单卡页：不做卡壳，通栏底线收缝；「轻点看中文」升为 44px 描边块（基线虚线下划文字够不到触控档） */
+[data-skin='desk'] .flash-card { padding-block: var(--space-6); border-bottom: 1px solid var(--border-strong); }
+[data-skin='desk'] .flash-card__ph { font-family: var(--font-mono); }
+[data-skin='desk'] .flash-card__reveal {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-4);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-secondary); font-size: var(--fs-small);
+}
+/* 答案三键 / 两键 = 列底常驻条：沿用首页主 CTA 的「列底 sticky 条」锚点——留在 .app flex 正常流
+   （基线 1620 注释已禁 fixed），实底 --bg 顶替半透明 + blur，分层交回给一根强线 */
+[data-skin='desk'] .answer-dock {
+  background: var(--bg); backdrop-filter: none;
+  border-top: 1px solid var(--border-strong);
+}
+[data-skin='desk'] .answer-btn { border-radius: var(--radius-sm); }
+[data-skin='desk'] .answer-btn--fuzzy { background: transparent; border-color: var(--border-strong); }
+[data-skin='desk'] .answer-btn--unknown { background: transparent; border-color: var(--danger); } /* 不认识 = 错词动作，红承语义 */
+[data-skin='desk'] .answer-btn:active { transform: none; }
+[data-skin='desk'] .answer-btn--known:active:not(:disabled) { background: var(--accent-press); transform: translateY(1px); }
+/* 列表阶段控制条 = 同一条列底条 */
+[data-skin='desk'] .dock { background: var(--bg); }
+[data-skin='desk'] .dock__btn { border-radius: var(--radius-sm); }
+[data-skin='desk'] .dock__btn:active:not(:disabled) { transform: none; }
+[data-skin='desk'] .dock__state { font-size: 13px; }
+[data-skin='desk'] .dock__nav--primary:active:not(:disabled) { background: var(--accent-press); transform: translateY(1px); }
+/* 收尾页：kicker 等宽小标（13px），明细数字等宽对齐 */
+[data-skin='desk'] .session-done__kicker {
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.12em; text-transform: none; color: var(--text-secondary);
+}
+[data-skin='desk'] .session-done__title { font-weight: 600; letter-spacing: -0.01em; }
+[data-skin='desk'] .session-done__text { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--text-secondary); }
+[data-skin='desk'] .session-done__note { font-size: 14px; color: var(--text-secondary); } /* 22 个汉字，--fs-small=13 不过线 */
+
+/* ---------- 12. 学习日历：96px 读数格 / 日格台账行 / 负荷只给真数据着色 ---- */
+/* cal-figures = ≥768 侧栏读数格的语言搬进纸面列：min-height 96px、等宽大数、格间发丝缝线 */
+[data-skin='desk'] .cal-figures { margin-top: var(--space-4); padding-top: 0; gap: 0; border-top: 1px solid var(--border-strong); }
+[data-skin='desk'] .cal-figure {
+  display: flex; flex-direction: column; justify-content: center; gap: var(--space-1);
+  min-height: var(--ds-cell-h); padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+[data-skin='desk'] .cal-figure:nth-child(even) { border-inline-start: 1px solid var(--border); padding-inline: var(--space-3) 0; }
+[data-skin='desk'] .cal-figure dt { font-family: var(--font-mono); color: var(--text-secondary); letter-spacing: 0.1em; }
+[data-skin='desk'] .cal-figure dd { font-size: 28px; letter-spacing: -0.02em; line-height: 1.1; }
+[data-skin='desk'] .cal-title b { font-family: var(--font-mono); font-size: var(--fs-display); font-weight: 500; letter-spacing: -0.02em; }
+[data-skin='desk'] .cal-title__tag { border-radius: var(--radius-sm); font-size: 13px; }
+/* 日格 = 台账行：日期等宽列头、角标方正化（13px）；
+   着色只发生在有真数据的 chip 上——--primary（真实到期/新词额度）保留 accent-weak 实底，
+   零占位 --quiet 维持虚线空槽，不给空格子画假刻度 */
+[data-skin='desk'] .cal-day__date { font-family: var(--font-mono); font-size: 16px; font-weight: 500; }
+[data-skin='desk'] .cal-day__weekday { font-size: 13px; }
+[data-skin='desk'] .cal-day__badge { font-size: 13px; letter-spacing: 0.06em; border-radius: var(--radius-sm); }
+[data-skin='desk'] .cal-day__badge--quiet { border-color: var(--border-strong); }
+[data-skin='desk'] .cal-load { font-family: var(--font-mono); border-radius: var(--radius-sm); }
+[data-skin='desk'] .cal-load__dot { border-radius: 0; } /* 方点小标，只在有真数据的 chip 内出现 */
+[data-skin='desk'] .cal-load--up { border-radius: var(--radius-sm); font-size: 12px; } /* 「↑ +5」纯符号/数字 */
+[data-skin='desk'] .cal-batch { font-family: var(--font-mono); font-size: var(--fs-small); } /* 「11/22 那批 · 5 词」整句，14 下限 */
+/* 中文正文下限：kicker / 注语 / 整句说明 / 数字脚注条一律提到 14px（脚注原 11px 最危险） */
+[data-skin='desk'] .cal-kicker { font-size: var(--fs-small); }
+[data-skin='desk'] .cal-note, [data-skin='desk'] .cal-hero__lede, [data-skin='desk'] .cal-day__empty,
+[data-skin='desk'] .cal-day__reason, [data-skin='desk'] .cal-long__note { font-size: var(--fs-small); line-height: 1.7; }
+[data-skin='desk'] .cal-long__value { font-family: var(--font-mono); }
+[data-skin='desk'] .cal-foot { font-size: 14px; } /* 数字条里有「目标/未学/短期」等成串中文：--fs-small 是 13px，不够 */
+/* hero 主按钮 = 首页 CTA 同款人格（52px 松绿 + 拉丁箭头短码） */
+[data-skin='desk'] .cal-hero__actions .btn { min-height: 52px; letter-spacing: 0.06em; }
+[data-skin='desk'] .cal-hero__actions .btn::after {
+  content: '→'; font-family: var(--font-mono); font-size: 16px; font-weight: 400;
+}
+
+/* ---------- 13. 错词本：台账行 + 行尾日期列 -------------------------------- */
+/* 行出血到屏边、通栏底线；右侧「次数 / 日期 / 下次复习」排成一列等宽账尾 */
+[data-skin='desk'] .mistakes__list { margin-inline: calc(-1 * var(--page-x)); border-top: 1px solid var(--border-strong); }
+[data-skin='desk'] .mistake-row { padding: var(--space-4) var(--page-x); }
+[data-skin='desk'] .mistake-row__word { font-weight: 600; letter-spacing: -0.01em; }
+[data-skin='desk'] .mistake-row__ph { font-family: var(--font-mono); }
+[data-skin='desk'] .mistake-row__meaning { font-size: var(--fs-small); } /* 整句释义算正文：13→14 */
+[data-skin='desk'] .mistake-row__meta { font-family: var(--font-mono); font-size: 13px; }
+/* 错 N 次 = 错词计数，红只在这种语义位出现（浅 6.71 / 深 7.44 过 4.5），描边不铺面 */
+[data-skin='desk'] .mistake-row__badge {
+  background: transparent; border: 1px solid var(--danger); border-radius: var(--radius-sm);
+  color: var(--danger); font-weight: 500;
+}
+[data-skin='desk'] .mistake-row__date { color: var(--text-secondary); }
+[data-skin='desk'] .mistake-row__hint { font-size: var(--fs-small); } /* 「下次复习 12/3」整句提示 →14 */
+[data-skin='desk'] .mistake-quiz__meta { font-size: var(--fs-small); line-height: 1.7; }
+[data-skin='desk'] .mistakes-empty__text { font-size: var(--fs-small); line-height: 1.7; }
+/* 单测两键复用 §11 的 .answer-dock，不另立语言 */
+
+/* ---------- 14. 我的：stat = 抽屉读数格（≥96px）/ section__title = 台账小标 -- */
+[data-skin='desk'] .avatar { border-radius: var(--radius-md); border: 1px solid var(--border); } /* 方角印章，不做圆 */
+[data-skin='desk'] .profile__meta { font-size: var(--fs-small); } /* 「四级 · 已学 N / N 词」整句，12→14 */
+[data-skin='desk'] .stat {
+  flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-1);
+  min-height: var(--ds-cell-h); padding: var(--space-3) var(--ds-cell);
+  border-block: 1px solid var(--border);
+}
+[data-skin='desk'] .stat__num { font-size: 34px; font-weight: 500; line-height: 1.05; letter-spacing: -0.02em; }
+[data-skin='desk'] .stat__unit { font-size: var(--fs-small); color: var(--text-secondary); }
+[data-skin='desk'] .progress-track { height: 4px; border-radius: 0; background: var(--surface-sunken); }
+[data-skin='desk'] .progress-track__bar { border-radius: 0; } /* 真实入库率：sunken 槽 3.16:1 对松绿填充 */
+/* section__head = 台账组头行：小标在左、通栏缝线、控件靠右 */
+[data-skin='desk'] .section__head { align-items: center; }
+[data-skin='desk'] .section__title {
+  display: flex; align-items: center; gap: var(--space-3); flex: 1 1 auto; min-width: 0;
+  font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: 0.12em; color: var(--text-secondary); /* 台账组头含「每批单词数」5 个汉字 → 14 */
+}
+[data-skin='desk'] .section__title::after { content: ''; flex: 1 1 24px; min-width: 16px; height: 1px; background: var(--border); }
+[data-skin='desk'] .section__hint { font-size: 14px; line-height: 1.7; } /* 含成串中文，13px 的 --fs-small 不过线 */
+[data-skin='desk'] .setting-row__value { font-family: var(--font-mono); font-size: var(--fs-small); }
+[data-skin='desk'] .stage-option { border-radius: var(--radius-sm); }
+[data-skin='desk'] .stage-option__count { font-family: var(--font-mono); }
+[data-skin='desk'] .stage-option__desc { font-size: var(--fs-small); }
+[data-skin='desk'] .stepper { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+[data-skin='desk'] .stepper__value { font-family: var(--font-mono); }
+/* 分段选择：凹槽 + 选中块，凸起感交给描边（阴影 0 档，基线选中影在此已是 none） */
+[data-skin='desk'] .segmented { border-radius: var(--radius-sm); }
+[data-skin='desk'] .segmented__item { border: 1px solid transparent; border-radius: 0; font-size: var(--fs-small); }
+[data-skin='desk'] .segmented__item[aria-pressed='true'] { border-color: var(--border-strong); }
+
+/* ---------- 15. 浮层：sheet 头 = 深色抽屉块（底色画在真元素上）------------- */
+/* sheet 从底升起、头部贴顶：head 负 margin 出血到 sheet 两边，.sheet overflow:hidden 裁圆角。
+   底色画在 .sheet__head 真元素而非 ::before——审计沿祖先背景链读得到实底，浅色标题按深底算对比 */
+[data-skin='desk'] .sheet {
+  padding: 0 var(--page-x) calc(var(--space-4) + var(--space-2) + env(safe-area-inset-bottom));
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden; /* max-height 88dvh 与 .sheet__body 内部滚动不受影响 */
+}
+[data-skin='desk'] .sheet__head {
+  align-items: center; margin-inline: calc(-1 * var(--page-x));
+  padding: var(--space-4) calc(var(--page-x) + var(--ds-cell));
+  background: var(--rail);
+}
+[data-skin='desk'] .sheet__title { color: var(--ds-rail-ink); }
+[data-skin='desk'] .sheet__desc { font-size: var(--fs-small); color: var(--ds-rail-muted); } /* 6.98:1 在深色实底 */
+[data-skin='desk'] .sheet__head .icon-btn {
+  width: 44px; height: 44px; background: transparent;
+  border: 1px solid var(--ds-rail-line); border-radius: var(--radius-sm); color: var(--ds-rail-ink);
+}
+/* 深色 head 内的 focus 环在 §16 统一处理（顺序依赖） */
+[data-skin='desk'] .sheet__body { margin-top: var(--space-4); }
+[data-skin='desk'] .sheet__foot { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border-strong); }
+[data-skin='desk'] .dialog__title { letter-spacing: 0.01em; }
+[data-skin='desk'] .textarea { font-size: var(--fs-small); border-radius: var(--radius-sm); } /* 词表正文含中文：13→14 */
+[data-skin='desk'] .parse-summary { font-size: var(--fs-small); }
+[data-skin='desk'] .issues { font-size: var(--fs-small); }
+/* ? 气泡：方角小卡、正文 14px；「需要修正」是告警语气，保留琥珀，不升级成红 */
+[data-skin='desk'] .hint__pop { border-radius: var(--radius-sm); }
+[data-skin='desk'] .hint__title { font-size: var(--fs-small); }
+[data-skin='desk'] .hint__text { font-size: var(--fs-small); line-height: 1.7; }
+[data-skin='desk'] .hint__btn { border-radius: var(--radius-sm); font-family: var(--font-mono); }
+
+/* ---------- 15b. ≥768 非首页：台账线收进内容列、dock 保持列底条 ------------ */
+@media (min-width: 768px) {
+  /* 桌面内容列自带 ~60px 侧白（基线 .screen 居中留白），行线不再出血屏边——与首页 8 节同策略 */
+  [data-skin='desk'] .word-list { margin-inline: 0; }
+  [data-skin='desk'] .word-row { grid-template-columns: 44px minmax(0, 1fr); padding-inline: 0; }
+  [data-skin='desk'] .word-row--peekable { margin-inline: 0; padding-inline: 0; }
+  [data-skin='desk'] .mistakes__list { margin-inline: 0; }
+  [data-skin='desk'] .mistake-row { padding-inline: 0; }
+  /* 基线把 dock 变成居中浮卡：改回通栏列底条，0 阴影、直角 */
+  [data-skin='desk'] .dock {
+    width: 100%; max-width: none; margin: 0; padding: var(--space-3) var(--page-x) calc(var(--space-3) + env(safe-area-inset-bottom));
+    border: 0; border-top: 1px solid var(--border-strong); border-radius: 0; background: var(--bg);
+  }
+  /* 读数四格横排：缝线从「偶数格」改为「首格以外每格」，缝后统一补 12px 槽 */
+  [data-skin='desk'] .cal-figure:nth-child(even) { border-inline-start: 0; }
+  [data-skin='desk'] .cal-figure + .cal-figure { border-inline-start: 1px solid var(--border); padding-inline: var(--space-3) 0; }
+}
+
+/* ---------- 16. 交互态：hover 只给指针设备；focus / active / disabled 齐备 - */
+[data-skin='desk'] .btn:focus-visible, [data-skin='desk'] .icon-btn:focus-visible,
+[data-skin='desk'] .avatar-btn:focus-visible, [data-skin='desk'] .dock__btn:focus-visible,
+[data-skin='desk'] .skin-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 松绿焦点环在深色实底上只有 2.16:1，换轨内墨白 13.98:1。
+   必须排在上面那条大 focus 规则之后：同为 (0,3,0)，先写的会被 .icon-btn:focus-visible 的 outline 简写夺回 */
+[data-skin='desk'] .today-card__head :focus-visible,
+[data-skin='desk'] .topbar--bordered :focus-visible,
+[data-skin='desk'] .sheet__head :focus-visible { outline-color: var(--ds-rail-ink); outline-offset: 1px; }
+[data-skin='desk'] .btn:active { transform: none; } /* 0 阴影的案子不做缩放弹跳 */
+[data-skin='desk'] .start__actions .btn--primary:active:not(:disabled) {
+  background: var(--accent-press); transform: translateY(1px); /* 只用 1px 位移表达「按下去」 */
+}
+[data-skin='desk'] .btn:disabled, [data-skin='desk'] .dock__btn:disabled,
+[data-skin='desk'] .dock__nav:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+@media (hover: hover) {
+  [data-skin='desk'] .btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+  [data-skin='desk'] .btn--secondary:hover:not(:disabled) { background: var(--surface-sunken); }
+  [data-skin='desk'] .today-card__links .btn:hover:not(:disabled) { color: var(--ds-rail-ink); }
+  [data-skin='desk'] .start__foot .btn--text:hover:not(:disabled) { color: var(--text); }
+  [data-skin='desk'] .icon-btn:hover { border-color: var(--text-tertiary); background: var(--row-hover); }
+  [data-skin='desk'] .avatar-btn:hover { transform: none; background: var(--accent-weak); }
+  /* 深色块内的 hover 走轨面色，浅底 row-hover 在 rail 上不可见 */
+  [data-skin='desk'] .topbar--bordered .icon-btn:hover,
+  [data-skin='desk'] .sheet__head .icon-btn:hover {
+    border-color: var(--ds-rail-ink); background: var(--ds-rail-edge); color: var(--ds-rail-ink);
+  }
+  [data-skin='desk'] .topbar--bordered .avatar-btn:hover { transform: none; background: var(--accent-hover); }
+  [data-skin='desk'] .answer-btn--fuzzy:hover, [data-skin='desk'] .answer-btn--unknown:hover { background: var(--row-hover); }
+  [data-skin='desk'] .flash-card__reveal:hover { border-color: var(--text-tertiary); background: var(--row-hover); color: var(--text); }
+}
+
+/* ---------- 17. 降低动效：位移与过渡全关，颜色与版式不动 ------------------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='desk'] .btn, [data-skin='desk'] .icon-btn, [data-skin='desk'] .avatar-btn,
+  [data-skin='desk'] .dock__btn, [data-skin='desk'] .skin-card,
+  [data-skin='desk'] .answer-btn, [data-skin='desk'] .study-progress__bar { transition: none; }
+  [data-skin='desk'] .btn:active, [data-skin='desk'] .start__actions .btn--primary:active:not(:disabled),
+  [data-skin='desk'] .answer-btn:active, [data-skin='desk'] .answer-btn--known:active:not(:disabled),
+  [data-skin='desk'] .dock__nav--primary:active:not(:disabled),
+  [data-skin='desk'] .icon-btn:active, [data-skin='desk'] .avatar-btn:hover,
+  [data-skin='desk'] .avatar-btn:active { transform: none; }
+  [data-skin='desk'] .sheet, [data-skin='desk'] .dialog, [data-skin='desk'] .scrim { animation: none; }
+}
