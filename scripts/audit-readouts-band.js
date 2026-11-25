@@ -23,14 +23,24 @@
 // （computed cursor:pointer 数），**任一 > 0 立即 FAIL，不再走豁免分支**。
 // 这就是规约里「带子不许做成可点跳首页」的结构化落实——一旦有人加 `<button>`，这里就红。
 //
-// ── 数据纪律（用户的三条规则）──────────────────────────────────────────────
-// 1. 本矩阵**全程不答卡**，只做导航与探针，因此 cijian.v1 + cijian.scheduler.v1 双键
-//    必须逐字节不变；出现 diff 说明某步误触了交互件，按 FAIL 追凶，不许顺手 restore 掩盖。
+// ── 数据纪律（DESIGN_REVIEW 规则段第 5、6、7 条，逐条落实在此）───────────────
+// 1. 本矩阵**全程不答卡**，只做导航与探针，因此**学习键** cijian.scheduler.v1 整程必须逐字节不变
+//    （endedSch === baseSch → learnDataKept）。**整程不能比双键**：cijian.v1 存的是皮肤/主题偏好，
+//    setSkin() 每轮合法改写它，拿「双键整程相等」当门禁等于造一条永假断言（v11 实测踩过，
+//    dataKeptAllRun:false 假警报）。**双键只在逐测点窗口内比**（run() 里的 snapOf 前后对比），
+//    那一段没有任何合法写入，diff 就是误触交互件，按 FAIL 追凶，不许顺手 restore 掩盖。
 // 2. 快照-还原必须**双键**（键名出处 src/lib/storage.ts:3、src/lib/scheduler/storage.ts:28）：
 //    学习状态在 cijian.scheduler.v1，只比 cijian.v1 等于没守——v10.2 的数据事故就是这么来的。
+//    （还原双键 ≠ 断言双键：备份/还原覆盖两个键是防中途崩，整程门禁仍只看学习键。）
 // 3. 临时备份键跑完必须删除。本脚本用 `__bandbak_*` 前缀，**不复用 `__bak_*`**，
 //    避免和 audit-phases.js 的自愈协议互相「还原」；收尾无条件删除并断言删净。
 //    残留备份比事故更隐蔽：下一次跑测会把用户这期间真实学习产生的数据当脏状态回滚掉。
+// 4. `page.evaluate` **不捕获 Node 闭包变量**：本文件里的 SKINS / EXPECT / KEYS / BAK 在页面里
+//    一律 undefined，凡页面代码要用必须走第二个参数注入（`page.evaluate(fn, { ks: KEYS, bak: BAK })`）。
+//    踩过：`ReferenceError: BAK is not defined`。
+// 5. **语义门禁**（v11 收尾拍板③）：vinyl 的呼吸点 = 「播放器在响」，只属于首页；
+//    cal/me 常驻带上的这颗点整颗撤掉。pulseOk 逐测点验（首页 anim==='vy-pulse'、带内 content==='none'），
+//    不靠肉眼截图——「观感可接受」和「语义对」是两回事，只有断言能守住后者。
 //
 // ── 开关真值（手抄自 src/lib/skins.ts 的 persistentReadouts）─────────────────
 // desk / vinyl = true（cal/me 有节点）；paper / foundry / instrument / broadsheet /
@@ -159,9 +169,23 @@ async (page) => {
       // H2 前提实测：带内交互元素数 + cursor:pointer 数，任一 > 0 就 FAIL（不走豁免）
       inter: el.querySelectorAll('button,a,input,select,textarea,[role],[onclick],[tabindex]').length,
       pointer: [...el.querySelectorAll('*')].filter((e) => getComputedStyle(e).cursor === 'pointer').length,
+      // 语义门禁（v11 收尾拍板③）：vy-pulse 的语义是「播放器在响」，只属于首页。
+      // 首页 vinyl 必须 animationName==='vy-pulse'；cal/me 必须 content==='none'（整颗点撤掉）。
+      // 不测这条的话，「观感可接受」会把语义漂移永久固化下来。
+      pulse: (() => { const a = getComputedStyle(el, '::after'); return { content: a.content, anim: a.animationName }; })(),
       low, tiny, outX, clipped,
       snapped: [...document.querySelectorAll('*')].filter((e) => { const c = getComputedStyle(e); return (c.overflowX === 'auto' || c.overflowX === 'scroll') && c.scrollSnapType !== 'none' && e.scrollLeft > 1; }).length,
     };
+  };
+
+  // 呼吸点语义门禁（v11 收尾③）：动效=「播放器在响」，这个语法只许出现在首页。
+  // 首页 vinyl 必须在响；vinyl 的 cal/me 必须整颗点撤掉（content:none，不是只停动画——
+  // 静态 accent 点同样是无语义装饰，违反 vinyl 的 accent 预算）；其余皮肤常驻带不许有动效。
+  const pulseOk = (skin, r) => {
+    if (!r.present) return true;                                              // false 皮肤查无节点：不适用
+    if (r.screen === 'home') return skin !== 'vinyl' || r.pulse.anim === 'vy-pulse';
+    if (skin === 'vinyl') return r.pulse.content === 'none';
+    return r.pulse.anim === 'none';
   };
 
   const rows = [];
@@ -186,6 +210,7 @@ async (page) => {
     for (const theme of cfg.themes) {
       for (const skin of SKINS) {
         const home = await run(skin, theme, vp, 'home');
+        home.pulseOk = pulseOk(skin, home);
         for (const kind of ['cal', 'me']) {
           const r = await run(skin, theme, vp, kind);
           const want = EXPECT.has(skin);
@@ -194,6 +219,7 @@ async (page) => {
           r.valsOk = !want || (r.vals.length === 3 && r.vals.every((v) => /^\d+$/.test(v || '')));
           r.sameAsHome = !want || JSON.stringify(r.vals) === JSON.stringify(home.vals); // 三屏同源
           r.noInter = !want || (r.inter === 0 && r.pointer === 0);          // H2 前提
+          r.pulseOk = pulseOk(skin, r);                                      // 收尾③ 语义
           r.clean = !want || !(r.low.length || r.tiny.length || r.outX.length || r.clipped.length || r.bandOverflow || r.snapped);
         }
       }
@@ -234,9 +260,9 @@ async (page) => {
 
   const bandRows = rows.filter((r) => r.kind === 'cal' || r.kind === 'me');
   const homeRows = rows.filter((r) => r.kind === 'home');
-  const badBand = bandRows.filter((r) => r.nav === 'FAIL' || r.nodeOk === false || r.shownOk === false || r.valsOk === false || r.sameAsHome === false || r.noInter === false || r.clean === false || r.dataKept === false);
+  const badBand = bandRows.filter((r) => r.nav === 'FAIL' || r.nodeOk === false || r.shownOk === false || r.valsOk === false || r.sameAsHome === false || r.noInter === false || r.pulseOk === false || r.clean === false || r.dataKept === false);
   // 首页对照：8 套皮肤首页节点**恒存在**（显隐归皮肤 CSS），且必须是 screen='home'、三项皆数字
-  const badHome = homeRows.filter((r) => r.nav === 'FAIL' || r.present !== true || r.screen !== 'home' || !(r.vals || []).every((v) => /^\d+$/.test(v || '')) || r.dataKept === false);
+  const badHome = homeRows.filter((r) => r.nav === 'FAIL' || r.present !== true || r.screen !== 'home' || !(r.vals || []).every((v) => /^\d+$/.test(v || '')) || r.pulseOk === false || r.dataKept === false);
   return {
     points: bandRows.length,
     failCount: badBand.length + badHome.length + counter.filter((c) => !(c.absentOk || c.notBand)).length + (endedSch === baseSch ? 0 : 1),
@@ -247,6 +273,12 @@ async (page) => {
     prefsTouched: ended !== base, // cijian.v1 的偏好键必然被 setSkin 改过，只如实报告
     cleanup,
     tapExemption: '带子 44px 门禁不适用，理由＝带内零交互元素（实测 inter 与 pointer 均为 0）；任一 >0 即 FAIL，不走豁免',
+    // 收尾③ 语义统计：首页 vinyl「在响」的测点数 / 常驻带被撤点的测点数（应等于带节点数）
+    pulse: {
+      homePulsing: homeRows.filter((r) => r.pulse && r.pulse.anim === 'vy-pulse').length,
+      bandDotsRemoved: bandRows.filter((r) => r.present && r.pulse.content === 'none').length,
+      bandNodes: bandRows.filter((r) => r.present).length,
+    },
     bySkin: SKINS.map((s) => ({ skin: s, want: EXPECT.has(s), bandNodes: bandRows.filter((r) => r.skin === s && r.present).length, of: bandRows.filter((r) => r.skin === s).length })),
     counterFail: counter.filter((c) => !(c.absentOk || c.notBand)),
     fail: badBand.concat(badHome),

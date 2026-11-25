@@ -170,7 +170,7 @@
 | 首页读数 | 今日 20 · 批数 04 · 已学 000 |
 | `cijian.v1` | 187 字节，只有 `profile / progress / session / custom`，与学习数据无关 |
 
-### 规则固化（已写进脚本注释，五条）
+### 规则固化（已写进脚本注释，八条）
 
 1. **答卡类测试首选隔离**：独立 context / `storageState` 注入，不在真实 profile 上跑；快照-还原只是次选。
 2. **快照-还原必须双键**：`cijian.v1` + `cijian.scheduler.v1`；只比前者等于没守住。
@@ -180,6 +180,25 @@
 5. **跑完必须删 `__bak_*` / `__bak_at`**（`audit-phases.js:155`）：这条比原事故更危险——它发生在"数据完整性已经修好"
    之后的脚本里，残留的备份会让下一次"自愈"把用户在这期间**真实学习**产生的数据当脏状态回滚掉。
    所以还原与清理是两步，缺第二步等于埋回一个更隐蔽的坑。
+6. **整程数据门禁只比学习键 `cijian.scheduler.v1`，逐测点窗口才比双键**（v11 用户拍板，写死在
+   `audit-readouts-band.js:26-33`）：`cijian.v1` 存的是**皮肤/主题偏好**，`setSkin()` 每轮**合法改写**它，
+   把「双键整程相等」当门禁等于造一条永假断言（v11 实测踩过：`dataKeptAllRun:false` 假警报，
+   差点让人去"修"一个根本不存在的 bug）。正确分工——**备份/还原覆盖双键**（防中途崩），
+   **整程断言只看学习键**（`learnDataKept`），**逐测点前后比对双键**（那一段没有任何合法写入，diff 即误触）。
+   这条与第 2 条不矛盾：第 2 条说的是**保护范围**，第 6 条说的是**断言范围**。
+7. **`page.evaluate` 不捕获 Node 闭包变量**（v11 实测：`ReferenceError: BAK is not defined`）：
+   Node 侧常量在页面上下文里一律 undefined，凡页面代码要用必须走第二个参数注入
+   （`page.evaluate(fn, { ks: KEYS, bak: BAK })`）。写探针时先在脑子里把"页面能看见什么"划一遍线，
+   比事后 debug 便宜得多。
+8. **pristine 锚点必须可复现，不许引用记忆里的 hash**（v11 收尾实测纠正）：会话里一直挂着
+   「pristine = 39289 B / `B59898ACC3…`」，收尾复核却发现当前是 39385 B / `C74F4675E1…`——**差点报成数据被写坏**。
+   真相：那个 hash 是**换天结算写盘之前**的快照，+96 B 是应用自己记账（`days[今].immediate` ≈57 B、
+   `immediate.stats` ≈53 B、`pendingLimit` ≈47 B 量级）。可复现的基线是「**全新隔离 context 首次启动**，
+   应用自行 seed 出来的那一份」——当前真实档案与它**逐字节相同**、字段级 diff 0，这才是「没被写坏」的证明。
+   为什么算规则而不是脚注：「逐字节相同」这句话一旦基线不可复现，就会产出**假警报**，
+   而假警报的下一步往往就是「顺手 restore」——那正是 v10.2 事故的路径。
+    同源纪律：**hash 由脚本产出并落盘，不许人手转录**——本轮把 hash 抄进证据文件时多打了一个 `5`（65 位），
+    靠「对三份落盘文件重算再比对」才发现；`docs/evidence/pristine-anchor-2026-11-25.json` 里留了这条 `shaNote`。
 
 
 ### 附带：`.skin-card__tag` 语义复核（用户第 2 条决定的补充要求）
@@ -224,15 +243,20 @@ false 皮肤是「DOM 里查无此节点」，不是 `display:none`——开关�
 
 无。
 
-### 建议修（不阻塞，留给后续 commit）
+### 建议修（三条已全部拍板，处置见下）
 
 1. **裸尺寸**：`desk.css` 新带段的 `font-size: 13px / 20px`、`gap: 6px`、vinyl 的 `7px / 6px` 未走 `--space-*` /
    字号令牌——沿用两文件既有裸值定式（`desk.css:303` 抽屉 13px、`vinyl.css:436` 矮屏 6px），要令牌化应整族一起改，
    不夹带进 B。
+   → **拍板：做，但单独 commit** `refactor(tokens): desk/vinyl 带段尺寸令牌化`，整族一次改完、回归照跑；
+   夹带进 B 会污染 revert 粒度。**排期在收尾之后。**
 2. **desk 首页手机档无带**（决策 #4 已接受为已知代价）：desk 会出现「首页无带、日历/我的有带」的不对称，
    要统一另立 issue。
+   → **拍板：保持接受，降级为「已知限制」**（见本节末），后续要修另立 issue，**不混进收尾**。
 3. **vinyl 呼吸点在 cal/me 也闪**：`::after` 的 `vy-pulse` 原语义是「播放器在响」，现在日历/我的也常驻闪。
    观感可接受（实测截图无干扰），但语义上是否该在非首页停住，值得下一轮产品判断。
+   → **拍板：按语义修，限定只在首页亮**——"观感可接受不等于语义对"。改动只有一行选择器，
+   因此**并入收尾 commit**，并在 `audit-readouts-band.js` 加 `pulseOk` 断言（不靠肉眼截图守语义）。
 
 ### 回归（全部实测，非推断）
 
@@ -253,6 +277,120 @@ false 皮肤是「DOM 里查无此节点」，不是 `display:none`——开关�
 ① Playwright 的 `page.evaluate` **不捕获外层闭包变量**——Node 侧的 `BAK` 常量在页面里是 `ReferenceError`，
 必须走参数注入；② 整程「双键相等」当门禁是错的：`cijian.v1` 存的是皮肤/主题偏好，`setSkin()` 每轮合法改写它，
 整程比对只能盯**学习键**，逐测点窗口才比双键。
+
+### v11 收尾 · 2026-11-25（vinyl 呼吸点语义修正 + 规则与已知限制）
+
+**产品代码只改一处**：`vinyl.css:213` 呼吸点选择器
+`[data-skin='vinyl'] .readouts::after` → `.readouts[data-readouts-screen='home']::after`。
+`vy-pulse` 的语法是「播放器在响」，日历/「我的」没有播放器，常驻闪是语义漂移（建议修 #3 的拍板）。
+撤的是**整颗 accent 点**而不是只停动画——静态 accent 点同样是无语义装饰，还会违反 vinyl 的 accent 预算。
+`flash-card__head::after`（学习流卡面那颗）**不动**：那里卡面就是唱片，语义成立。
+
+**语义靠断言守，不靠肉眼**：`audit-readouts-band.js` 新增 `pulseOk`，逐测点读
+`getComputedStyle(el, '::after')` 的 `content` / `animationName`——首页 vinyl 必须 `vy-pulse`，
+vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationName:none`；
+已纳入 `badBand` 与 `badHome` 门禁（首页那条以前不看动效，vinyl 首页若哪天不响了没人知道）。
+
+**新增工具 `scripts/run-audit-node.js`**：把仓库里的审计脚本 `eval` 起来用 playwright 起
+**headless 隔离 context** 跑。起因是 `browser_run_code_unsafe` 单次请求超时——128 组 ≈ 4 分钟直接
+`Request timed out`，**页面跑完了但结果 JSON 全丢**。探针逻辑不复制第二份，配置键同源，
+只有「谁启动浏览器」变了；顺带符合规则 1（隔离优先）：全新 context 的 localStorage 是空的，
+应用按 pristine 自行 seed，真实 profile 一个字节都不碰。分批一律用 `scripts/cfg-matrix-*.json`
+（PowerShell 传内嵌 JSON 会把引号吃掉，第一版 runner 就是这么炸的）。
+
+**收尾最终回归（全部实测，非推断）**
+
+| 门禁 | 范围 | 结果 |
+| --- | --- | --- |
+| `tsc --noEmit` | 全项目 | **0 错** |
+| `vite build` | 全项目 | **exit 0** |
+| 272 组主矩阵 · A | 8 皮肤 × 明暗 × **8 界面**（home/cal/me/mistakes/sheet/import/dialog/session）× 390 = **128 组** | **failCount 0**、`outYTotal 0`、`dataKept true`、`passN 128`（128.0s） |
+| 272 组主矩阵 · B | 8 皮肤 × 明暗 × [home,cal,me] × [360, 768, 1440] = **144 组** | **failCount 0**、`outYTotal 0`、`dataKept true`、`passN 144`（118.5s）；`warnTiny 4` → 已由新 `warnList` 定位，见下「新建议修」 |
+| 带断言（含新 `pulseOk`）· 手机 | 8 皮肤 × 明暗 × cal/me × [390, 360] = **64 测点** + 首页对照 32 + 反例 16 | **failCount 0**；`pulse {homePulsing 4, bandDotsRemoved 16, bandNodes 16}`——vinyl 首页 4 个测点全在响、16 个带节点全被撤点 |
+| 带断言 · 桌面 | 8 皮肤 × 明暗 × cal/me × [768, 1440] = **64 测点** | **failCount 0**、带高 54px、`driftGuard true`、`counterFail []` |
+| 两相 DOM（`audit-phases.js`） | 8 皮肤 × 明暗 = **16 组 × 2 相 = 32 探针**（真答卡） | **failCount 0**、`restoredAll true`、`cleanAll true`、`lastLive {cards 0, unlearned 3846, mistakes 0, learnedToday 0}`、`cleaned true`、runner 侧 `bakKeys []` |
+| `scan-tiny.js` | 8 皮肤 × 5 界面 | `groups 0 / hardFail 0 / items []` |
+| 数据完整性 | 真实 profile 全程只做导航与探针；答卡矩阵改在**隔离 context** | `cijian.scheduler.v1` **39385 B / SHA256 `C74F4675E11ACE78…`**，与 ① 12:01 全键 diff=0 快照 ② **全新隔离启动**跑出的 `iso-base.json` **逐字节相同**（字段级 diff **0**），见 `docs/evidence/pristine-anchor-2026-11-25.json`；`__bak_*` / `__bandbak_*` 零残留 |
+
+**答卡测试从此走隔离**（规则 1 的正解落地）：`run-audit-node.js` 起的 headless context 是全新 profile，
+真答卡只污染这个一次性 context，真实档案一个字节都不动——比"快照-还原"更彻底，且顺带把
+`restored` 校验从"依赖上一次没崩"变成"必然成立"。
+
+**新踩的坑（第三条，写死）**：**隔离 context 冷启动直接跑快照-还原类脚本 = 假失败**。
+全新 context 里应用还没落过盘，`cijian.v1` 是 `null`、`cijian.scheduler.v1` 不存在，
+`audit-phases.js` 在 line 108 抓的备份就是 `null` / `"{}"`，跑完还原-校验必然 `restored:false`
+（首跑 16 组全红，而 `live` 明明是 pristine）。修法：runner 种完配置后**先访问一次首页**让应用 seed，
+再交给审计脚本。教训通用：**"隔离"改的是数据落点，不改脚本对"起点状态存在"的隐含假设**。
+
+## Design Review — v11 收尾 delta（vinyl 呼吸点仅首页 + cal/me 常驻带）— 2026-11-25
+
+视口 360×740 / 768×1024 / 1440×900（另含 390×844 主档），证据 `docs/screenshots/v11/vC-*.png` 44 张
+（撤点后重截）+ 带断言矩阵 64 手机 / 64 桌面。
+
+| # | 检查项 | 结果 | 证据 | 建议 |
+|---|--------|------|------|------|
+| 1 | 360 无横向滚动 / 截断 / 重叠 | PASS | `vC-vinyl-cal-light-360.png`、`vC-desk-me-light-360.png`；带矩阵 64 测点 `docOvf false`、`outX []` | — |
+| 2 | 三档视口信息层级一致（非简单缩放） | PASS | 360 单行基线降级 `vC-*-360.png` vs 768 双行 `vC-*-768.png` vs 1440 `vC-vinyl-cal-light-1440.png`（带子仍沉底、`bandH 54`） | — |
+| 3 | 长内容（极端位数）不撑破容器 | PASS | commit B 压测 `999/999/99999`：desk 余 140px、vinyl 余 93px、`clippedByBand false` | — |
+| 4 | 固定底栏不遮挡内容 + `env(safe-area-inset)` | PASS | 两文件带段 `padding-bottom: calc(… + env(safe-area-inset-bottom))`；带矩阵 `belowMain true` 全测点 | — |
+| 5 | 呼吸点只在首页亮（本次语义修正） | **PASS** | 首页有：`vC-vinyl-home-light-1440.png` 右缘 `x≈1060` 那颗洋红点；带子无：`vC-vinyl-cal-light-1440.png` 同位置空。断言三轮分别 `pulse {homePulsing 4, bandDotsRemoved 16, bandNodes 16}`（390+360×明暗）、`{4, 16, 16}`（768+1440×明暗）、`{2, 8, 8}`（桌面 light 补拍档），三轮全部 `bandDotsRemoved === bandNodes` | — |
+| 6 | 学习流卡面那颗点未被误伤 | PASS | `flash-card__head::after` 选择器未改；两相 DOM 32 探针（真答卡）`failCount 0` | — |
+| 7 | 正文对比度 ≥4.5 / 大字 ≥3 | PASS | `BAND_PROBE` 钻进 `aria-hidden` 子树实测，64+64 测点 `low 0`（含 13px 标签与 20px 数字） | — |
+| 8 | 深浅两档背景都清楚 | PASS | `vC-*-dark-360/390.png` 全套（desk/vinyl × home/cal/me × 明暗） | — |
+| 9 | 语义色正确、不用强调色当装饰 | **PASS（本次转好）** | 撤掉的正是「用 accent 当无语义装饰」那颗点；vinyl accent 预算回到只标语义位 | — |
+| 10 | 同一层级间距一致（8pt 网格） | PASS | 带段 `gap`/`padding` 全部取自 `--space-*`（vinyl 360 档 `--space-3`）；desk 带段仍有裸 `6px` | 见建议修 #1（令牌化，已排期） |
+| 11 | 左右留白三档成立 | PASS | 带段用 `var(--page-x)`，与同页卡片同轴：`vC-desk-cal-light-768.png` | — |
+| 12 | hover / active / focus / disabled / loading | N/A | 带子是 `aria-hidden` 纯展示节点，`inter 0 / pointer 0` 实测（H2 前提）；本次未动任何交互件 | — |
+| 13 | 键盘 Tab 顺序 / 焦点环 | PASS | 带子不进 tab 序列（无可聚焦元素）；dock/topbar 未改，主矩阵 272 组 `nSmall 0` | — |
+| 14 | 点击目标 ≥44×44 | PASS（豁免已写明） | 带内零交互元素，44px 门禁不适用；理由与实测前提写在 `audit-readouts-band.js` 头注释与 `tapExemption` 字段 | — |
+| 15 | 空 / 加载 / 出错 / 无权限四态 | N/A（本次 delta 不涉及） | `.empty` 下带值仍未截 → 已列入「已知限制」 | 单独补测 |
+| 16 | 文案无错别字 / 占位符 | PASS | 带内仅「今日 / 批数 / 已学」三标签，与首页同源（`sameAsHome` 全对） | — |
+| 17 | 数字 / 日期格式统一 | PASS | `padStart(2/2/3)` + `font-variant-numeric: tabular-nums`：`04 / 000` 见 `vC-*-cal-*-360.png` | — |
+| 18 | 无裸色值 / 裸尺寸脱离 tokens | FAIL（已知） | desk 带段 `13px / 20px / 6px`、vinyl 360 档 `7px / 6px` | 建议修 #1，已拍板单独 commit |
+| 19 | 相同组件跨页外观一致 | PASS | 三屏同源：`Readouts.tsx` 单一实现，DOM 类名与 commit A 逐字节同构（false 皮肤 8 组 SHA256 相同） | — |
+
+### 必须修（阻塞交付）
+
+无。
+
+### 建议修（不阻塞）
+
+1. 裸尺寸令牌化（已拍板：单独 commit `refactor(tokens): desk/vinyl 带段尺寸令牌化`）。
+2. nocturne 桌面档 `.topbar__meta` 13px「四级核心词」——见下节，本轮 `warnList` 新发现。
+3. `.empty` 无词库状态下带子的三档读数补一张截图（逻辑安全，缺证据）。
+
+### 回归
+
+- [x] 返工后同视口重截确认：360 / 390 / 768 / 1440 全套 `vC-*.png`（44 张）
+- [x] 带断言 64 手机 + 64 桌面 + 32（桌面 light 补拍档）全 `failCount 0`
+- [x] 272 组主矩阵 + 32 探针两相 DOM + `scan-tiny` + `tsc` + `build`
+
+### 新建议修（收尾发现，未动代码）
+- **nocturne 桌面档 `.topbar__meta` 13px 中文**：`nocturne.css:123-127`，768 / 1440 下
+  `span.topbar__meta > span` 渲染「四级核心词」（5 汉字 @13px，宽 74px）触发 `>4 汉字 ≥14px` 软线。
+  桌面档完全放得开（`warnTiny 4` 全部来自这一处 × 明暗两档 × 两个视口），**与 commit B / vinyl 无关**
+  （`git show --stat` 证实 commit B 只碰了 `desk.css` / `vinyl.css`）。
+  建议：桌面媒体查询里把该 `font-size` 提到 14px（窄屏那条 `display:none` 规则 `:600` 不受影响）。
+  留作单独 commit，不混收尾。
+
+### 已知限制（刻意代价，不是 bug）
+
+- **desk：首页手机档无带、日历/「我的」有带**（决策 #4 的代价，建议修 #2 拍板保持）。
+  首页信息已由 `.start` 自身承载，带子在手机首页会与 dock 抢底；不对称是**故意的**。
+  要统一另立 issue，别混进收尾。
+- **vinyl 常驻带（cal/me）无活动指示点**：语义修正的直接结果。日后若想让带子表达「有东西在跑」，
+  得另找一个非「播放器」语义的符号，不许把这颗点加回来。
+- **`.empty`（无词库）状态下带子的值未测**：三档读数会显示 `00 / 00 / 000`，逻辑上安全，但没有截图证据。
+- **裸尺寸令牌化未做**（建议修 #1 拍板：单独 commit `refactor(tokens): desk/vinyl 带段尺寸令牌化`，排在收尾之后）。
+
+### 操作坑（v11 新增，写死）
+
+- **revert 演练会污染 Vite 模块图**：`git revert --no-commit` 删掉 `Readouts.tsx` 时浏览器仍持旧 import，
+  报 404 与 `[vite] Failed to reload`；`git reset --hard` 复原后还会残留旧 `?t=` 时间戳，
+  报 `does not provide an export named 'SKINS'` 这类**假错**。
+  **演练完必须重启 dev server**（整页 reload 不够），再跑任何回归，否则会把绿的项目读成红的。
+- **MCP 单调用有超时上限**：长矩阵改走 `scripts/run-audit-node.js`（后台 job + `job_output` 收），
+  别把 128 组塞进一次 `browser_run_code_unsafe`。
 
 ## v9 · 2026-11-25 · 三版结构级重做（desk 案头 / deck 叠章 / vinyl 唱盘）〔**已作废**：出列判据当时被探针的豁免逻辑整体关掉，`nOut:0` 不可信；`deck` 亦已按用户选择作废〕
 

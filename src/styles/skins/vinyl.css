@@ -206,8 +206,11 @@
   font-family: var(--vy-mono); font-size: 18px; font-weight: 500; line-height: 1;
   letter-spacing: 0.06em; font-variant-numeric: tabular-nums; color: var(--text);
 }
-/* 右缘呼吸点：常驻层唯一的活动指示（播放器在响的语法），accent 允许在此 */
-[data-skin='vinyl'] .readouts::after {
+/* 右缘呼吸点：常驻层唯一的活动指示（播放器在响的语法），accent 允许在此。
+   v11 收尾拍板：语义限定在首页——cal/me 没有播放器，常驻闪是语义漂移，
+   所以这里按 data-readouts-screen 圈死，commit B 的常驻带（§16）拿不到这颗点。
+   回归断言在 scripts/audit-readouts-band.js 的 pulseOk（首页 vy-pulse / 带内 animation:none）。 */
+[data-skin='vinyl'] .readouts[data-readouts-screen='home']::after {
   content: '';
   margin-left: auto;
   flex: none;

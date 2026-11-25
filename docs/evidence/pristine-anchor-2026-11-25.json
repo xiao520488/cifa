@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-25",
+  "claim": "真实档案 cijian.scheduler.v1 与「可复现 pristine」逐字节相同（v11 收尾复核）",
+  "method": "三方比对：① 当前真实档案导出 ② out/real-scheduler.json（今天 12:01 全键 diff=0 时记录的快照）③ out/iso-base.json（v10.2 隔离实验室里**全新 context 首次启动**由应用自己 seed 出来的状态）。逐字段 walk diff + SHA256。",
+  "bytes": 39385,
+  "sha256": "C74F4675E11ACE7819B3EEBB0DB5578E10E178547BBEBE0F13CD6D64D1537849",
+  "shaNote": "此 hash 由 node crypto 从 out/live-scheduler-*.json / out/real-scheduler.json / out/iso-base.json 三份**落盘文件**直接重算得到，不是从对话里抄的——第一版抄写多打了一个 5（65 位），已纠正。教训：hash 必须脚本产出并落盘，人手转录的定长串正是最容易静默出错的东西。",
+  "liveEq1201Snapshot": true,
+  "liveEqFreshBoot": true,
+  "diffVsFreshBoot": 0,
+  "semantic": { "cards": 0, "unlearned": 3846, "learnedToday": 0, "mistakes": 0, "lastAvgLoops": null },
+  "anchorCorrection": "此前会话里引用的 39289 B / B59898ACC3… 是**换天结算写盘之前**的快照。+96 B 来自应用自身记账，不是测试残留：days['2026-11-25'].immediate ≈ 57 B、immediate.stats ≈ 53 B、pendingLimit ≈ 47 B 量级。结论：**pristine 锚点必须可复现**——以「全新隔离 context 首次启动跑出来的那份」为准，不要引用记忆里的 hash。",
+  "whyItMatters": "「逐字节相同」这句话只有在基线可复现时才有意义。记住一个 hash 会在应用合法写盘（换天结算）之后变成假警报，而假警报的下一步往往就是「顺手 restore」——那正是 v10.2 事故的路径。"
+}

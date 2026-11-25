@@ -107,6 +107,41 @@
   浏览器 `paper/浅色`，学习数据 = pristine（逐字节），隔离 tab 已关。下一步等用户拍板规约 6 项 + 决定这批是否先单独落一个 commit。
 
 
+## 2026-11-25 · v11 收尾已落：vinyl 呼吸点语义 + 隔离 context 回归
+
+- **产品代码只改一行**：`vinyl.css:213` 呼吸点选择器加 `[data-readouts-screen='home']`——cal/me 整颗 accent 点撤掉
+  （不是只停动画，静态 accent 点同样是无语义装饰）。语义由 `audit-readouts-band.js` 的 `pulseOk` 断言守，不靠肉眼截图。
+- **新工具 `scripts/run-audit-node.js`**：把仓库里的审计脚本 `eval` 起来用 playwright 起 **headless 隔离 context** 跑。
+  起因：`browser_run_code_unsafe` 单次请求超时，128 组 ≈ 4 分钟跑完了但**结果 JSON 全丢**。探针不复制第二份，配置同源。
+- **新坑（第 3 条）**：隔离 context **冷启动**跑快照-还原脚本 = 假失败——应用还没落盘，`audit-phases.js` 抓到的备份是
+  `null` / `"{}"`，`restored` 恒 false（首跑 16 组全红而 `live` 明明 pristine）。修法：runner 种完配置**先访问一次首页**让应用 seed。
+- 收尾回归：**272 组（128+144）0 失败**、带断言 64 手机 + 64 桌面 0 失败（`pulse {homePulsing 4, bandDotsRemoved 16/16}`）、
+  两相 DOM 32 探针 0 失败（`restoredAll true`、`cleaned true`、`bakKeys []`）、`scan-tiny` 0、`tsc` 0、`build` 0。
+- **新建议修**：nocturne 桌面档 `.topbar__meta` 13px「四级核心词」（`nocturne.css:123`，`warnTiny 4` 全来自它，
+  与 commit B / vinyl 无关）→ 单独 commit 提到 14px。审计输出也顺手改了纪律：`pass` 全列表 → `passN` + 新增 `warnList`。
+- **pristine 锚点纠正（规则段现为八条，第 8 条）**：会话里记的「39289 B / `B59898ACC3…`」是**换天结算写盘前**的快照，
+  当前真实档案 39385 B / `C74F4675E1…`——**不是被写坏**：与 ① 12:01 全键 diff=0 快照 ② 全新隔离启动 seed 的 `iso-base.json`
+  都**逐字节相同**、字段级 diff 0。今后「没被写坏」的证明一律以**可复现基线**（全新隔离 context 首启）为准，
+  不引用记忆里的 hash——不可复现的基线只会产出假警报，而假警报下一步就是「顺手 restore」，那是 v10.2 事故路径。
+  证据文件 `docs/evidence/pristine-anchor-2026-11-25.json`。
+- 下一步排期：① `refactor(tokens): desk/vinyl 带段尺寸令牌化`；② nocturne 14px；③ 新用户引导**仍暂缓**。
+
+## 2026-11-25 · commit B 验收 + 建议修三条拍板 + 收尾范围（用户定稿）
+
+- **三 commit 证据全部接受**：`c0ad5b4`（v10.2 补证）→ `849d41b`（`bad()` 纳入 `nOutY`）→ `3c07562`（commit B）。
+  用户点名「false 皮肤 8 组重截 SHA256 逐字节相同」是最硬的一条；规约两处估算被实测校正（vinyl 360 带高 33→**41**，漏算 `::before` 的 26px 圆盘顶高）。
+- **建议修拍板**：① **裸尺寸令牌化＝做，但单独 commit** `refactor(tokens): desk/vinyl 带段尺寸令牌化`，整族一次改完，不混收尾（夹带会污染 revert 粒度）；
+  ② **desk「首页无带、日历/我的有带」＝保持接受**，写进 DESIGN_REVIEW **已知限制**，要修另立 issue；
+  ③ **vinyl `vy-pulse`＝限定只在首页亮**——「播放器在响」的语义在 cal/me 是漂移，**观感可接受不等于语义对**，按语义修，回归加「cal/me 不闪」断言。
+- **规则扩到七条**（新增两条要写死）：**第六条** 整程数据门禁只比**学习键** `cijian.scheduler.v1`，逐测点窗口才比双键——
+  `cijian.v1` 存皮肤/主题偏好，`setSkin()` 每轮合法改写它，拿双键整程相等当门禁等于造一个永假断言；
+  **第七条** `page.evaluate` **不捕获 Node 闭包变量**，页面里用到的常量必须参数注入。
+- **操作坑（记进 DESIGN_REVIEW）**：**revert 演练会污染 Vite 模块图**——残留旧 `?t=` 时间戳，之后报
+  `does not provide an export named 'SKINS'` 这类假错；**演练完必须重启 dev server** 再回归。
+- **收尾范围**：vinyl 呼吸点限定首页 + DESIGN_REVIEW 补已知限制与第六/七条规则 + 最终回归（272 组主矩阵 + 带断言 + 两相 DOM + tsc + build）。
+  commit message：`chore(release): v11 收尾——vinyl 呼吸点语义修正 + DESIGN_REVIEW 规则与已知限制`。**新用户引导继续暂缓**。
+- **落之前四项确认**：工作树干净、浏览器 `paper/浅色`、`__bak_*` / `__bandbak_*` 零残留、`cijian.scheduler.v1` 与收尾前逐字节相同。
+
 ## 2026-11-25 · commit B 已落：cal/me 常驻读数带（persistentReadouts）
 
 - **实现**：`.readouts` 抽成 `src/components/Readouts.tsx`，App 顶层 `buildReadoutItems()` 一份 memo 喂三屏；
