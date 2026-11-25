@@ -1,5 +1,18 @@
 # NOTES
 
+## 2026-11-25 · 安卓 APK 打包链路打通（真机已验收）+ 部署配置就绪
+
+- **交付**：`out/cijian-1.0.apk`（1.06 MB，包名 `com.cijian.app`，minSdk 24 / target 34，v2+v3 签名），**用户真机打开正常**。网页、词库、字体全在包内，断网可用，不需要任何网址和账号。
+- **为什么不用 Gradle / Capacitor**：只需 JDK17 + build-tools 34 + platform-34 三个压缩包（实际下载约 300 MB，解压 840 MB 在 `D:\AndroidBuild`，仓库外），`javac → d8 → aapt → zipalign → apksigner` 五步 30 秒出包，绕开 Android Studio 和 Gradle 的网络/体积问题。
+- **坑 1（决定性）路 file:// 不可用**：`file://` 是不透明源 —— localStorage 被隔离、ES module 的 `import()` 被 CORS 拦，而词库正是动态 `import()` 进来的 → 直接加载不出来。改用 `https://appassets.local/` 假域名 + `shouldInterceptRequest` 映射回 assets，页面看到的是正常 https 源。
+- **坑 2 · WebView 里故意让 `/sw.js` 返回 404**：离线能力已由「资源就在 APK 里」天然满足，SW 在 WebView 里跑只会带来缓存打架。
+- **坑 3 · 两个必设项**：`setUseWideViewPort(true)`（否则按 980px 桌面宽度渲染，`<meta viewport>` 不生效）、`setDomStorageEnabled(true)`（学习进度的存储前提）。
+- **坑 4 · 下载源**：GitHub 的 Temurin JDK 被限速到 7 MB / 12 分钟；换清华镜像 `mirrors.tuna.tsinghua.edu.cn/Adoptium/17/jdk/x64/windows/` 秒下。dl.google.com 的 build-tools / platform 直连可用（`platform-34_rXX.zip` 不存在，实际文件名是 `platform-34-ext12_r01.zip`）。
+- **坑 5 · 签名与升级**：keystore 在 `out/cijian.keystore`（随 `out/` 被 gitignore）—— **丢了就无法覆盖升级同一 App**；发版必须 `versionCode +1` 且复用同一 keystore。卸载 App = localStorage 进度全丢。
+- **部署侧**：`vercel.json`（构建 + sw.js 回源 + hash 资源 immutable）和 `docs/DEPLOY.md` 已就绪，但 `*.vercel.app` 在大陆被 DNS 污染，手机流量大概率打不开（Vercel 官方 KB 已承认无大陆节点）—— 对「个人手机使用」这个目标，**APK 才是可用路径，Vercel 只是备选**。
+- **验证边界（别夸大）**：本机无安卓设备/模拟器，只验到「21 个 dist 文件一个不缺 + index.html 资源引用对账 + `apksigner verify` 通过 + `aapt dump badging` 字段正确」；渲染由用户真机确认。
+- **下一步（最大风险项）**：加「导出 / 导入进度」，否则换机或重装 = 学习记录清零。**用户 2026-11-25 决定先记不做**，已转 `TODO.md` 第 17 项（含验收标准）。
+
 ## 2026-11-25 · v10 全站精修交付（8 皮肤 × 5 界面）+ 三个基线级缺陷 + 中文排印系统性提档
 
 - **用户选定**：A=bento / C=nocturne / D=desk / F=vinyl 继续做全站；**E=deck 作废**（`types/storage/skins/main.tsx` 四处摘掉，CSS 存档 `docs/v8-variants/deck.v1.css`）。

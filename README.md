@@ -37,6 +37,8 @@ pnpm build:books  # 从 ECDICT 重新生成四本词库（需要先下载 ecdict
 
 > 真正的「装到桌面 + 离线」需要 HTTPS 或 localhost。部署到 Vercel / Netlify / 任意静态托管即可；`dist/` 是纯静态文件。
 > 每次发新版记得把 `public/sw.js` 里的 `CACHE` 版本号加一（当前 `cijian-v2`），让旧资源从缓存里清掉。
+>
+> **部署到 Vercel + 安卓装成 App** 的完整步骤（含打 APK 侧载、自检命令、国内可达性风险）见 [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 ## 目录结构
 

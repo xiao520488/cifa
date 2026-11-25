@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "一个安静、专注的背单词 App —— 单词、音标、释义，一次看一批。",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
