@@ -107,6 +107,57 @@
   浏览器 `paper/浅色`，学习数据 = pristine（逐字节），隔离 tab 已关。下一步等用户拍板规约 6 项 + 决定这批是否先单独落一个 commit。
 
 
+## 2026-11-25 · 收尾：本轮交付面 + 方法沉淀去了哪儿
+
+- **提交链末端**：`2ccdef4` LOG.md 首版 + NOTES 复盘 → `5220e82` 操作坑补安全演练解法 → `c87fe98` LOG 改人话版 →
+  `21a2fd9` **更正 LOG 读者定位**。工作树 `clean=True`，dev server 存活，落前五项确认最后两次通过（见下）。
+- **本轮代码零改动**：最后四刀全是文档（规则九/十、已知限制、LOG、操作坑解法），设计工作在 `0231257` 就结束了。
+- **方法沉淀的实际去处**：通用纪律 → `~/.dsh/AGENTS.md`「验收纪律 / 提问时机 / 三个日常硬习惯」三节；
+  训练排期 → `~/.dsh/AGENT-PLAN-30D.md`（新建）；项目细节 → DESIGN_REVIEW 规则 1–10 + LOG.md。
+  **注意层级**：只有 AGENTS.md（全局链 + 项目链）会自动进上下文，其余文件必须主动 read。
+- **未决/暂缓**（下次别当已决）：项目级 `D:\背单词\AGENTS.md` 我提议过、**用户未拍板，未建**；
+  ③ 新用户引导仍暂缓；400–767 全站窄档扫描已定为已知限制、不做。
+
+## 2026-11-25 · DSH 指令链机制（查文档实证，不看文档想不起来）
+
+- **只有 AGENTS.md 会被自动注入**，分两条链各自计额：**全局链** = `$DSH_HOME/AGENTS.md`（本机即 `~/.dsh/AGENTS.md`）+ 共享
+  agents 根目录；**项目链** = 项目根 `AGENTS.md`。子目录 AGENTS.md 是 **on-touch**（碰到那个目录才注入），不是一开始就全量加载。
+- 出处（当前安装的 asar 内文档）：`docs/cookbook/extension-cookbook.md:113-114`、
+  `docs/upgrade-guide/v0.2.1-rc.1/agent-instructions-chain-budgets/guide.md:12,16`。
+- **预算**：`@deepseek-ai/dsh-agent-instructions` 的 `maxBytes`，`dsh-base` 默认 **65536**，**两条链分别计**（同时含两条的消息可达 2 倍）；
+  超限会静默截断，但首条 `Instructions from:` 消息里会有一行 `Workspace instruction budget` 点名被省略/截断的文件。
+  实测本机全局文件 8858 B = 13.5%，很宽，但它是**每次对话的固定开销**，别当日记本。
+- 验证是否生效：看会话开头有没有 `Instructions from: ~/.dsh/AGENTS.md` 那段；编辑该文件后**当前会话会立刻重载**（本轮实测三次）。
+
+## 2026-11-25 · 在 ASAR 里查本机 DSH 文档的可复现做法（三个坑）
+
+- 本机是 Desktop（`DSH_PROFILE=desktop`，`DSH_INSTALL_DIR=D:\deepseek\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh`）。
+  **原生 grep/glob/node/PATH 里的 node 全都穿不过 app.asar**，必须用 `$env:DSH_NODE_EXECUTABLE` + `ELECTRON_RUN_AS_NODE=1`。
+- **坑 1**：pwsh 沙箱是 ConstrainedLanguage，`[System.Diagnostics.ProcessStartInfo]::new()` 会**静默返回 null** 再报"不能对 Null 调用方法"。
+  改走核心 cmdlet：`Start-Process -FilePath $env:DSH_NODE_EXECUTABLE -ArgumentList <脚本> -NoNewWindow -Wait -RedirectStandardOutput <文件>`，再 `Select-Object -First N` 读。
+- **坑 2**：本项目 `package.json` 是 `"type": "module"`，放 `out/` 的 **`.js` 会被当 ESM**，`require` 直接报 undefined。
+  **写 `.cjs` 才有效**。这是第二次撞闭包/模块边界（第一次是 `page.evaluate` 不捕获 Node 闭包）。
+- **坑 3**：`docs/**/*.zh.md` 在 GBK 控制台输出全是乱码（`files` 名正常），**引文档要引英文版行号**，别抄乱码文本。
+
+## 2026-11-25 · 「落前五项确认」为什么必须当场跑（本轮真实翻车一次）
+
+- 那次提交后隔约 1 小时再确认，**第五项直接不合格**：浏览器重启过，页面掉到 `about:blank`，主题被重置成 `system`（跟随系统 ≠ 浅色）。
+- 修法走应用自己的控件（开「切换外观风格」→ `浅色` → `完成`），**不直接写 localStorage**，避免内存态与持久态分叉。
+- 副产品证据：改完主题后 `cijian.scheduler.v1` 仍 **39385 B / byteIdentical true**，说明主题写入只动 `cijian.v1`，不碰调度状态。
+- 同类一次遗漏：`NOTES.md` 在写完复盘后**没提交**，我上一轮却报过 `clean=True`（那是提交前的状态）。
+  **纪律**：状态断言只在**当轮有效**，隔了轮次/隔了进程就必须重跑，不许引用上一轮的结果。
+
+## 2026-11-25 · 给用户的训练结论（下次开新项目，我要按这个执行）
+
+- 用户明确反馈：**过程类记录对他无价值**（做完就不再读，且读不懂）。已采纳——LOG.md 读者改成"下一个 agent"，
+  用户只看顶部 5 句口令卡片。**跨项目复用的是形状，不是条目**。
+- **四动作**（他能做、且跨项目不变）：规划（逼 agent 交四行计划，判"每步会看到什么实物"）／
+  切分（同一活切两种，只比**返工次数**）／节省（每轮先定"我要拿到什么东西"，拿到就停）／
+  达标（3 条完成标准写在开工前，**中途不许加**）。
+- **三数字机制**：每个项目只留 `交付物数 / 返工次数 / 耗时`，**由 agent 统计**；下次用户开新项目时，
+  **我在汇报开头附上上一行数字**。这是本轮定下的固定动作，别等用户要求。
+- 技术学习的位置：不是前提，是四动作熟练后的**副产品**（带着问题查词）。别再对他讲"先学底座"。
+
 ## 2026-11-25 · 复盘：为什么「换几个主题」花了这么多 token（成本账 + 下次怎么省）
 
 - **成本不是来自需求膨胀，来自"验收定义"**：皮肤是**叠在现有组件上的层**，所以一套皮肤能弄坏五个界面里的任何一个；
