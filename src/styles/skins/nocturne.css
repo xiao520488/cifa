@@ -119,10 +119,11 @@
 }
 [data-skin='nocturne'] .brand__dot { display: none; } /* 强调色只留给语义位 */
 [data-skin='nocturne'] .brand__latin { font-family: var(--font-sans); font-size: 10px; letter-spacing: 0.22em; color: var(--text-tertiary); }
-/* 钩子：开。13px 大写宽字距 tertiary（含中文「四级/今日」→ 13 起）；窄屏整条隐藏防撑行 */
+/* 钩子：开。14px 大写宽字距 tertiary（v11.1 建议修 #2：13px 是「>4 汉字」软线以下，
+   矩阵 B 的 warnList 在 768/1440 首页点名「四级核心词」5 字 13px）；窄档降级见 §14 */
 [data-skin='nocturne'] .topbar__meta {
   display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden;
-  font-size: 13px; font-weight: 500; letter-spacing: 0.14em; line-height: 1;
+  font-size: 14px; font-weight: 500; letter-spacing: 0.14em; line-height: 1;
   text-transform: uppercase; color: var(--text-tertiary); white-space: nowrap;
 }
 [data-skin='nocturne'] .topbar__sep { color: var(--text-tertiary); opacity: 0.6; }
@@ -593,6 +594,15 @@
   [data-skin='nocturne'] .mistake-row { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-2); }
   [data-skin='nocturne'] .mistake-row__meta { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; column-gap: var(--space-3); }
   [data-skin='nocturne'] .mistake-row__hint { max-width: none; text-align: left; }
+}
+
+/* 窄档（400–459）：顶栏小标签装不下整串了（14px 实测需要 178px，460 起才有这个宽度）。
+   砍的是**冗余那段**——阶段名在首页另有两处宿主（`.start__eyebrow`、`.start__spec-v`，实测 n=2），
+   而「今日 20 词」全页只有这一个宿主，所以留它、让阶段名先走。
+   不是「裁掉看不见的字」：这条规则存在的意义正是让剩下的那段完整可读。 */
+@media (max-width: 459px) {
+  [data-skin='nocturne'] .topbar__meta > span:first-child,
+  [data-skin='nocturne'] .topbar__sep { display: none; }
 }
 
 /* 窄屏（<400）：顶栏小标签整条让位，保住三个 44px 按钮 */
