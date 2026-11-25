@@ -65,6 +65,13 @@
   --ds-row: 44px;     /* 台账行最小高 */
   --ds-cell-h: 96px;  /* 抽屉读数格高：≥768 首页侧栏、日历 cal-figure、「我的」stat 共用同一格语言 */
   --ds-topbar: 60px;  /* 实测顶栏高：首页 min-height 要减掉它，否则平白多出一屏滚动 */
+  /* v11 令牌化（refactor）：读数族——抽屉 §7 与常驻带 §12——的字号与间距，一处定义、两处引用。
+     每个值都等于此前散在各处的裸尺寸，本 commit 不改一个像素；回归判据＝逐测点数值不变。 */
+  --ds-readout-k: 13px;  /* 读数标签：两字中文，压到 11px 会踩「中文小字」红线（原注见 §7） */
+  --ds-readout-v: 34px;  /* 抽屉（≥768）读数数字 */
+  --ds-band-v: 20px;     /* 常驻带（cal/me）读数数字：比抽屉低一档，带总高只有 54px */
+  --ds-band-gap: 6px;    /* ≤389 单行态：标签与数字的基线间距 */
+  --ds-kicker: 11px;     /* 轨顶「CIJIAN · DAILY」：纯装饰拉丁、不报数，允许低于 13px */
 }
 
 /* ---------- 2. 深色令牌：墨案 —— 独立重映射，不是反色 ---------------------- */
@@ -280,7 +287,7 @@
   [data-skin='desk'] .app:has(.start) .readouts::before {
     content: 'CIJIAN · DAILY';
     flex: none; padding-inline: var(--space-5); margin-bottom: var(--space-3);
-    font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1;
+    font-family: var(--font-mono); font-size: var(--ds-kicker); font-weight: 500; line-height: 1;
     letter-spacing: 0.18em; color: var(--ds-rail-muted); white-space: nowrap;
   }
   /* 缝线 + 把手合成一个伪元素：flex:1 吃掉读数到轨底的空档，线随栏高伸缩（是真结构不是假刻度） */
@@ -293,18 +300,18 @@
   }
   [data-skin='desk'] .app:has(.start) .readout {
     display: flex; flex-direction: column; justify-content: center; gap: var(--space-1);
-    min-height: 96px; padding: var(--space-4) var(--space-5); /* 两格各自加高：轨内不再有大片空黑 */
+    min-height: var(--ds-cell-h); padding: var(--space-4) var(--space-5); /* 两格各自加高：轨内不再有大片空黑 */
   }
   [data-skin='desk'] .app:has(.start) .readout + .readout { border-top: 1px solid var(--ds-rail-edge); }
   /* 「今日」读数与台账首行「新词」是同一个数 → 抽屉只留批数与已学，保证每个数只报一次 */
   [data-skin='desk'] .app:has(.start) .readout:first-child { display: none; }
   [data-skin='desk'] .app:has(.start) .readout__k {
     /* 13px 而非 11px：轨内标签是两字中文，压到 11px 会踩「中文小字」红线 */
-    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    font-family: var(--font-mono); font-size: var(--ds-readout-k); font-weight: 500;
     letter-spacing: 0.1em; line-height: 1; color: var(--ds-rail-muted);
   }
   [data-skin='desk'] .app:has(.start) .readout__v {
-    font-family: var(--font-mono); font-size: 34px; font-weight: 500; line-height: 1;
+    font-family: var(--font-mono); font-size: var(--ds-readout-v); font-weight: 500; line-height: 1;
     letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ds-rail-ink); /* 15.89:1 */
   }
   [data-skin='desk'] .app:has(.start) main.app__main { grid-column: 2; grid-row: 2; }
@@ -628,13 +635,13 @@
 }
 [data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout__k,
 [data-skin='desk'] .readouts[data-readouts-screen='me'] .readout__k {
-  /* 13px 同抽屉 :302 的理由——两字中文压到 11px 会踩「中文小字」红线 */
-  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  /* 与抽屉标签同一档（--ds-readout-k）：两字中文压到 11px 会踩「中文小字」红线 */
+  font-family: var(--font-mono); font-size: var(--ds-readout-k); font-weight: 500;
   letter-spacing: 0.1em; line-height: 1; color: var(--ds-rail-muted); /* 6.91:1 on --rail */
 }
 [data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout__v,
 [data-skin='desk'] .readouts[data-readouts-screen='me'] .readout__v {
-  font-family: var(--font-mono); font-size: 20px; font-weight: 500; line-height: 1;
+  font-family: var(--font-mono); font-size: var(--ds-band-v); font-weight: 500; line-height: 1;
   letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
   color: var(--ds-rail-ink);        /* 13.98 / 15.89:1，见 :86 */
 }
@@ -644,7 +651,7 @@
   [data-skin='desk'] .readouts[data-readouts-screen='me'] { gap: var(--space-3); }
   [data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout,
   [data-skin='desk'] .readouts[data-readouts-screen='me'] .readout {
-    flex-direction: row; align-items: baseline; gap: 6px;
+    flex-direction: row; align-items: baseline; gap: var(--ds-band-gap);
   }
   [data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout + .readout,
   [data-skin='desk'] .readouts[data-readouts-screen='me'] .readout + .readout {

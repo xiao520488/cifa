@@ -338,7 +338,7 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
 | 7 | 正文对比度 ≥4.5 / 大字 ≥3 | PASS | `BAND_PROBE` 钻进 `aria-hidden` 子树实测，64+64 测点 `low 0`（含 13px 标签与 20px 数字） | — |
 | 8 | 深浅两档背景都清楚 | PASS | `vC-*-dark-360/390.png` 全套（desk/vinyl × home/cal/me × 明暗） | — |
 | 9 | 语义色正确、不用强调色当装饰 | **PASS（本次转好）** | 撤掉的正是「用 accent 当无语义装饰」那颗点；vinyl accent 预算回到只标语义位 | — |
-| 10 | 同一层级间距一致（8pt 网格） | PASS | 带段 `gap`/`padding` 全部取自 `--space-*`（vinyl 360 档 `--space-3`）；desk 带段仍有裸 `6px` | 见建议修 #1（令牌化，已排期） |
+| 10 | 同一层级间距一致（8pt 网格） | PASS | 带段 `gap`/`padding` 全部取自 `--space-*`（vinyl 360 档 `--space-3`）；desk 带段仍有裸 `6px` | 见建议修 #1（令牌化，已排期）→ **v11.1 已落地** |
 | 11 | 左右留白三档成立 | PASS | 带段用 `var(--page-x)`，与同页卡片同轴：`vC-desk-cal-light-768.png` | — |
 | 12 | hover / active / focus / disabled / loading | N/A | 带子是 `aria-hidden` 纯展示节点，`inter 0 / pointer 0` 实测（H2 前提）；本次未动任何交互件 | — |
 | 13 | 键盘 Tab 顺序 / 焦点环 | PASS | 带子不进 tab 序列（无可聚焦元素）；dock/topbar 未改，主矩阵 272 组 `nSmall 0` | — |
@@ -355,7 +355,7 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
 
 ### 建议修（不阻塞）
 
-1. 裸尺寸令牌化（已拍板：单独 commit `refactor(tokens): desk/vinyl 带段尺寸令牌化`）。
+1. 裸尺寸令牌化（已拍板：单独 commit `refactor(tokens): desk/vinyl 带段尺寸令牌化`）→ **已落地，见 v11.1 段**。
 2. nocturne 桌面档 `.topbar__meta` 13px「四级核心词」——见下节，本轮 `warnList` 新发现。
 3. `.empty` 无词库状态下带子的三档读数补一张截图（逻辑安全，缺证据）。
 
@@ -381,7 +381,7 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
 - **vinyl 常驻带（cal/me）无活动指示点**：语义修正的直接结果。日后若想让带子表达「有东西在跑」，
   得另找一个非「播放器」语义的符号，不许把这颗点加回来。
 - **`.empty`（无词库）状态下带子的值未测**：三档读数会显示 `00 / 00 / 000`，逻辑上安全，但没有截图证据。
-- **裸尺寸令牌化未做**（建议修 #1 拍板：单独 commit `refactor(tokens): desk/vinyl 带段尺寸令牌化`，排在收尾之后）。
+- ~~**裸尺寸令牌化未做**~~ → **已落地**：见「v11.1 · `refactor(tokens)`」段，12 个令牌 + 17 条金值 + 像素级 15/16 逐字节相同。
 
 ### 操作坑（v11 新增，写死）
 
@@ -391,6 +391,69 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
   **演练完必须重启 dev server**（整页 reload 不够），再跑任何回归，否则会把绿的项目读成红的。
 - **MCP 单调用有超时上限**：长矩阵改走 `scripts/run-audit-node.js`（后台 job + `job_output` 收），
   别把 128 组塞进一次 `browser_run_code_unsafe`。
+
+## v11.1 · 2026-11-25 · `refactor(tokens)`：desk / vinyl 读数族尺寸令牌化（建议修 #1 落地）
+
+**范围**：commit B 拍板「做，但单独 commit」的那条。只动两个 CSS 文件的**读数族尺寸**，
+新增令牌 12 个（desk 5 + vinyl 7），不改一个像素——所以本 commit 的正确判据不是「回归没红」，
+而是「每个计算值逐条等于替换前的字面量」。
+
+### 改了什么
+
+| 皮肤 | 新令牌 | 值 | 替换掉的裸尺寸 |
+|---|---|---|---|
+| desk | `--ds-readout-k` | 13px | 抽屉标签 + 常驻带标签（两处同值，现同一令牌） |
+| desk | `--ds-readout-v` | 34px | 抽屉读数数字 |
+| desk | `--ds-band-v` | 20px | 常驻带读数数字 |
+| desk | `--ds-band-gap` | 6px | ≤389 单行态 k/v 基线间距 |
+| desk | `--ds-kicker` | 11px | 轨顶 `CIJIAN · DAILY`（纯装饰拉丁，允许低于 13px） |
+| vinyl | `--vy-band-pad` / `-pad-sm` | 8px / 7px | 带内距（默认档 / 矮屏+≤389 单行态，§6·矮屏定式·§16 三处共用） |
+| vinyl | `--vy-band-gap-sm` / `-cell-gap` | 6px / 3px | 单行态与两行态的 k/v 间距 |
+| vinyl | `--vy-band-disc` | 26px | 带左缘微型盘 |
+| vinyl | `--vy-band-v` | 18px | 带内读数数字 |
+| vinyl | `--vy-dot` | 7px | **三处同径圆点**：首页带呼吸点、学习流卡面呼吸点、小节标题静态点 |
+
+顺带修掉一个**死令牌**：`--ds-cell-h: 96px`（`desk.css:66`）定义了却没人引用，抽屉格高在 `:296` 写死 `96px`。
+现在 `min-height: var(--ds-cell-h)`，注释与实际终于对上。
+
+`--vy-dot` 是「整族一次改完」的落点：三颗点尺寸相同、语义差别只在有没有 `animation`，
+留两处裸 `7px` 等于没令牌化；但**不**把它们合并成一个语义令牌——呼吸点与静态点仍是不同规则，只共用尺寸。
+
+### 边界（明确没动的东西，免得下轮误以为漏改）
+
+- 媒体查询断点 `389px` / `429px` / `640px`：是**条件**不是尺寸，不进令牌。
+- 抽屉列宽 `212px`、缝线把手 `40px`：属抽屉**版面几何**，不是读数族，另议。
+- 日历盘内数字 `18px`（`vinyl.css:843`）与带内数字恰好同值，但那是「盘」这个组件的字号，**不共用** `--vy-band-v`——
+  同值不同义就分令牌，否则改带子会莫名其妙改掉日历盘。
+- `letter-spacing` / `line-height: 1` / `aspect-ratio`：比例量，不是尺寸。
+
+### 等值证明（两层，都不依赖「回归没红」）
+
+1. **金值探针** `scripts/audit-token-equiv.js`（本轮新增，留作常备守卫）：17 条 `getComputedStyle` 断言，
+   覆盖 desk 抽屉 96/13/34/11、desk 带 13/20/6、vinyl 带 8/26/3/18/7+`vy-pulse`、vinyl cal 带 `content:none`、
+   ≤389 降级 7/6、小节静态点 7 → **`allOk: true` / `fail: []`**。
+   期望值全部抄自替换前的字面量，所以这 17 条同时**冻结**了带段几何：日后真要改尺寸必须显式改期望值。
+   踩到一条：Chromium 的 `gap` 在 row==column 时折叠成单值（`6px` 而非 `6px 6px`），首跑 4 条假失败全是这个格式问题。
+2. **像素级**：同条件重截 16 张与上一 commit 的 `vC-*.png` 逐字节比对 → **15/16 SHA256 完全相同**，
+   唯一差异 `vinyl-home-light-390` 经画布逐像素定位为 **45 个像素、全部落在 7×7 框（x 363-369, y 815-821）**，
+   最大通道差 3——正是 `--vy-dot` 那颗呼吸点的动画相位。页面其余部分零差异。
+
+### 回归（全部实测）
+
+| 项 | 结果 |
+|---|---|
+| 主矩阵 128 组（390×8 皮肤×2 主题×8 界面） | `failCount 0`、`outYTotal 0`、`warnTiny 0`、`dataKept true`、129.3 s |
+| 主矩阵 144 组（8×2×3 界面×360/768/1440） | `failCount 0`、`passN 144`、`warnTiny 4`（**还是那条 nocturne 13px**，本轮没碰它，正好反证） |
+| 带断言 64 手机 | `failCount 0`、`pulse {4, 16, 16}`、`bandH` desk 54 / vinyl 52、`learnDataKept true` |
+| 带断言 64 桌面 | `failCount 0`、`pulse {4, 16, 16}`、`bandH 54` |
+| 两相 DOM（真答卡，隔离 context） | `failCount 0`、`restoredAll true`、`cleanAll true`、`lastLive {cards 0, unlearned 3846, mistakes 0, learnedToday 0}` |
+| `scan-tiny` | `groups 0`、`hardFail 0` |
+| `tsc --noEmit` / `vite build` | 0 / 0，且 4 个抽查令牌名在产物 CSS 中**均存在**（没被打包器折叠掉） |
+
+### 新建议修（本轮方法沉淀，待拍板）
+
+- **「纯重构必须证明等值，不许只证明没报错」**：本轮靠金值探针 + 像素比对两层证据才敢说「不改一个像素」。
+  建议写进规则段成为第 9 条，但按纪律**等用户拍板**，本轮只记在建议修。
 
 ## v9 · 2026-11-25 · 三版结构级重做（desk 案头 / deck 叠章 / vinyl 唱盘）〔**已作废**：出列判据当时被探针的豁免逻辑整体关掉，`nOut:0` 不可信；`deck` 亦已按用户选择作废〕
 

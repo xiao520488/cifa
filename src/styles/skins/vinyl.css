@@ -80,6 +80,16 @@
   --vy-label: 14px;       /* 含中文文本硬下限（曲名标签 14px） */
   --vy-edge: #ece8e2;     /* 盘的厚度边色 */
   --vy-pill-w: 132px;     /* 药丸最小宽：5 个汉字 15px + 三角 + 内距 */
+  /* v11 令牌化（refactor）：读数带家族——§6 首页带、矮屏定式、§16 cal/me 带——的尺寸，
+     一处定义、三处引用。每个值都等于此前散在各处的裸尺寸，本 commit 不改一个像素。 */
+  --vy-band-pad: 8px;       /* 带上下内距（默认档） */
+  --vy-band-pad-sm: 7px;    /* 矮屏 / ≤389 单行态的带内距 */
+  --vy-band-gap-sm: 6px;    /* 单行态：标签与数字的基线间距 */
+  --vy-band-cell-gap: 3px;  /* 两行态：标签与数字的纵向间距 */
+  --vy-band-disc: 26px;     /* 带左缘微型盘（封面缩略图） */
+  --vy-dot: 7px;          /* 本案唯一一档圆点：首页带呼吸点 / 学习流卡面呼吸点 / 小节标题静态点。
+                             三处同径，语义差别只在有没有 animation——所以尺寸必须共用一个令牌。 */
+  --vy-band-v: 18px;        /* 带内读数数字 */
 }
 
 /* ---------- 2. 深色档（墨槽独立重映射，非反色） ---------------------------- */
@@ -182,7 +192,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: 8px var(--page-x) calc(8px + env(safe-area-inset-bottom));
+  padding: var(--vy-band-pad) var(--page-x) calc(var(--vy-band-pad) + env(safe-area-inset-bottom));
   background: var(--bg);
   border-top: 1px solid var(--border); /* 装饰分隔，--border 级灰，不标状态 */
 }
@@ -192,18 +202,18 @@
 [data-skin='vinyl'] .readouts::before {
   content: '';
   flex: none;
-  width: 26px;
-  height: 26px;
+  width: var(--vy-band-disc);
+  height: var(--vy-band-disc);
   border-radius: 50%;
   background: radial-gradient(circle, var(--surface-sunken) 0 3px, var(--surface) 3.5px 10px,
     var(--border) 10.5px 11px, var(--surface) 11.5px 100%);
   border: 1px solid var(--border);
 }
-[data-skin='vinyl'] .readout { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+[data-skin='vinyl'] .readout { display: flex; flex-direction: column; gap: var(--vy-band-cell-gap); min-width: 0; }
 [data-skin='vinyl'] .readout + .readout { border-left: 1px solid var(--border); padding-left: var(--space-4); }
 [data-skin='vinyl'] .readout__k { font-size: var(--vy-label); line-height: 1; color: var(--text-tertiary); }
 [data-skin='vinyl'] .readout__v {
-  font-family: var(--vy-mono); font-size: 18px; font-weight: 500; line-height: 1;
+  font-family: var(--vy-mono); font-size: var(--vy-band-v); font-weight: 500; line-height: 1;
   letter-spacing: 0.06em; font-variant-numeric: tabular-nums; color: var(--text);
 }
 /* 右缘呼吸点：常驻层唯一的活动指示（播放器在响的语法），accent 允许在此。
@@ -214,8 +224,8 @@
   content: '';
   margin-left: auto;
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: var(--vy-dot);
+  height: var(--vy-dot);
   border-radius: 50%;
   background: var(--accent);
   animation: vy-pulse 2.4s var(--ease-out) infinite;
@@ -435,8 +445,8 @@
    网格 row-gap 收到 14——360×640 下货架组+通栏药丸≈559px 会超 528 预算，压 gap 才不出纵滚 */
 @media (max-height: 640px) {
   [data-skin='vinyl'] .start { row-gap: 14px; }
-  [data-skin='vinyl'] .readouts { padding-block: 7px; gap: var(--space-3); }
-  [data-skin='vinyl'] .readout { flex-direction: row; align-items: baseline; gap: 6px; }
+  [data-skin='vinyl'] .readouts { padding-block: var(--vy-band-pad-sm); gap: var(--space-3); }
+  [data-skin='vinyl'] .readout { flex-direction: row; align-items: baseline; gap: var(--vy-band-gap-sm); }
 }
 
 /* 平板+：page-x/字号组自补（令牌文档要求），轮距放宽；盘径不再改（768 四盘全露，无需缩） */
@@ -694,8 +704,8 @@
 [data-skin='vinyl'] .flash-card__head::after {
   content: '';
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: var(--vy-dot);
+  height: var(--vy-dot);
   margin-left: auto;
   align-self: center;
   border-radius: 50%;
@@ -1017,8 +1027,8 @@
 [data-skin='vinyl'] .section__title::before {
   content: '';
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: var(--vy-dot);
+  height: var(--vy-dot);
   border-radius: 50%;
   background: var(--accent);
 }
@@ -1324,12 +1334,12 @@
   [data-skin='vinyl'] .readouts[data-readouts-screen='cal'],
   [data-skin='vinyl'] .readouts[data-readouts-screen='me'] {
     gap: var(--space-3);
-    padding: 7px var(--page-x) calc(7px + env(safe-area-inset-bottom));
+    padding: var(--vy-band-pad-sm) var(--page-x) calc(var(--vy-band-pad-sm) + env(safe-area-inset-bottom));
   }
   [data-skin='vinyl'] .readouts[data-readouts-screen='cal'] .readout,
   [data-skin='vinyl'] .readouts[data-readouts-screen='me'] .readout {
     flex-direction: row;
     align-items: baseline;
-    gap: 6px;
+    gap: var(--vy-band-gap-sm);
   }
 }
