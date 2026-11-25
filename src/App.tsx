@@ -13,6 +13,7 @@ import { ImportSheet } from './components/ImportSheet';
 import { MistakesScreen } from './components/MistakesScreen';
 import { ConfirmDialog } from './components/Modal';
 import { ProfileScreen } from './components/ProfileScreen';
+import { buildReadoutItems, Readouts } from './components/Readouts';
 import { SessionScreen } from './components/SessionScreen';
 import { SkinSheet } from './components/SkinSheet';
 import { StudyScreen } from './components/StudyScreen';
@@ -22,7 +23,7 @@ import { preloadBook } from './lib/books';
 import { deckWords } from './lib/deck';
 import { emptyStageProgress, loadStore, saveStore } from './lib/storage';
 import type { LevelKey, Profile, Store, Word } from './lib/types';
-import { skinMeta } from './lib/skins';
+import { persistentReadoutsFor, skinMeta } from './lib/skins';
 import { getBook, levelMeta, showAllMeanings } from './lib/words';
 
 type Screen = 'study' | 'calendar' | 'me' | 'mistakes';
@@ -66,6 +67,21 @@ export default function App() {
   const todayBatchCount = Math.ceil(allowedNew / Math.max(1, batchSize));
   const learnedCount =
     todayView.stats.shortCards + todayView.stats.longCards + todayView.stats.archivedCards;
+
+  /* 读数带三值在 App 顶层算一次，首页 / 常驻带共用同一个数组引用派生结果：
+     同一屏不可能出现「今日 20 / 今日 21」这种自相矛盾。 */
+  const readoutItems = useMemo(
+    () => buildReadoutItems(allowedNew, todayBatchCount, learnedCount),
+    [allowedNew, todayBatchCount, learnedCount],
+  );
+
+  /* 常驻读数带只在 desk / vinyl 的日历与「我的」进 DOM（SkinMeta.persistentReadouts）。
+     判「节点在不在」而不是「显不显示」：false 的皮肤压根不渲染，审计按 querySelector 为 null 断言。
+     学习中（session）不带——即时复习的 dock 已经占住底部，两条带叠放会互压。 */
+  const showBand =
+    persistentReadoutsFor(store.profile.skin) &&
+    !session &&
+    (screen === 'calendar' || screen === 'me');
 
   /* 主题：跟随系统时监听系统变化 */
   useEffect(() => {
@@ -218,6 +234,7 @@ export default function App() {
           todayBatchCount={todayBatchCount}
           learnedCount={learnedCount}
           initial={initial}
+          readoutItems={readoutItems}
           todayCard={
             <TodayCard
               plan={todayView.plan}
@@ -276,6 +293,13 @@ export default function App() {
           onOpenMistakes={() => setScreen('mistakes')}
         />
       )}
+
+      {/* 常驻读数带：插在布局层（.app 的直接子级、各屏之后、浮层之前），
+          于是 CalendarScreen / ProfileScreen 两个文件零改动。它是滚动容器的兄弟，
+          按 vinyl 自己的吸底定式（.app flex 列最后一个非滚动子元素）天然贴底，不写 fixed。 */}
+      {showBand ? (
+        <Readouts screen={screen === 'calendar' ? 'cal' : 'me'} items={readoutItems} />
+      ) : null}
 
       {sheet === 'import' ? (
         <ImportSheet onClose={() => setSheet(null)} onImport={importWords} />

@@ -9,6 +9,7 @@
 
 import type { ReactNode } from 'react';
 import type { LevelMeta } from '../lib/types';
+import { Readouts, type ReadoutItem } from './Readouts';
 import { IconCalendar, IconPalette } from './Icons';
 
 interface StudyScreenProps {
@@ -22,6 +23,9 @@ interface StudyScreenProps {
   initial: string;
   /** 首页「今日」摘要（由调度引擎算好传进来，本组件不碰调度） */
   todayCard?: ReactNode;
+  /** 读数带三项（今日/批数/已学）。由 App 顶层同一份 memo 生成，
+   *  与日历 / 「我的」屏的常驻带同源——本组件不再自己格式化数字。 */
+  readoutItems: ReadoutItem[];
   onStart: () => void;
   onOpenMe: () => void;
   onOpenSkin: () => void;
@@ -38,6 +42,7 @@ export function StudyScreen({
   learnedCount,
   initial,
   todayCard,
+  readoutItems,
   onStart,
   onOpenMe,
   onOpenSkin,
@@ -75,20 +80,7 @@ export function StudyScreen({
         </button>
       </header>
 
-      <div className="readouts" aria-hidden="true">
-        <div className="readout">
-          <span className="readout__k">今日</span>
-          <span className="readout__v">{String(allowedNew).padStart(2, '0')}</span>
-        </div>
-        <div className="readout">
-          <span className="readout__k">批数</span>
-          <span className="readout__v">{String(todayBatchCount).padStart(2, '0')}</span>
-        </div>
-        <div className="readout">
-          <span className="readout__k">已学</span>
-          <span className="readout__v">{String(learnedCount).padStart(3, '0')}</span>
-        </div>
-      </div>
+      <Readouts screen="home" items={readoutItems} />
 
       <main className="app__main">
         <div className="screen">

@@ -259,6 +259,18 @@ const showBand =
 
 「今日」格被 vinyl nth-child 关掉（`vinyl.css:190`），desk 非首页带建议同法只留两格
 （见 §4.3），三格全开时 desk 手机档合计 ≈120（值 20px、标签 13px，同表算法），仍富余。
+
+**实测校正（commit B 落地后，360×800，合成极端位数压测，只改 DOM 文本不写状态）**：
+
+| 皮肤 | 常态 usedW | 极端（`999/999/99999`）usedW | 剩余 | 溢出/裁切 |
+| --- | --- | --- | --- | --- |
+| desk | 185 | **220** | 140 | 无（`scrollWidth === clientWidth`，`docOvf false`） |
+| vinyl | 231 | **267** | 93 | 无（同上；呼吸点 7px 靠 `margin-left:auto` 另有落位） |
+
+上表 ≈143/165 的估算是按「列向两行柱」算的；≤389 降级改单行基线后，k 与 v 同排，
+实际占宽更大（desk +77、vinyl +102），但 360 档最坏仍留 ≥93px 余量——**结论不变：不裁切、不出列**。
+`已学` 五位是真实上界（内置词库 17,724 词），不是臆测位数。
+
 出列判据复述：横/纵向被 `hidden/clip` 祖先永久裁掉且祖先不可滚才记 `out/outY`
 （`audit-screens.js:33-45、:74-83`）；带子是定高 flex 行、`overflow` 一律
 `visible`（**禁止**给带子或 `.readout` 写 `overflow:hidden`——desk 抽屉那条
@@ -301,7 +313,7 @@ const showBand =
 
 | 属性 | 值 | 依据 |
 | --- | --- | --- |
-| 带总高 | ≈33px（7 + 18 + 7 + 1px 上缘线） | vinyl.css:185、:205-208、:435 同构 |
+| 带总高 | **实测 41px**（估算 33px 漏算了 `::before` 的 26px 圆盘：单行态行高被圆盘顶到 26） | vinyl.css:185、:192-201、:435 同构 |
 | 标签字号/行高 | 14px / 1（`--vy-label`） | vinyl.css:80「含中文文本硬下限」；2 字不触发 >4 汉字线（audit-screens.js:59） |
 | 数值字号/行高 | 18px / 1，mono tabular | vinyl.css:205-208 不变 |
 | 格间距 / 内距 | gap 12；padding-inline 20（`--page-x`） | tokens.css:65、:72 |
@@ -356,7 +368,7 @@ desk 现状首页手机屏本就无带（`.readouts` 显示规则只活在 ≥76
 }
 ```
 
-降级档（360）：带总高 ≈36px（8 + 20 + 8 + 1）；标签 13px（2 字，>4 汉字红线结构性
+降级档（360）：带总高 **实测 37px**（估算 36：8 + 20 + 8 + 1，1px 上线）；标签 13px（2 字，>4 汉字红线结构性
 不触发）、数值 20px；触控盒豁免理由同 §4.1（带内无交互元素）。宽度预算见 §3.3 表，
 余量 ≥180px。**强调色纪律**：desk 带只用 rail 中性色，不引 `--accent`（本案强调色 ≤1，
 `desk.css:364-365` 已把 accent 花在头像上）；vinyl 带只复用既有 `--accent` 呼吸点
@@ -512,12 +524,15 @@ revert 删除，CSS/TSX 改动互不依赖 commit 外未提交内容）；revert
 | --- | --- | --- |
 | 1 | `src/lib/skins.ts` | `SkinMeta` 加 `persistentReadouts: boolean`（必填）+ 8 条取值 + `persistentReadoutsFor()` |
 | 2 | `src/components/Readouts.tsx` | 新文件：`ReadoutItem/ReadoutsProps/buildReadoutItems/Readouts`（§2.2 契约） |
-| 3 | `src/components/StudyScreen.tsx` | `:78-91` 内联段 → `<Readouts screen="home">`；props 增 `readouts?: ReactNode` 或 items 直传（二选一，见待拍板#2 附注） |
+| 3 | `src/components/StudyScreen.tsx` | `:78-91` 内联段 → `<Readouts screen="home">`；props 增 **`readoutItems: ReadoutItem[]`**（已拍板 #2＝items 直传，`ReactNode` 槽位已否）；`allowedNew/todayBatchCount/learnedCount` 三个旧 prop 保留——topbar 与 `.start__spec` 仍在用 |
 | 4 | `src/App.tsx` | 计算 `readoutItems/showBand`（`:68` 后）、`Readouts` import、在 `:278` 后插入带节点、首页传 items |
 | 5 | `src/styles/skins/desk.css` | 末尾追加 §4.3 两块（cal/me 带 + ≤389） |
 | 6 | `src/styles/skins/vinyl.css` | 末尾追加 §4.1 ≤389 块（宽档白吃 `vinyl.css:179` 既有规则，首页段一字不改） |
 | 7 | `scripts/audit-readouts-band.js` | 新文件：§5.3 断言脚本（只读验证，不改既有脚本） |
-| 8 | `docs/COMMIT_B_SPEC.md` | 本文件（与实现同 commit，revert 连规约一起回） |
+| 8 | `docs/COMMIT_B_SPEC.md` | 本文件（与实现同 commit，revert 连规约一起回；含实测校正） |
+| 9 | `DESIGN_REVIEW.md` | 新增 v11 段：design-review 报告 + 回归数字（结论与证据链属于本 commit） |
+| 10 | `docs/screenshots/v11/*.png` | 三档视口证据截图（`vB-*`）；「没有截图证据的 PASS 不算 PASS」 |
+| 11 | `NOTES.md` | 会话锚点（三 commit 序列与两条硬规则），随本 commit 落，避免留下未提交改动 |
 
 **明确不改**：`CalendarScreen.tsx`、`ProfileScreen.tsx`、`src/lib/types.ts`、
 `src/lib/storage.ts`、`src/lib/scheduler/**`、`app.css`、`skin-hooks.css`、

@@ -12,6 +12,16 @@ export interface SkinMeta {
   swatch: { bg: string; ink: string; accent: string; line: string };
   /** 深色档的页面底色，用于同步浏览器 chrome（theme-color） */
   darkBg: string;
+  /**
+   * 日历 / 「我的」两屏是否在 DOM 里常驻一块 .readouts 读数带（v11 commit B）。
+   * true  = App 渲染 `<Readouts screen="cal|me">`，显隐与形态由皮肤 CSS 决定；
+   * false = 该节点根本不进 DOM（不是 display:none——审计按「查无节点」断言）。
+   * 首页不受此开关控制：首页的读数节点一直在 StudyScreen 里，显隐历来归皮肤 CSS 管
+   * （skin-hooks.css:13 默认藏；vinyl / instrument / bento 各自开；nocturne 再显式藏一次）。
+   * 设成必填而不是可选：新增皮肤必须在编译期表态，漏写直接 tsc 失败，
+   * 不会出现「静默渲染了一条没设计过的带子」。
+   */
+  persistentReadouts: boolean;
 }
 
 /**
@@ -30,6 +40,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '暖纸 · 朱砂',
     swatch: { bg: '#F6F3EC', ink: '#191817', accent: '#B23A2A', line: '#E2DCD0' },
     darkBg: '#12110E',
+    persistentReadouts: false,
   },
   {
     key: 'foundry',
@@ -38,6 +49,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '纯白 · 硬边',
     swatch: { bg: '#FFFFFF', ink: '#0B0B0B', accent: '#D93A16', line: '#0B0B0B' },
     darkBg: '#0B0B0B',
+    persistentReadouts: false,
   },
   {
     key: 'instrument',
@@ -46,6 +58,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '琥珀 · 等宽',
     swatch: { bg: '#0B0D0F', ink: '#E6E8EB', accent: '#FFB020', line: '#20252C' },
     darkBg: '#0B0D0F',
+    persistentReadouts: false,
   },
   {
     key: 'broadsheet',
@@ -54,6 +67,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '栏线 · 靛蓝',
     swatch: { bg: '#F4F4F1', ink: '#14140F', accent: '#1B2E6B', line: '#14140F' },
     darkBg: '#131311',
+    persistentReadouts: false,
   },
   {
     key: 'bento',
@@ -62,6 +76,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '冷灰 · 青瓷',
     swatch: { bg: '#F1F1EE', ink: '#15161A', accent: '#0E7C86', line: '#DEDED8' },
     darkBg: '#0D1013',
+    persistentReadouts: false,
   },
   {
     key: 'nocturne',
@@ -70,6 +85,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '墨蓝 · 月光',
     swatch: { bg: '#F4F5F7', ink: '#10141B', accent: '#1E4E8C', line: '#E2E5EA' },
     darkBg: '#0B0D12',
+    persistentReadouts: false,
   },
   {
     key: 'vinyl',
@@ -78,6 +94,7 @@ export const SKINS: SkinMeta[] = [
     tagline: '洋红 · 黑胶',
     swatch: { bg: '#F7F5F2', ink: '#17141A', accent: '#A62A5E', line: '#E4DFD8' },
     darkBg: '#121113',
+    persistentReadouts: true,
   },
   {
     key: 'desk',
@@ -86,9 +103,19 @@ export const SKINS: SkinMeta[] = [
     tagline: '抽屉 · 侧栏',
     swatch: { bg: '#F4F1EA', ink: '#1B1F1C', accent: '#20623F', line: '#DCD4C2' },
     darkBg: '#141613',
+    persistentReadouts: true,
   },
 ];
 
 export function skinMeta(key: Skin): SkinMeta {
   return SKINS.find((item) => item.key === key) ?? SKINS[0];
+}
+
+/**
+ * 该皮肤在日历 / 「我的」屏是否常驻读数带。全项目唯一的「JS 层皮肤感知」入口之一：
+ * 屏组件（CalendarScreen / ProfileScreen）对皮肤零感知，开关只在 App 顶层查表。
+ * 兜底走 skinMeta 的 SKINS[0]（paper = false），未知键不会凭空冒出一条带子。
+ */
+export function persistentReadoutsFor(key: Skin): boolean {
+  return skinMeta(key).persistentReadouts;
 }

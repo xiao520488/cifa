@@ -601,3 +601,53 @@
   [data-skin='desk'] .avatar-btn:active { transform: none; }
   [data-skin='desk'] .sheet, [data-skin='desk'] .dialog, [data-skin='desk'] .scrim { animation: none; }
 }
+
+/* ---------- 12. cal/me 常驻读数带（开关 persistentReadouts） -----------------
+   手机与平板同一横条语法：≥768 不复用抽屉网格（那是 .app:has(.start) 专属，
+   :268-271 的注释言明「否则日历 / 我的 / 列表页会多出一条空抽屉」）。
+   深色 rail 条 + 1px 上线分界，沿用本案「线代影」纪律（:255、:324、:344）。
+   带内数字全部来自 DOM 文本节点；:280 那条 content: 'CIJIAN · DAILY' 是纯装饰拉丁，
+   只活在抽屉段，不带到这里——读数带一律禁止 CSS 造数。 */
+[data-skin='desk'] .readouts[data-readouts-screen='cal'],
+[data-skin='desk'] .readouts[data-readouts-screen='me'] {
+  display: flex; flex-direction: row; align-items: center; gap: var(--space-4);
+  flex: none;                       /* 别被 .app 的 flex 列压扁 */
+  padding: var(--space-2) var(--page-x) calc(var(--space-2) + env(safe-area-inset-bottom));
+  background: var(--rail); border-top: 1px solid var(--ds-rail-edge);
+}
+/* 「今日」与日历 hero 大数、我的页当前基线复读 → 关格，与抽屉 :300 同一纪律 */
+[data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout:first-child,
+[data-skin='desk'] .readouts[data-readouts-screen='me'] .readout:first-child { display: none; }
+[data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout,
+[data-skin='desk'] .readouts[data-readouts-screen='me'] .readout {
+  display: flex; flex-direction: column; gap: var(--space-1);
+}
+[data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout + .readout,
+[data-skin='desk'] .readouts[data-readouts-screen='me'] .readout + .readout {
+  border-left: 1px solid var(--ds-rail-edge); padding-left: var(--space-4);
+}
+[data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout__k,
+[data-skin='desk'] .readouts[data-readouts-screen='me'] .readout__k {
+  /* 13px 同抽屉 :302 的理由——两字中文压到 11px 会踩「中文小字」红线 */
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.1em; line-height: 1; color: var(--ds-rail-muted); /* 6.91:1 on --rail */
+}
+[data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout__v,
+[data-skin='desk'] .readouts[data-readouts-screen='me'] .readout__v {
+  font-family: var(--font-mono); font-size: 20px; font-weight: 500; line-height: 1;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  color: var(--ds-rail-ink);        /* 13.98 / 15.89:1，见 :86 */
+}
+/* ≤389 降级：格间距收紧、两行柱改单行基线，带总高 ≈36px。同样不用 overflow 裁。 */
+@media (max-width: 389px) {
+  [data-skin='desk'] .readouts[data-readouts-screen='cal'],
+  [data-skin='desk'] .readouts[data-readouts-screen='me'] { gap: var(--space-3); }
+  [data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout,
+  [data-skin='desk'] .readouts[data-readouts-screen='me'] .readout {
+    flex-direction: row; align-items: baseline; gap: 6px;
+  }
+  [data-skin='desk'] .readouts[data-readouts-screen='cal'] .readout + .readout,
+  [data-skin='desk'] .readouts[data-readouts-screen='me'] .readout + .readout {
+    padding-left: var(--space-3);
+  }
+}

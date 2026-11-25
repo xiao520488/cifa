@@ -188,6 +188,72 @@
 `冷灰·磁贴`→`冷灰·青瓷`、`洋红·唱片`→`洋红·黑胶`（后两者原本在重说自己的皮肤名）。
 最终 8 条全部 4 汉字 / 13px / 单行 153px 宽，截图 `docs/screenshots/v10/v10.2-sheet-light-390.png`。
 
+## v11 · 2026-11-25 · commit B：日历 / 「我的」常驻读数带（`persistentReadouts` 开关）
+
+**做了什么**：把首页内联的 `.readouts` 抽成共享组件 `src/components/Readouts.tsx`，由 App 顶层
+同一份 memo（`buildReadoutItems(allowedNew, todayBatchCount, learnedCount)`）喂三屏；
+`SkinMeta` 新增**必填**字段 `persistentReadouts`（desk / vinyl = true，其余 6 套 = false），
+节点插在布局层 `.app` 直接子级（`App.tsx` 屏链 `)}` 之后、浮层之前）→ **CalendarScreen / ProfileScreen 零改动**。
+false 皮肤是「DOM 里查无此节点」，不是 `display:none`——开关的意义就在这。
+
+**三条落地纪律**：① 皮肤 CSS 不许 `content:` 造数（`desk.css:280` 的纯装饰拉丁 `CIJIAN · DAILY` 只活在抽屉段，
+新带一律无）；② 带子**禁止可点**（决策 #5：一进 `<button>` 就是 44px 门禁 + 误击清空钮 + `go()` 文本查找污染三连）；
+③ 360 降级只收 gap / padding，**绝不 `overflow:hidden` 假装降级**。
+
+### Design Review — cal/me 读数带 — 2026-11-25（360×800 / 768×1024 / 1440×900）
+
+| # | 检查项 | 结果 | 证据 |
+|---|--------|------|------|
+| 1 | 360 无横向滚动 / 截断 / 重叠 | PASS | `docOvf:false` 于 360/768/1440；`audit-screens` 96 组 `ovf/nOut/nClip` 全 0；截图 `vB-desk-cal-light-360.png`、`vB-vinyl-cal-dark-360.png` |
+| 2 | 极端位数不撑破 | PASS | 合成压测（只改 DOM 文本）：desk 最坏 `999/999/99999` usedW **220 / 余 140**；vinyl **267 / 余 93**；`scrollWidth === clientWidth` 无裁切 |
+| 3 | 三档视口信息层级一致（非简单缩放） | PASS | ≤389 单行基线（desk 37px / vinyl 41px），≥390 两行柱（54 / 52px）；三项数值与首页逐字相同（`sameAsHome` 断言） |
+| 4 | 底栏不遮挡内容 + safe-area | PASS | 带子是 `.app__main` 的**兄弟**不是浮层，main 视口自然收在带顶之上；`padding-bottom: calc(7px \| 8px + env(safe-area-inset-bottom))` |
+| 5 | 正文对比度 ≥4.5 / 大字 ≥3 | PASS | 带内专项探针（**绕开 `aria-hidden` 豁免**）`low` 命中 0，64 测点；desk rail-muted 6.91:1、rail-ink 13.98/15.89:1 |
+| 6 | 深浅两背景都清楚 | PASS | 明暗各测；截图 `vB-desk-cal-dark-1440.png`、`vB-vinyl-me-dark-1440.png` |
+| 7 | 语义色正确、强调色 ≤1 | PASS | 带内无红色；vinyl 只复用既有 accent 呼吸点，desk 带只用 rail 中性色（accent 已花在头像） |
+| 8 | 字体族 ≤2 | PASS | 两案带内均 mono + 既有正文族，零新族 |
+| 9 | 左右留白三档成立 | PASS | 带内 padding-inline 用 `var(--page-x)`（20 / 32 / 32），与屏边距同源 |
+| 10 | 点击目标 ≥44px | N/A（豁免） | 豁免理由**实测**：`inter === 0 && pointer === 0`（H2），任一 >0 即 FAIL，不走豁免分支 |
+| 11 | hover / active / focus / disabled / loading | N/A | 带内无可交互元素；`aria-hidden="true"` 保留，屏内别处有等价文本 |
+| 12 | 键盘 Tab 顺序 / 焦点环 | PASS | 带内无可聚焦节点，Tab 序与 commit A 基线一致 |
+| 13 | 数字格式统一 | PASS | `tabular-nums` + 补零 2/2/3 与首页现体逐字一致；组件不算数、不判零、不查 NaN |
+| 14 | 文案无占位符残留 | PASS | 仅「今日/批数/已学」，无 TODO/Lorem |
+| 15 | 相同组件跨页一致 | PASS | 同一 `<Readouts>` 实例化三屏；`data-readouts-screen` 只用于定位，皮肤不据此判身份 |
+
+### 必须修（阻塞交付）
+
+无。
+
+### 建议修（不阻塞，留给后续 commit）
+
+1. **裸尺寸**：`desk.css` 新带段的 `font-size: 13px / 20px`、`gap: 6px`、vinyl 的 `7px / 6px` 未走 `--space-*` /
+   字号令牌——沿用两文件既有裸值定式（`desk.css:303` 抽屉 13px、`vinyl.css:436` 矮屏 6px），要令牌化应整族一起改，
+   不夹带进 B。
+2. **desk 首页手机档无带**（决策 #4 已接受为已知代价）：desk 会出现「首页无带、日历/我的有带」的不对称，
+   要统一另立 issue。
+3. **vinyl 呼吸点在 cal/me 也闪**：`::after` 的 `vy-pulse` 原语义是「播放器在响」，现在日历/我的也常驻闪。
+   观感可接受（实测截图无干扰），但语义上是否该在非首页停住，值得下一轮产品判断。
+
+### 回归（全部实测，非推断）
+
+| 门禁 | 范围 | 结果 |
+| --- | --- | --- |
+| `tsc --noEmit` | 全项目 | **0 错**（必填字段穷尽性同时被验证：8 套皮肤全部表态） |
+| `audit-readouts-band.js` | 8 皮肤 × 明暗 × cal/me × [390×844, 360×740] = **64 测点** + 首页对照 32 + 反例 16 | **failCount 0**；`nodeOk`（false 皮肤 DOM 查无节点）全对；`sameAsHome` 全对；`noInter` 全对；`clean` 全对 |
+| 同上 · 桌面档 | 8 皮肤 × cal/me × [768×1024, 1440×900] = 32 测点 | **failCount 0**，带高 54px |
+| 开关真值表 | desk/vinyl 各 4/4 有节点；其余 6 套 0/4 | 与 `skins.ts` 一致；`SKINS.length===8` 漂移兜底 `driftGuard true` |
+| `audit-screens.js`（含新 `nOutY` 门禁） | 8 皮肤 × 明暗 × [home,cal,me] × [390,360] = **96 组** | **failCount 0**、`outYTotal 0`、`warnTiny 0` |
+| 学习流反例 | desk/vinyl × 明暗 × [home,session] × 2 视口 = 16 组 | **failCount 0**；session 内 `.readouts` 节点数 **0**（`!session` 生效，不与即时复习 dock 抢底） |
+| `scan-tiny.js` | 8 皮肤 × 5 界面 | `groups 0 / hardFail 0`（与基线一致） |
+| **逐像素回退证明** | false 皮肤 8 组（paper/bento/nocturne × cal/me × 明暗，390×844）重截 vs commit A 基线 | **8/8 SHA256 逐字节相同**——6 套不开带的皮肤在 cal/me 上观感零变化，开关确实是「节点不进 DOM」而不是「藏起来」 |
+| **revert 演练**（规约 §7.1 独立回滚要求） | `git revert --no-commit <本 commit>` → 回退态 `tsc` **0 错**、`vite build` **0**（2.04s）、`audit-screens` 48 组 **0 失败** → `git reset --hard` 复原 | commit B 不依赖任何未提交改动，可单独回退。演练期间踩到 HMR 假报错（删掉 `Readouts.tsx` 时浏览器仍持旧 import → 404），需整页 reload 再看 |
+| 数据隔离 | 全程不答卡；双键快照-还原 + `__bandbak_*` 收尾删净 | `learnDataKept true`、`cleanup {restored:true, cleaned:true}`；跑完 `cards 0 / unlearned 3846 / learnedToday 0 / lastAvgLoops null`（逐字节 = pristine） |
+
+**踩到的两个新坑（记进脚本注释）**：
+① Playwright 的 `page.evaluate` **不捕获外层闭包变量**——Node 侧的 `BAK` 常量在页面里是 `ReferenceError`，
+必须走参数注入；② 整程「双键相等」当门禁是错的：`cijian.v1` 存的是皮肤/主题偏好，`setSkin()` 每轮合法改写它，
+整程比对只能盯**学习键**，逐测点窗口才比双键。
+
 ## v9 · 2026-11-25 · 三版结构级重做（desk 案头 / deck 叠章 / vinyl 唱盘）〔**已作废**：出列判据当时被探针的豁免逻辑整体关掉，`nOut:0` 不可信；`deck` 亦已按用户选择作废〕
 
 **范围**：新增三套皮肤 `src/styles/skins/{desk,deck,vinyl}.css` + 注册；`play` 作废（四处注册摘掉，CSS 存档 `docs/v8-variants/play.v1.css`）；

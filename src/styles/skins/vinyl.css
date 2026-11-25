@@ -1311,3 +1311,22 @@
   [data-skin='vinyl'] .skin-card:hover,
   [data-skin='vinyl'] .mistake-row:hover { transform: none; }
 }
+
+/* ---------- 16. cal/me 常驻读数带（开关 persistentReadouts） ----------------
+   宽档不需要新规则：本文件 §6 的 [data-skin='vinyl'] .readouts 从不限屏，
+   日历 / 「我的」的带子天然吃同一套沉底语法（order 交换 + 呼吸点 + 关「今日」格）。
+   这里只补 ≤389 的降级：单行紧凑态，抄矮屏定式（:435-436）的宽度版。
+   纪律：只收 gap / padding，绝不写 overflow:hidden 假装降级——裁掉的数字等于没报。 */
+@media (max-width: 389px) {
+  [data-skin='vinyl'] .readouts[data-readouts-screen='cal'],
+  [data-skin='vinyl'] .readouts[data-readouts-screen='me'] {
+    gap: var(--space-3);
+    padding: 7px var(--page-x) calc(7px + env(safe-area-inset-bottom));
+  }
+  [data-skin='vinyl'] .readouts[data-readouts-screen='cal'] .readout,
+  [data-skin='vinyl'] .readouts[data-readouts-screen='me'] .readout {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+  }
+}

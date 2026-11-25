@@ -107,6 +107,21 @@
   浏览器 `paper/浅色`，学习数据 = pristine（逐字节），隔离 tab 已关。下一步等用户拍板规约 6 项 + 决定这批是否先单独落一个 commit。
 
 
+## 2026-11-25 · commit B 已落：cal/me 常驻读数带（persistentReadouts）
+
+- **实现**：`.readouts` 抽成 `src/components/Readouts.tsx`，App 顶层 `buildReadoutItems()` 一份 memo 喂三屏；
+  `SkinMeta.persistentReadouts` **必填**（漏写＝tsc 失败），desk/vinyl=true，其余 6 套=false；
+  节点插布局层（屏链 `)}` 之后）→ **CalendarScreen / ProfileScreen 零 diff**；`!session` 让学习流里根本不渲染带子。
+- **实测**：带断言 64 测点（8 皮肤×明暗×cal/me×390/360）+ 桌面 32 测点 **0 失败**；通用门禁 96 组 0 失败、`outYTotal 0`；
+  `scan-tiny` 0；带高 360 档 desk 37 / vinyl 41，≥390 档 54/52；极端位数压测（`999/999/99999`）desk 余 140、vinyl 余 93，无裁切无横滚。
+- **两个新坑（写进脚本注释）**：① `page.evaluate` **不捕获 Node 闭包变量**，页面里用到的常量必须走参数注入（`BAK is not defined`）；
+  ② 整程「双键相等」当门禁是错的——`cijian.v1` 存皮肤/主题偏好，`setSkin()` 每轮合法改写；
+  整程只比**学习键**，逐测点窗口才比双键。
+- **遗留（不夹带，另立 commit）**：desk 带内裸尺寸令牌化；desk 首页手机档无带的不对称（已接受为代价）；
+  vinyl 呼吸点在 cal/me 也闪（语义上「播放器在响」是否该只在首页）。
+- **当前状态**：三 commit 序列 = `c0ad5b4`（v10.2 数据补证）→ `849d41b`（nOutY 门禁）→ commit B；
+  真实 profile 学习数据仍逐字节 = pristine（`cards 0 / unlearned 3846 / learnedToday 0 / lastAvgLoops null`）。
+
 ## 2026-11-25 · v10.2 gate 通过 + 六项拍板全按推荐 + 三 commit 序列（用户定稿）
 
 - **数据事故 gate 已过**：独立 context 重放 + 路径级 diff + SHA256 逐字节相同，用户接受；`lastAvgLoops`（null→0 伪造历史喂自适应）算关键发现。
