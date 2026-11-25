@@ -10,6 +10,7 @@ async (page) => {
     const rt = (a, b) => { const x = [lu(a), lu(b)].sort((p, q) => q - p); return (x[0] + .05) / (x[1] + .05); };
     const ovr = (f, b) => ({ r: f.r * f.a + b.r * (1 - f.a), g: f.g * f.a + b.g * (1 - f.a), b: f.b * f.a + b.b * (1 - f.a), a: 1 });
     const bgo = (e) => { const st = []; let n = e; while (n) { const c = pc(getComputedStyle(n).backgroundColor); if (c && c.a > 0) { st.push(c); if (c.a >= 1) break; } n = n.parentElement; } let base = pc(getComputedStyle(document.body).backgroundColor) || { r: 255, g: 255, b: 255, a: 1 }; for (let i = st.length - 1; i >= 0; i--) base = ovr(st[i], base); return base; };
+    // 探针第 5 洞：祖先 display:none 时后代的 computed display 仍是 inline/block，只有 rect 归零能证明真没渲染。
     const vis = (e) => { const c = getComputedStyle(e); if (c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return false; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
     const box = (e) => {
       const o = e.getBoundingClientRect();
@@ -67,28 +68,44 @@ async (page) => {
     themes: JSON.parse(localStorage.getItem('__p_themes') || 'null') || ['light', 'dark'],
   }));
   const { skins, themes } = cfg;
-  // 自愈：上一轮如果被超时打断，状态里会留着「今天已学」的卡。备份前先按 learnedOn 退回 unlearned 队首，
-  // 再把两个键存进兄弟键 —— 否则「还原成功」只是还原到了脏状态（本轮就踩过：restored:true 但 cards:10）。
+  // ── 数据完整性三条规则（用户 2026-11-25 拍板，别再破） ─────────────────────────
+  //  1) 答卡类测试首选「隔离」：Playwright 独立 context / storageState 注入，学习数据不落真实档案
+  //     （scripts/diff-scheduler-iso.js 那套已验证可用：新建 context → 只播种 cijian.v1 → 流程跑完 → 关掉，
+  //      真实 profile 一个字节都不动）。本脚本用的是「次选」：在真实档案上快照-还原。
+  //  2) 快照-还原必须「双键」：cijian.v1 + cijian.scheduler.v1。学习状态（cards/unlearned/days/mistakes/immediate）
+  //     全在后者；只比 cijian.v1 的 dataKept 等于没守住（v10 之前 24 次 true 就是这个坑）。
+  //  3) 还原前「自愈」保留：上一轮被超时打断会留着脏状态，直接还原备份 = 还原到脏状态（踩过：restored:true 但 cards:10）。
+  // ── 自愈顺序：① 有 __bak_* 就逐字节还原两个键（精确，能保住无法重建的滚动量）；② 没备份才按 learnedOn 计数 scrub。
+  //  ⚠️ scrub 绝不写 immediate.lastAvgLoops：全键 diff 实测 pristine = null（无历史），写成 0 等于伪造
+  //     「上次即时复习平均 0 圈」喂给自适应。这是 v10.2 从 cijian.scheduler.v1 全键 diff 里揪出的唯一残留。
   const scrub = await page.evaluate(() => {
-    const K = 'cijian.scheduler.v1';
-    const s = JSON.parse(localStorage.getItem(K) || '{}');
-    const days = s.days || {};
-    let moved = 0;
-    for (const day of Object.keys(days)) {
-      const learned = (days[day] && days[day].newLearned) || [];
-      if (!learned.length) continue;
-      s.unlearned = learned.concat(s.unlearned || []);
-      for (const w of learned) { if (s.cards && s.cards[w] && s.cards[w].learnedOn === day) { delete s.cards[w]; moved++; } }
-      days[day].newLearned = [];
-      days[day].immediate = { groups: 0, cards: 0, loops: 0, skipped: 0 };
+    const KS = ['cijian.v1', 'cijian.scheduler.v1'];
+    let mode = 'scrub';
+    if (localStorage.getItem('__bak_at') !== null && KS.every((k) => localStorage.getItem('__bak_' + k) !== null)) {
+      for (const k of KS) localStorage.setItem(k, localStorage.getItem('__bak_' + k));
+      mode = 'restore';
+    } else {
+      const K = KS[1];
+      const s = JSON.parse(localStorage.getItem(K) || '{}');
+      const days = s.days || {};
+      let moved = 0;
+      for (const day of Object.keys(days)) {
+        const learned = (days[day] && days[day].newLearned) || [];
+        if (!learned.length) continue;
+        s.unlearned = learned.concat(s.unlearned || []);
+        for (const w of learned) { if (s.cards && s.cards[w] && s.cards[w].learnedOn === day) { delete s.cards[w]; moved++; } }
+        days[day].newLearned = [];
+        days[day].immediate = { groups: 0, cards: 0, loops: 0, skipped: 0 };
+      }
+      if (s.immediate) { s.immediate.active = null; s.immediate.stats = { groups: 0, cards: 0, loops: 0, skipped: 0 }; }
+      localStorage.setItem(K, JSON.stringify(s));
     }
-    if (s.immediate) s.immediate = { pendingCount: 0, pendingWords: [], active: null, stats: { groups: 0, cards: 0, loops: 0, skipped: 0 }, lastAvgLoops: 0 };
-    localStorage.setItem(K, JSON.stringify(s));
-    return { moved, cards: Object.keys(s.cards || {}).length, unlearned: (s.unlearned || []).length };
+    const s = JSON.parse(localStorage.getItem('cijian.scheduler.v1') || '{}');
+    return { mode, cards: Object.keys(s.cards || {}).length, unlearned: (s.unlearned || []).length, lastAvgLoops: s.immediate ? s.immediate.lastAvgLoops : null };
   });
   // 关键事实：学习状态不在 cijian.v1，而在 cijian.scheduler.v1（cards / unlearned / days / mistakes）。
   // 只比对前者 = 没守住。这里一次性把两个键备份到兄弟键，每个组合跑完逐字节还原并校验。
-  await page.evaluate((ks) => { for (const k of ks) localStorage.setItem('__bak_' + k, localStorage.getItem(k)); }, KEYS);
+  await page.evaluate((ks) => { for (const k of ks) localStorage.setItem('__bak_' + k, localStorage.getItem(k)); localStorage.setItem('__bak_at', new Date().toISOString()); }, KEYS);
   await page.setViewportSize({ width: 390, height: 844 });
   for (const skin of skins) {
     for (const theme of themes) {
@@ -135,11 +152,15 @@ async (page) => {
       rows.push({ skin, theme, immOk, doneOk, restored: same, live, imm, done });
     }
   }
+  // 收尾必须删掉兄弟备份键：留着它们，下次跑测的「自愈」会把用户在这之间真实学习产生的数据当脏状态回滚掉。
+  await page.goto('http://127.0.0.1:5173/icon.svg');
+  const cleaned = await page.evaluate((ks) => { for (const k of ks) localStorage.removeItem('__bak_' + k); localStorage.removeItem('__bak_at'); return ks.every((k) => localStorage.getItem('__bak_' + k) === null) && localStorage.getItem('__bak_at') === null; }, KEYS);
   const bad = (r) => !r.immOk || !r.doneOk || !r.restored || r.live.cards !== 0 || r.live.learnedToday !== 0 || ['imm', 'done'].some((k) => r[k].ovf || r[k].nLow || r[k].nSmall || r[k].nOut || r[k].nClip || r[k].nTiny);
   const fails = rows.filter(bad);
   return {
     n: rows.length,
     scrub,
+    cleaned,
     failCount: fails.length,
     warnTiny: rows.reduce((a, r) => a + r.imm.nWarn + r.done.nWarn, 0),
     restoredAll: rows.every((r) => r.restored),

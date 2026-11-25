@@ -22,6 +22,9 @@ async (page) => {
     const rt = (a, b) => { const x = [lu(a), lu(b)].sort((p, q) => q - p); return (x[0] + .05) / (x[1] + .05); };
     const ovr = (f, b) => ({ r: f.r * f.a + b.r * (1 - f.a), g: f.g * f.a + b.g * (1 - f.a), b: f.b * f.a + b.b * (1 - f.a), a: 1 });
     const bgo = (e) => { const st = []; let n = e; while (n) { const c = pc(getComputedStyle(n).backgroundColor); if (c && c.a > 0) { st.push(c); if (c.a >= 1) break; } n = n.parentElement; } let base = pc(getComputedStyle(document.body).backgroundColor) || { r: 255, g: 255, b: 255, a: 1 }; for (let i = st.length - 1; i >= 0; i--) base = ovr(st[i], base); return base; };
+    // 探针第 5 洞（必须留着）：祖先 display:none 时后代的 computed display 仍是 inline/block，
+    // 只有 getBoundingClientRect() 归零能证明「真没渲染」。漏了这行会把隐藏节点报成违规
+    // ——instrument 首页 .topbar__meta 被 .app:has(.start){display:none} 藏了，却曾被 scan-tiny 报成 10px 硬失败。
     const vis = (e) => { const c = getComputedStyle(e); if (c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return false; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
     // 按轴求「可见盒」+ 该轴是否**真的还能滚到**。
     // v10 修正：旧写法把「祖先 overflow-x 计算值非 visible」当成可滚就豁免，

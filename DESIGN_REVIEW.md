@@ -119,9 +119,74 @@
 ### v10.1 建议修
 
 1. 首页 `.empty`（无词库）分支仍未实测——复现要把阶段切到空词池，会结算当天新词计划；建议用一次性测试档案。
-2. 即时复习 / 总结两相有了 DOM 级回归但**仍无截图**。要补图就用快照-回滚（脚本已具备），并在报告里标注「该组跑测会临时改动学习状态，已回滚」。
+2. 即时复习 / 总结两相有了 DOM 级回归但**仍无截图**。补图的正解已换成**隔离 profile**（`scripts/diff-scheduler-iso.js` 的工具序列：独立 context 里答卡，随便怎么落库都不碰真实档案），不必再做快照-回滚；真实档案上的快照-回滚降为次选，用时必须标注「该组跑测会临时改动学习状态，已回滚」。
 3. `desk` / `vinyl` 底部常驻带在日历与「我的」两屏没有 DOM 宿主——已批准用 `persistentReadouts` 开关补，**属于 commit B**，不在本次基线内。
 4. `Hint.tsx:7` 注释仍描述旧 `::after` 热区；顶栏缺 `env(safe-area-inset-top)`；broadsheet 声明 3 个字族——既有基线问题，本轮范围外。
+
+## v10.2 · 2026-11-25 · 数据事故与全键 diff 补证（与 v9 作废并列阅读）
+
+> **两条并列的"报告级"更正**：① v9 的 `nOut:0` 因探针豁免逻辑失效而作废（见 v10.1）；
+> ② **v10/v10.1 里所有 `dataKept:true` 都不构成学习数据的完整性证明**——它只比对了 `cijian.v1`，
+> 而学习状态（`cards / unlearned / days / mistakes / immediate`）全在另一个键 `cijian.scheduler.v1`（44KB）。
+> 后果：为补「即时复习 / 总结」两相 DOM 回归而答的卡，把当天 20 个新词真学掉了，而脚本一路报 `dataKept:true`。
+
+### 补证方法（不再靠读数，改成可复现实验）
+
+在**独立 browser context**（独立 profile，真实档案零接触）里只播种 `cijian.v1`，让 app 自己长出一份 pristine 学习状态，
+再重放与事故当时同样的流程（2 个 session、20 个新词、只点「认识」），拿前后两份全量 JSON 做路径级 diff。
+脚本：`scripts/diff-scheduler-iso.js`（隔离实验室 + 工具序列）、`scripts/diff-report.js`（Node 侧全键 diff / 逆操作完备性证明）。
+证据：`docs/evidence/scheduler-diff-2026-11-25.json`。
+
+### 结论一：答卡实际只碰 8 条路径（源码审计与实测双向对上）
+
+| # | 路径 | pristine → 答卡后 |
+|---|---|---|
+| 1 | `unlearned` | 3846 → 3826，**从队首取走 20 个** |
+| 2 | `cards` | 0 → +20 键（每键 15 个字段） |
+| 3 | `days[今].newLearned` | `[]` → 20 项 |
+| 4–5 | `days[今].immediate.groups / .cards` | 0 → 2 / 0 → 20 |
+| 6–7 | `immediate.stats.groups / .cards` | 0 → 2 / 0 → 20 |
+| 8 | `immediate.lastAvgLoops` | **`null` → `0`**（唯一无法重建的滚动量） |
+
+其余 12 个顶层键与当天记录另外 12 个字段（`mistakes / lifetime / doneToday / accScore / accCount / retried / relearned / archived / freqRank / currentLimit / consecutiveGoodDays / pendingLimit / lastSettlement / dueSnapshot / planSnapshot / snapshotDone / newWordLimit / settled / action / settlement / absent`）**答卡路径零写入**。
+`CardState` 真实字段是 15 个：`word phase interval due longInterval longAnchor reps lapses lastRating lastReviewed hard relearned inMistakes skippedImmediate learnedOn`——**没有 `ease` / `reviewCount` / `lastSeen`**（不是 SM-2，档位是离散 1/2/6/15 → 30/90/180/360）；首学当天 `due = 明天`，`reps/lapses = 0`，`lastRating/lastReviewed = null`。
+
+### 结论二：原逆操作不完备，差 exactly 1 项
+
+把事故当时的 scrub 原样跑在隔离副本上再与 pristine 比对：`residueCount = 1`，就是 `immediate.lastAvgLoops`——
+它把"没有即时复习历史"（`null`）伪造成"上次平均 0 圈"（`0`），而这个值会喂给自适应。
+其余部分（回插 `unlearned` 队首 / 删 `learnedOn===今` 的卡 / `newLearned` 清空 / 两处 `immediate` 计数归零）经实测是**精确逆操作**：
+`unlearned` 3846 项**逐元素与 pristine 相同**（`firstDiffAt = -1`），`days` 两条记录 diff 为 0。
+
+### 结论三：真实档案现已归位
+
+| 判据 | 结果 |
+|---|---|
+| `cijian.scheduler.v1` 与 pristine 的 SHA256 | **`B59898AC…7C7E11BB` 完全相同**（39289 字节，逐字节） |
+| 全树路径 diff / canonical JSON 相等 | 0 条 / `true` |
+| 38 条关键路径复位核对 | notPristine **0**（修之前是 2） |
+| `unlearned` 顺序逐元素比对 | identical `true` |
+| `cards / mistakes / newLearned / immediate.stats` | 0 / 0 / `[]` / 全 0；`lastAvgLoops` 已回 `null` |
+| 首页读数 | 今日 20 · 批数 04 · 已学 000 |
+| `cijian.v1` | 187 字节，只有 `profile / progress / session / custom`，与学习数据无关 |
+
+### 规则固化（已写进脚本注释，五条）
+
+1. **答卡类测试首选隔离**：独立 context / `storageState` 注入，不在真实 profile 上跑；快照-还原只是次选。
+2. **快照-还原必须双键**：`cijian.v1` + `cijian.scheduler.v1`；只比前者等于没守住。
+3. **还原前自愈保留**，且自愈顺序改为"有 `__bak_at` + 两个 `__bak_*` 就逐字节还原，没备份才按 `learnedOn` 计数 scrub"。
+4. **scrub 永不写 `immediate.lastAvgLoops`，只做删除 / 复位，不造值**：pristine 是 `null`，写 `0` 就是伪造一条
+   "上次即时复习平均 0 圈"的历史喂给自适应。一般化：**计数器型 scrub 只允许把状态移回已知集合，不得为任何字段生产新值。**
+5. **跑完必须删 `__bak_*` / `__bak_at`**（`audit-phases.js:155`）：这条比原事故更危险——它发生在"数据完整性已经修好"
+   之后的脚本里，残留的备份会让下一次"自愈"把用户在这期间**真实学习**产生的数据当脏状态回滚掉。
+   所以还原与清理是两步，缺第二步等于埋回一个更隐蔽的坑。
+
+
+### 附带：`.skin-card__tag` 语义复核（用户第 2 条决定的补充要求）
+
+逐条核对后改掉 3 条丢区分度的：`硬边·印章`→`纯白·硬边`（与 paper 的"朱砂"撞车）、
+`冷灰·磁贴`→`冷灰·青瓷`、`洋红·唱片`→`洋红·黑胶`（后两者原本在重说自己的皮肤名）。
+最终 8 条全部 4 汉字 / 13px / 单行 153px 宽，截图 `docs/screenshots/v10/v10.2-sheet-light-390.png`。
 
 ## v9 · 2026-11-25 · 三版结构级重做（desk 案头 / deck 叠章 / vinyl 唱盘）〔**已作废**：出列判据当时被探针的豁免逻辑整体关掉，`nOut:0` 不可信；`deck` 亦已按用户选择作废〕
 

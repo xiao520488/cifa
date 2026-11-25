@@ -1,0 +1,170 @@
+{
+ "day": "2026-11-25",
+ "I_wholeTreeRealVsPristine": {
+  "count": 0,
+  "list": [],
+  "canonEqual": true,
+  "rawEqual": true
+ },
+ "bytes": {
+  "real": 39289,
+  "isoBase": 39289,
+  "isoAfter": 44708
+ },
+ "A_touchedFields": {
+  "count": 8,
+  "list": [
+   {
+    "path": "unlearned",
+    "kind": "array",
+    "lenA": 3846,
+    "lenB": 3826,
+    "removed": 20,
+    "added": 0,
+    "removedSample": [
+     "government",
+     "system",
+     "state"
+    ],
+    "addedSample": []
+   },
+   {
+    "path": "cards",
+    "kind": "keys",
+    "removedKeys": 0,
+    "addedKeys": 20,
+    "removedSample": [],
+    "addedSample": [
+     "government",
+     "system",
+     "state"
+    ]
+   },
+   {
+    "path": "days.2026-11-25.newLearned",
+    "kind": "array",
+    "lenA": 0,
+    "lenB": 20,
+    "removed": 0,
+    "added": 20,
+    "removedSample": [],
+    "addedSample": [
+     "government",
+     "system",
+     "state"
+    ]
+   },
+   {
+    "path": "days.2026-11-25.immediate.groups",
+    "kind": "value",
+    "from": "0",
+    "to": "2"
+   },
+   {
+    "path": "days.2026-11-25.immediate.cards",
+    "kind": "value",
+    "from": "0",
+    "to": "20"
+   },
+   {
+    "path": "immediate.stats.groups",
+    "kind": "value",
+    "from": "0",
+    "to": "2"
+   },
+   {
+    "path": "immediate.stats.cards",
+    "kind": "value",
+    "from": "0",
+    "to": "20"
+   },
+   {
+    "path": "immediate.lastAvgLoops",
+    "kind": "value",
+    "from": "null",
+    "to": "0"
+   }
+  ]
+ },
+ "B_sampleCard": {
+  "word": "government",
+  "fieldCount": 15,
+  "card": {
+   "word": "government",
+   "phase": "short",
+   "interval": 1,
+   "due": "2026-11-26",
+   "longInterval": null,
+   "longAnchor": null,
+   "reps": 0,
+   "lapses": 0,
+   "lastRating": null,
+   "lastReviewed": null,
+   "hard": false,
+   "relearned": false,
+   "inMistakes": false,
+   "skippedImmediate": false,
+   "learnedOn": "2026-11-25"
+  },
+  "pristineHasWord": false
+ },
+ "C_inverseProof": {
+  "ops": {
+   "movedWords": 20,
+   "cardsBefore": 20,
+   "cardsAfter": 0
+  },
+  "residueCount": 1,
+  "residue": [
+   {
+    "path": "immediate.lastAvgLoops",
+    "kind": "value",
+    "from": "null",
+    "to": "0"
+   }
+  ],
+  "canonEqual": false
+ },
+ "D_realReset": {
+  "total": 38,
+  "notPristineCount": 0,
+  "bad": []
+ },
+ "F_unlearnedOrder": {
+  "isoLen": 3846,
+  "realLen": 3846,
+  "identical": true,
+  "firstDiffAt": -1,
+  "sample": null
+ },
+ "G_days": {
+  "isoDays": [
+   "2026-11-24",
+   "2026-11-25"
+  ],
+  "realDays": [
+   "2026-11-24",
+   "2026-11-25"
+  ],
+  "onlyInRealHistory": [],
+  "commonDayDiffCount": 0,
+  "commonDayDiffs": []
+ },
+ "H_profile": {
+  "v": 1,
+  "profile": {
+   "name": "",
+   "stage": "cet4",
+   "batchSize": 5,
+   "meaningMode": "auto",
+   "theme": "light",
+   "skin": "paper"
+  },
+  "progress": {},
+  "session": {
+   "hideMeaning": false,
+   "hideWord": false
+  },
+  "custom": null
+ }
+}

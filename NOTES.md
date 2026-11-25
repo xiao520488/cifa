@@ -68,6 +68,62 @@
   即时复习是**每 10 个一组**，组清空会退回 list 相位读下一批 → 两种推进键都要戳。
 - **状态**：commit A 落这批；commit B（`persistentReadouts` 补 desk/vinyl 两屏常驻带）待做。浏览器已复原 `paper / 浅色`，临时键 `__bak_* / __p_*` 已删；截图 69 张在 `docs/screenshots/v10/`（48 张本轮重拍）。
 
+## 2026-11-25 · commit A 已落 `af21e28`；用户追加：数据事故要补全键 diff（先给结果再开 commit B）
+
+- **commit A = `af21e28`**（221 文件，message 五条 + 证据链）。HEAD 之前是 `18541cb`。
+- **数据事故升级为用户的硬要求**：`cijian.scheduler.v1` 才是学习状态宿主，所以之前 24 次 `dataKept:true` 只证明皮肤/主题没变。
+  1. **这条要写进 DESIGN_REVIEW，和 v9 报告作废并列**（不是脚注）。
+  2. 回滚证据不能只看四个读数（cards / unlearned / mistakes / 首页）。要补：有完整快照就逐字节 diff；
+     **没有完整快照就做字段级 diff**，把那 20 张卡碰过的字段逐项列出并确认复位——用户点名 `learnedOn / interval / ease / lastSeen / reviewCount`，
+     但「包括但不限于」，所以要从引擎源码里枚举 `answer()` / `answerImmediate()` 到底改哪些字段，再逐个核对当前值。
+  3. **diff 结果先交给用户，才允许开 commit B。**
+- **三条规则固化进脚本注释**：① 答卡类测试首选**隔离**（Playwright `storageState` 注入或独立 profile），快照-还原是次选；
+  ② 快照-还原必须**双键**（`cijian.v1` + `cijian.scheduler.v1`）；③ **还原前自愈 scrub 保留**，防超时打断后「还原到脏状态」。
+- **② tagline 四字格要复核语义**：别为凑四字丢区分度，逐条确认 + 截图确认后才算定稿。
+- **commit B 先写规约给用户过目，规约没点头不准动 DOM。** 七项必须覆盖：
+  ① 开关形态（`persistentReadouts: true` 放 skin 配置还是组件级判断，给类型定义 + 8 套取值表）；
+  ② 渲染边界（日历屏读日历数据、我的屏读统计，复用首页 `.readouts` 组件，写清 props 契约与数据源，**禁止皮肤 CSS 造数**）；
+  ③ DOM 插入点（`.app__main` 内底部固定还是布局层；确认不破坏现有 snap、不触发新出列裁切）；
+  ④ 360 降级（单行紧凑态在皮肤 CSS 显式写，给断点 + 降级后触控盒尺寸）；
+  ⑤ 回归矩阵（日历 × 我的 × 8 皮肤 × 明暗，覆盖溢出/真实底色对比/触控盒/出列裁切/snap 内衬/**nOutY**；两相 DOM 检查照旧）；
+  ⑥ 数据隔离（这次不答卡，脚本仍走双键快照-还原防意外）；
+  ⑦ 回滚粒度（commit B 单独可 revert，不依赖 commit A 未提交改动）。
+- **另外记下**：Vite 会漏 `edit` 工具的写入（复测前先 touch）；探针「祖先 `display:none` 的后代仍算可见」这个假阳性要写进探针注释。
+- **全键 diff 已做完（用户要求的 gate）**：隔离 context 里重放同一流程拿到权威答案 —— 答 20 个新词**只碰 8 条路径**
+  （`unlearned` 队首 −20 / `cards` +20 键 / `days[今].newLearned` +20 / `days[今].immediate.groups|.cards` 0→2/20 /
+  `immediate.stats.groups|.cards` 0→2/20 / **`immediate.lastAvgLoops` null→0**）。其余 12 个顶层键 + 当天记录另外 12 个字段零写入。
+  `CardState` 是 15 个字段，**没有 ease / reviewCount / lastSeen**（不是 SM-2，离散档位 1/2/6/15→30/90/180/360）。
+- **逆操作完备性：residue = 1**，就是 `lastAvgLoops` —— scrub 把它写成 0 = 伪造「上次即时复习平均 0 圈」喂给自适应。
+  真实档案已归位：`cijian.scheduler.v1` 与 pristine **SHA256 逐字节相同**（`B59898AC…7C7E11BB`，39289 字节），
+  全树 diff 0 条、38 条关键路径 notPristine 0、`unlearned` 3846 项逐元素 identical、`days` 两条记录 diff 0。证据 `docs/evidence/scheduler-diff-2026-11-25.json`。
+- **脚本硬化**：`audit-phases.js` 自愈改成「有 `__bak_at` 就逐字节还原，没备份才计数 scrub」，scrub 不再写 `lastAvgLoops`，
+  跑完必须删 `__bak_*`（否则下次「自愈」会把用户这期间真实学习的数据当脏状态回滚掉——这个坑比原事故更隐蔽）。
+- **commit B 规约已写**：`docs/COMMIT_B_SPEC.md`（581 行，七项齐）。两个硬发现：
+  ① 首页 `.readouts` 带 `aria-hidden="true"`（`StudyScreen.tsx:78`）→ `audit-screens.js:51` 整棵子树跳过，**新带子必须在独立断言脚本里显式探针**；
+  ② `audit-screens.js:159` 的 `bad()` 不含 `nOutY`（v10.1 加了指标却没进门禁）→ 按纪律另立 commit，不许夹带进 B。
+- **② tagline 语义复核**：改掉 3 条丢区分度的（`硬边·印章`→`纯白·硬边` 撞 paper 的朱砂；`冷灰·磁贴`、`洋红·唱片` 原本在重说自己的皮肤名 → `冷灰·青瓷`、`洋红·黑胶`）。
+  8 条全部 4 汉字 / 13px / 单行 153px，截图 `docs/screenshots/v10/v10.2-sheet-light-390.png`。
+- **当前状态**：工作树有 v10.2 这批未提交改动（`DESIGN_REVIEW` / `NOTES` / `audit-phases` / `audit-screens` 注释 / `skins.ts` tagline / 两个新脚本 / 证据 + 截图）；
+  浏览器 `paper/浅色`，学习数据 = pristine（逐字节），隔离 tab 已关。下一步等用户拍板规约 6 项 + 决定这批是否先单独落一个 commit。
+
+
+## 2026-11-25 · v10.2 gate 通过 + 六项拍板全按推荐 + 三 commit 序列（用户定稿）
+
+- **数据事故 gate 已过**：独立 context 重放 + 路径级 diff + SHA256 逐字节相同，用户接受；`lastAvgLoops`（null→0 伪造历史喂自适应）算关键发现。
+- **两条规则写死（用户原话）**：① **scrub 永不写 `lastAvgLoops`，只做删除/复位，不造值**；
+  ② **跑完必须删 `__bak_*`**——用户认同「这条比原事故更危险，因为它发生在已修好数据完整性之后的脚本里」。两条都要进脚本注释 **和 DESIGN_REVIEW**。
+- **tagline 定稿**：`纯白·硬边` / `冷灰·青瓷` / `洋红·黑胶` 三条改法接受，8 条全 4 汉字 13px 单行 153px。
+- **commit B 规约七项接受**，六项拍板**全部按推荐**：cal/me 用首页同三项（今日/批数/已学）；App 传 `items` 数组（`ReactNode` 槽位不可审计，否掉）；
+  360 断点 `max-width:389px`；**desk 首页手机档本次不动，「首页无带、日历有带」的不对称作为已知代价写进规约备注，要修另立 issue**；
+  带子禁止可点；真值表走新独立脚本 + 手抄常量 + `SKINS.length===8` 兜底。
+- **两条硬性完成条件（不做不算完成）**：① `.readouts` 带 `aria-hidden="true"` 是既有探针盲区（`audit-screens.js:51` 整棵子树跳过），
+  **独立断言脚本必须显式把带子探针进去**；② 「带内零交互元素所以 44px 门禁豁免」这个理由**必须显式写在断言脚本里**，不许默默放过。
+- **提交序列（用户定）**：`fix(data): 全键 diff 补证 + lastAvgLoops 残留归位 + 答卡测试改走隔离 profile`（v10.2，不含 nOutY）
+  → `fix(audit): bad() 纳入 nOutY 门禁`（单独小 commit）→ commit B（只含 persistentReadouts + Readouts.tsx + desk/vinyl 两屏带 + 断言脚本 + 回归矩阵）。三个各自可 revert。
+- **落 v10.2 前的自检**：`__bak_*` 删除规则、scrub 不写 `lastAvgLoops`、双键快照-还原、隔离 profile 四条都在脚本注释里 + 工作树确认后再落。
+
+
+
 ## 2026-11-25 · v9 三版结构级重做（desk / deck / vinyl）交付，五条 CSS 陷阱记牢
 
 - **产出**：新增 `src/styles/skins/{desk,deck,vinyl}.css`（案头＝768 真侧栏；叠章＝sticky 压栈遮挡；唱盘＝横向唱片轮 + 底部常驻读数带）；
