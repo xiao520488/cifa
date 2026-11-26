@@ -1,0 +1,79 @@
+{
+  "feature": "正式复习回队尾（REVIEW_REQUEUE_SPEC v2）",
+  "date": "2026-11-26",
+  "baselineCommit": "48b87e3",
+  "spec": "docs/REVIEW_REQUEUE_SPEC.md",
+  "scope": "仅 src/components/SessionScreen.tsx；engine/cards/plan/storage/types/backup 零改动",
+  "isolation": "headless chromium 独立 context（run-audit-node.js）；真实浏览器档案未参与，未打开 5173 的真实 profile",
+  "command": "node run-audit-node.js D:\\背单词\\scripts\\audit-requeue.js D:\\背单词\\scripts\\cfg-requeue.json",
+  "unitTests": {
+    "runner": "node scripts/test-scheduler.ts",
+    "assertions": 489,
+    "failed": 0,
+    "newSection": "§14 回队尾（12 组，覆盖 §9.1 的 14.1–14.12）"
+  },
+  "tsc": "0 errors",
+  "build": "vite build ok（878ms，仅 chunk 体积 warning）",
+  "run": {
+    "ok": true,
+    "ms": 2235,
+    "today": "2026-11-26",
+    "words": { "w1": "government", "w2": "system", "w3": "state" },
+    "fixture": {
+      "w1": "短期 1 天档，due = 今天",
+      "w2": "短期 6 天档，due = 今天",
+      "w3": "短期 1 天档，due = 今天-3（逾期 3 天）"
+    },
+    "seen": ["government", "system", "government", "system", "system", "state", "state"],
+    "expectedSeen": ["w1", "w2", "w1", "w2", "w2", "w3", "w3"],
+    "hashes": {
+      "before": "4B70AB8558838E5DCB61A8EEF05B1B220E9348A6E04C237E842330B8950617C5",
+      "afterRun": "D415468D931638EF2449C2CC266901B008D2D45D9F69738A98F1AFF798236678",
+      "restored": "4B70AB8558838E5DCB61A8EEF05B1B220E9348A6E04C237E842330B8950617C5"
+    },
+    "hashConvention": "回看合法改 DayRecord.retried，故 afterRun != before 是预期；判据是 restored == before",
+    "data": {
+      "w1": { "interval": 1, "due": "2026-11-27", "lapses": 1, "lastRating": "unknown", "inMistakes": true },
+      "w2": { "interval": 2, "due": "2026-11-28", "lapses": 0, "lastRating": "fuzzy" },
+      "w3": { "interval": 1, "due": "2026-11-27", "lapses": 1 },
+      "acc": { "score": 0.5, "count": 3, "retried": 4 },
+      "dueSnapshot": 2,
+      "doneToday": 2,
+      "mistakes": {
+        "government": { "count": 1, "source": "review" },
+        "state": { "count": 1, "source": "review" }
+      }
+    }
+  },
+  "assertions": [
+    { "id": "order", "claim": "w1 第 2 次出现排在逾期词 w3 之前（D3：回看带在逾期池之前）", "pass": true },
+    { "id": "silence", "claim": "7 次作答（含 4 次回看）全程 .session-toast 为 null（D4）", "pass": true },
+    { "id": "dom-identical", "claim": "w1 第 2 次出现时 .flash-card outerHTML 与首次逐字节相同", "pass": true },
+    { "id": "limit", "claim": "w2 恰好出现 3 次，第 3 次后静默出队", "pass": true },
+    { "id": "overdue-immediate", "claim": "w3（逾期）答错后下一个仍是 w3（§8.10）", "pass": true },
+    { "id": "schedule-unknown", "claim": "w1 停在首次不认识：interval 1 / due +1d / lapses 1 / reps 1 / inMistakes true", "pass": true },
+    { "id": "schedule-fuzzy", "claim": "w2 停在首次模糊：6→2 档 / due +2d / lapses 0 / lastRating fuzzy", "pass": true },
+    { "id": "accuracy", "claim": "accCount 3（只认首次）、accScore 0.5（0 + 0.5 + 0）", "pass": true },
+    { "id": "no-write", "claim": "dueSnapshot 2、doneToday 2、retried 4（4 次回看各 +1）", "pass": true },
+    { "id": "mistakes", "claim": "w1 与 w3 在册各 1 次（source review），w2（模糊）不在册", "pass": true },
+    { "id": "prefs-untouched", "claim": "cijian.v1 跑前跑后字节相同", "pass": true },
+    { "id": "restore", "claim": "逐字节还原后调度键 SHA256 == 跑前", "pass": true },
+    { "id": "no-residue", "claim": "无 __bak_* / __p_* 残留", "pass": true }
+  ],
+  "selfcheck": {
+    "cfg": "{ \"__audit_selfcheck\": \"1\" }",
+    "exitCode": 1,
+    "error": "回队尾 E2E 1 项失败：w1 应停在首次「不认识」的排程 :: {\"interval\":1,\"due\":\"2026-11-27\",\"lapses\":1,\"expectLapses\":0}",
+    "verdict": "量具自证伪成立：故意写错的期望值让脚本以退出码 1 失败"
+  },
+  "consoleErrors": {
+    "count": 1,
+    "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "pageResponsesAtOrAbove400": [],
+    "verdict": "页面级响应无 ≥400（badResponses 为空），判定为浏览器自动请求（favicon 一类），与本次改动无关，未影响任何断言"
+  },
+  "findings": [
+    "warm-up 已给「今天」拍过计划快照（snapshotDone:true + 空 dueSnapshot）。注入卡片前不删 days[today]，dueSnapshot 会永远为空、完成率分母恒为 0——第一次跑 E2E 就是因此报「dueSnapshot=0」。修法：注入前 delete state.days[today]。已写进规约 §9.3。",
+    "逾期词不进 dueSnapshot / doneToday：完成率分母只认 due===today 的短期批次（规约 §9.2 已按此修正，原写 3/3 是错的）。"
+  ]
+}
