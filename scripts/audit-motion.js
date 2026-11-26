@@ -169,6 +169,40 @@ async (page) => {
     return { pressed, up, msDown, trace };
   };
 
+  /* __audit_only：只跑指定组 —— 改一处动效时省一轮全量（v13 起，AGENTS.md 强制）。
+     例：cfg 里 {"__audit_only":"G3"} / {"__audit_only":"G1,G3"}；空或缺失 = 全跑。
+     组名：G1 页面转场 · G2 主题过渡 · G3 数字滚动 · press 按压 · shake 抖动 ·
+           toast 提示 · reduce 减弱动效 · contrast 按压对比度。
+     **子集跑不是发布门**：commit 前必须全量一次，fails 必须为空。 */
+  const groupsOnly = await page
+    .evaluate(() => {
+      try {
+        return localStorage.getItem('__audit_only') || '';
+      } catch (e) {
+        return '';
+      }
+    })
+    .then((s) =>
+      String(s)
+        .split(',')
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean),
+    );
+  const ALL_GROUPS = ['g1', 'g2', 'g3', 'press', 'shake', 'toast', 'reduce', 'contrast'];
+  /* 自证伪：写错组名必须当场炸，绝不能「一个组都没跑 → 零失败 → 绿灯」 */
+  const unknownGroups = groupsOnly.filter((g) => !ALL_GROUPS.includes(g));
+  if (unknownGroups.length > 0) {
+    const err = new Error(
+      `__audit_only 里有不认识的组名：${unknownGroups.join(', ')}（可用：${ALL_GROUPS.join(', ')}）`,
+    );
+    err.detail = { unknownGroups, groupsOnly };
+    throw err;
+  }
+  const want = (id) => groupsOnly.length === 0 || groupsOnly.includes(id.toLowerCase());
+  const RAN = ['G1', 'G2', 'G3', 'press', 'shake', 'toast', 'reduce', 'contrast'].filter(want);
+  const partial = RAN.length < 8;
+  if (partial) console.log(`[audit_only] 只跑 ${RAN.join(', ')} —— 子集跑不是发布门`);
+
   /* ================= 0. v2 页面转场（docs/MOTION_SPEC.md §13.7 G1）=================
      只动进入屏：四个屏是条件渲染，换屏 = 旧屏整棵卸载，所以「退出不动」是结构给的。
      断的是：DOM 里只有一个 .screen、进入屏在跑 screen-in / 0.35s、位移从 8px 收到 0、
@@ -195,127 +229,128 @@ async (page) => {
     await page.waitForTimeout(120);
   };
 
-  /** 点一个导航键，并从同一帧开始录 500ms。kind: 'cal' | 'me' | 'mistakes' | 'back' */
-  const goTo = (kind) =>
-    page.evaluate(
-      (k) =>
-        new Promise((resolve) => {
-          document.querySelectorAll('.app > .topbar, .app > main.app__main').forEach((el) => {
-            el.dataset.old = '1';
-          });
-          const pick = () => {
-            if (k === 'cal') return document.querySelector('.icon-btn[aria-label="打开学习日历"]');
-            if (k === 'me') return document.querySelector('.avatar-btn[aria-label="打开我的"]');
-            if (k === 'mistakes') {
-              const row = [...document.querySelectorAll('.setting-row')].find((r) =>
-                r.textContent.includes('错词本'),
-              );
-              return row ? row.querySelector('button') : null;
-            }
-            return document.querySelector(
-              '.icon-btn[aria-label="返回"], .icon-btn[aria-label="返回背单词"]',
-            );
-          };
-          const btn = pick();
-          if (!btn) {
-            resolve({ error: 'nav-not-found:' + k });
-            return;
-          }
-          btn.click();
-          const t0 = performance.now();
-          const out = [];
-          const cs = (s) => {
-            const el = document.querySelector('.app > ' + s);
-            return el ? getComputedStyle(el) : null;
-          };
-          const tick = () => {
-            const tb = cs('.topbar');
-            const mn = cs('main.app__main');
-            const rd = cs('.readouts');
-            out.push({
-              at: Math.round(performance.now() - t0),
-              nScreen: document.querySelectorAll('.screen').length,
-              tbAnim: tb ? tb.animationName : null,
-              tbDur: tb ? tb.animationDuration : null,
-              tbTf: tb ? tb.transform : null,
-              tbOp: tb ? Number(tb.opacity) : null,
-              mnOp: mn ? Number(mn.opacity) : null,
-              rdAnim: rd ? rd.animationName : null,
-              oldLeft: document.querySelectorAll('[data-old]').length,
+  if (want('G1')) {
+    /** 点一个导航键，并从同一帧开始录 500ms。kind: 'cal' | 'me' | 'mistakes' | 'back' */
+    const goTo = (kind) =>
+      page.evaluate(
+        (k) =>
+          new Promise((resolve) => {
+            document.querySelectorAll('.app > .topbar, .app > main.app__main').forEach((el) => {
+              el.dataset.old = '1';
             });
-            if (performance.now() - t0 < 500) requestAnimationFrame(tick);
-            else resolve(out);
-          };
-          tick();
-        }),
-      kind,
-    );
+            const pick = () => {
+              if (k === 'cal') return document.querySelector('.icon-btn[aria-label="打开学习日历"]');
+              if (k === 'me') return document.querySelector('.avatar-btn[aria-label="打开我的"]');
+              if (k === 'mistakes') {
+                const row = [...document.querySelectorAll('.setting-row')].find((r) =>
+                  r.textContent.includes('错词本'),
+                );
+                return row ? row.querySelector('button') : null;
+              }
+              return document.querySelector(
+                '.icon-btn[aria-label="返回"], .icon-btn[aria-label="返回背单词"]',
+              );
+            };
+            const btn = pick();
+            if (!btn) {
+              resolve({ error: 'nav-not-found:' + k });
+              return;
+            }
+            btn.click();
+            const t0 = performance.now();
+            const out = [];
+            const cs = (s) => {
+              const el = document.querySelector('.app > ' + s);
+              return el ? getComputedStyle(el) : null;
+            };
+            const tick = () => {
+              const tb = cs('.topbar');
+              const mn = cs('main.app__main');
+              const rd = cs('.readouts');
+              out.push({
+                at: Math.round(performance.now() - t0),
+                nScreen: document.querySelectorAll('.screen').length,
+                tbAnim: tb ? tb.animationName : null,
+                tbDur: tb ? tb.animationDuration : null,
+                tbTf: tb ? tb.transform : null,
+                tbOp: tb ? Number(tb.opacity) : null,
+                mnOp: mn ? Number(mn.opacity) : null,
+                rdAnim: rd ? rd.animationName : null,
+                oldLeft: document.querySelectorAll('[data-old]').length,
+              });
+              if (performance.now() - t0 < 500) requestAnimationFrame(tick);
+              else resolve(out);
+            };
+            tick();
+          }),
+        kind,
+      );
 
-  const judgeEnter = (label, frames, opts) => {
-    const reduced = !!(opts && opts.reduced);
-    if (!frames || frames.error) {
-      fail(`${label}：找不到入口（${frames && frames.error}）`);
-      return null;
-    }
-    /* 点击是程序化的（不受信事件），React 会把这次更新排到微任务，DOM 可能晚一帧才提交。
-       所以「提交前」的帧（旧节点还在）不能拿来判动画 —— 从「旧节点已消失」的第一帧开始算。
-       反过来说，如果一直没消失，说明旧屏真的没被卸载，下面照样会红。 */
-    const live = frames.filter((f) => f.oldLeft === 0);
-    if (live.length === 0) {
-      fail(`${label}：旧屏节点一直没被卸载（还有退出动画在跑）`, frames[frames.length - 1]);
-      return null;
-    }
-    const first = live[0];
-    const last = live[live.length - 1];
-    const tys = live.map((f) => tyOf(f.tbTf));
-    const ops = live.map((f) => f.tbOp);
-    const maxTy = Math.max(...tys.map((v) => Math.abs(v)));
+    const judgeEnter = (label, frames, opts) => {
+      const reduced = !!(opts && opts.reduced);
+      if (!frames || frames.error) {
+        fail(`${label}：找不到入口（${frames && frames.error}）`);
+        return null;
+      }
+      /* 点击是程序化的（不受信事件），React 会把这次更新排到微任务，DOM 可能晚一帧才提交。
+         所以「提交前」的帧（旧节点还在）不能拿来判动画 —— 从「旧节点已消失」的第一帧开始算。
+         反过来说，如果一直没消失，说明旧屏真的没被卸载，下面照样会红。 */
+      const live = frames.filter((f) => f.oldLeft === 0);
+      if (live.length === 0) {
+        fail(`${label}：旧屏节点一直没被卸载（还有退出动画在跑）`, frames[frames.length - 1]);
+        return null;
+      }
+      const first = live[0];
+      const last = live[live.length - 1];
+      const tys = live.map((f) => tyOf(f.tbTf));
+      const ops = live.map((f) => f.tbOp);
+      const maxTy = Math.max(...tys.map((v) => Math.abs(v)));
 
-    if (live.some((f) => f.nScreen !== 1)) {
-      fail(`${label}：换屏瞬间 DOM 里不止一个 .screen`, live.map((f) => f.nScreen));
-    }
-    if (first.tbAnim !== 'screen-in') fail(`${label}：进入屏没在跑 screen-in`, first.tbAnim);
-    if (first.tbDur !== '0.35s') fail(`${label}：转场不是 350ms`, first.tbDur);
-    if (!ops.some((o) => o !== null && o < 0.9)) {
-      fail(`${label}：没采到淡入过程（首帧 opacity 就已经是 1？）`, ops.slice(0, 4));
-    }
-    if (reduced && maxTy > 0.6) fail(`${label}：减弱动效下仍有位移`, maxTy);
-    if (!reduced && !(maxTy > 2)) fail(`${label}：没有位移（--screen-shift 没接上？）`, maxTy);
-    const maxIdx = tys.findIndex((v) => Math.abs(v) === maxTy);
-    if (!reduced && !(tys[maxIdx] > tys[tys.length - 1] + 0.5)) {
-      fail(`${label}：位移没有随时间收敛`, tys.slice(0, 6));
-    }
-    if (last.tbTf !== 'none') {
-      fail(`${label}：500ms 后 transform 还不是 none（fill-mode 写成 both 了？）`, last.tbTf);
-    }
-    return {
-      maxTy: Math.round(maxTy * 100) / 100,
-      preCommit: frames.length - live.length,
-      firstAt: first.at,
-      lastAt: last.at,
-      n: live.length,
-    };
-  };
-
-  const gapColor = () =>
-    page.evaluate(() => {
-      const app = document.querySelector('.app');
-      const tb = document.querySelector('.app > .topbar');
+      if (live.some((f) => f.nScreen !== 1)) {
+        fail(`${label}：换屏瞬间 DOM 里不止一个 .screen`, live.map((f) => f.nScreen));
+      }
+      if (first.tbAnim !== 'screen-in') fail(`${label}：进入屏没在跑 screen-in`, first.tbAnim);
+      if (first.tbDur !== '0.35s') fail(`${label}：转场不是 350ms`, first.tbDur);
+      if (!ops.some((o) => o !== null && o < 0.9)) {
+        fail(`${label}：没采到淡入过程（首帧 opacity 就已经是 1？）`, ops.slice(0, 4));
+      }
+      if (reduced && maxTy > 0.6) fail(`${label}：减弱动效下仍有位移`, maxTy);
+      if (!reduced && !(maxTy > 2)) fail(`${label}：没有位移（--screen-shift 没接上？）`, maxTy);
+      const maxIdx = tys.findIndex((v) => Math.abs(v) === maxTy);
+      if (!reduced && !(tys[maxIdx] > tys[tys.length - 1] + 0.5)) {
+        fail(`${label}：位移没有随时间收敛`, tys.slice(0, 6));
+      }
+      if (last.tbTf !== 'none') {
+        fail(`${label}：500ms 后 transform 还不是 none（fill-mode 写成 both 了？）`, last.tbTf);
+      }
       return {
-        app: getComputedStyle(app).backgroundColor,
-        topbar: tb ? getComputedStyle(tb).backgroundColor : null,
+        maxTy: Math.round(maxTy * 100) / 100,
+        preCommit: frames.length - live.length,
+        firstAt: first.at,
+        lastAt: last.at,
+        n: live.length,
       };
-    });
+    };
 
-  await gotoHome('paper', 'light');
-  const enterRows = [];
-  enterRows.push({ to: 'calendar', ...judgeEnter('study→日历', await goTo('cal')) });
-  enterRows.push({ to: 'me', ...judgeEnter('日历→我的', await goTo('me')) });
-  enterRows.push({ to: 'mistakes', ...judgeEnter('我的→错词本', await goTo('mistakes')) });
-  const backFrames = await goTo('back');
-  enterRows.push({ to: 'study', ...judgeEnter('错词本→学习', backFrames) });
-  if (!backFrames.some((f) => f.rdAnim === 'screen-in')) {
-    fail('回到首页时 .readouts 没有参与转场', backFrames.map((f) => f.rdAnim).slice(0, 4));
+    const gapColor = () =>
+      page.evaluate(() => {
+        const app = document.querySelector('.app');
+        const tb = document.querySelector('.app > .topbar');
+        return {
+          app: getComputedStyle(app).backgroundColor,
+          topbar: tb ? getComputedStyle(tb).backgroundColor : null,
+        };
+      });
+
+    await gotoHome('paper', 'light');
+    const enterRows = [];
+    enterRows.push({ to: 'calendar', ...judgeEnter('study→日历', await goTo('cal')) });
+    enterRows.push({ to: 'me', ...judgeEnter('日历→我的', await goTo('me')) });
+    enterRows.push({ to: 'mistakes', ...judgeEnter('我的→错词本', await goTo('mistakes')) });
+    const backFrames = await goTo('back');
+    enterRows.push({ to: 'study', ...judgeEnter('错词本→学习', backFrames) });
+    if (!backFrames.some((f) => f.rdAnim === 'screen-in')) {
+      fail('回到首页时 .readouts 没有参与转场', backFrames.map((f) => f.rdAnim).slice(0, 4));
   }
 
   /* 自证伪：把 --screen-shift 临时归零，同一个探针必须测到位移变 0 —— 红不了就是探针坏了 */
@@ -380,6 +415,7 @@ async (page) => {
     }
   }
   notes.enterSkins = enterSkinRows;
+  }
 
   /* ================= 0b. v2 主题 / 皮肤切换过渡（docs/MOTION_SPEC.md §13.7 G2）=====
      四条判据：
@@ -390,203 +426,204 @@ async (page) => {
      ④ 减弱动效两条都测：JS 跳过（类一次都不出现 + 背景瞬切）、CSS 反制（强制加类后时长必须归零）。
      另加自证伪：人为挂一个 CSS 不认识的旧类名，320ms 后它必须还在（否则「类消失」这条是自欺）。 */
 
-  const STYLE_SELS = ['.app', '.topbar', '.screen', '.readout', '.btn', '.start'];
+  if (want('G2')) {
+    const STYLE_SELS = ['.app', '.topbar', '.screen', '.readout', '.btn', '.start'];
 
-  const styleSnap = () =>
-    page.evaluate((sels) => {
-      const nodes = {};
-      for (const s of sels) {
-        const el = document.querySelector(s);
-        if (!el) continue;
-        const cs = getComputedStyle(el);
-        nodes[s] = { prop: cs.transitionProperty, dur: cs.transitionDuration };
-      }
-      return {
-        cls: document.documentElement.className,
-        nodes,
-        appBg: getComputedStyle(document.querySelector('.app')).backgroundColor,
-      };
-    }, STYLE_SELS);
-
-  /** 全站扫一遍 transition-property 里有没有 all **并且真的在跑**（duration > 0） */
-  const scanAllTransition = () =>
-    page.evaluate(() => {
-      const bad = [];
-      for (const el of document.querySelectorAll('*')) {
-        const cs = getComputedStyle(el);
-        const p = cs.transitionProperty;
-        if (!p.split(',').some((x) => x.trim() === 'all')) continue;
-        // Chromium 里 transition-property 的初始值就是 all，duration 为 0 时什么都不会动；
-        // 只认「all + 非零时长」才是真的违规。
-        const running = cs.transitionDuration
-          .split(',')
-          .some((d) => parseFloat(d) > 0);
-        if (running) {
-          bad.push(el.tagName + '.' + String(el.className).slice(0, 24) + ' :: ' + cs.transitionDuration);
-          if (bad.length > 5) break;
+    const styleSnap = () =>
+      page.evaluate((sels) => {
+        const nodes = {};
+        for (const s of sels) {
+          const el = document.querySelector(s);
+          if (!el) continue;
+          const cs = getComputedStyle(el);
+          nodes[s] = { prop: cs.transitionProperty, dur: cs.transitionDuration };
         }
-      }
-      return bad;
-    });
+        return {
+          cls: document.documentElement.className,
+          nodes,
+          appBg: getComputedStyle(document.querySelector('.app')).backgroundColor,
+        };
+      }, STYLE_SELS);
 
-  /** 点一个 CSS 选择器指向的元素，并从同一帧开始录 380ms（类 + 六节点样式 + .app 底色） */
-  const clickAndRecord = (selector) =>
-    page.evaluate(
-      (sel) =>
-        new Promise((resolve) => {
-          const btn = document.querySelector(sel);
-          if (!btn) {
-            resolve({ error: 'no-element:' + sel });
-            return;
+    /** 全站扫一遍 transition-property 里有没有 all **并且真的在跑**（duration > 0） */
+    const scanAllTransition = () =>
+      page.evaluate(() => {
+        const bad = [];
+        for (const el of document.querySelectorAll('*')) {
+          const cs = getComputedStyle(el);
+          const p = cs.transitionProperty;
+          if (!p.split(',').some((x) => x.trim() === 'all')) continue;
+          // Chromium 里 transition-property 的初始值就是 all，duration 为 0 时什么都不会动；
+          // 只认「all + 非零时长」才是真的违规。
+          const running = cs.transitionDuration
+            .split(',')
+            .some((d) => parseFloat(d) > 0);
+          if (running) {
+            bad.push(el.tagName + '.' + String(el.className).slice(0, 24) + ' :: ' + cs.transitionDuration);
+            if (bad.length > 5) break;
           }
-          btn.click();
-          const t0 = performance.now();
-          const frames = [];
-          const tick = () => {
-            const app = document.querySelector('.app');
-            const nodes = {};
-            for (const s of ['.app', '.topbar', '.screen', '.readout', '.btn', '.start']) {
-              const el = document.querySelector(s);
-              if (!el) continue;
-              const cs = getComputedStyle(el);
-              nodes[s] = { prop: cs.transitionProperty, dur: cs.transitionDuration };
+        }
+        return bad;
+      });
+
+    /** 点一个 CSS 选择器指向的元素，并从同一帧开始录 380ms（类 + 六节点样式 + .app 底色） */
+    const clickAndRecord = (selector) =>
+      page.evaluate(
+        (sel) =>
+          new Promise((resolve) => {
+            const btn = document.querySelector(sel);
+            if (!btn) {
+              resolve({ error: 'no-element:' + sel });
+              return;
             }
-            /* 底色到底有没有在 200ms 里过渡：直接读 CSS Transition 对象，
-               比「什么时候变成终色」可靠 —— 颜色差只有几个色阶时（paper→foundry 的白），
-               量化的到达时刻会比真实过渡早 60–100ms，拿它当判据就是假阴性。 */
-            const anims = document.getAnimations().filter(
-              (a) =>
-                a.transitionProperty === 'background-color' &&
-                a.effect &&
-                a.effect.target === app,
-            );
-            const a0 = anims[0];
-            frames.push({
-              at: Math.round(performance.now() - t0),
-              cls: document.documentElement.className,
-              appBg: getComputedStyle(app).backgroundColor,
-              nodes,
-              bgAnim: a0
-                ? {
-                    dur: a0.effect.getTiming().duration,
-                    state: a0.playState,
-                    elapsed: Math.round(performance.now() - (a0.startTime || performance.now())),
-                  }
-                : null,
-            });
-            if (performance.now() - t0 < 380) requestAnimationFrame(tick);
-            else resolve(frames);
-          };
-          requestAnimationFrame(tick);
-        }),
-      selector,
-    );
+            btn.click();
+            const t0 = performance.now();
+            const frames = [];
+            const tick = () => {
+              const app = document.querySelector('.app');
+              const nodes = {};
+              for (const s of ['.app', '.topbar', '.screen', '.readout', '.btn', '.start']) {
+                const el = document.querySelector(s);
+                if (!el) continue;
+                const cs = getComputedStyle(el);
+                nodes[s] = { prop: cs.transitionProperty, dur: cs.transitionDuration };
+              }
+              /* 底色到底有没有在 200ms 里过渡：直接读 CSS Transition 对象，
+                 比「什么时候变成终色」可靠 —— 颜色差只有几个色阶时（paper→foundry 的白），
+                 量化的到达时刻会比真实过渡早 60–100ms，拿它当判据就是假阴性。 */
+              const anims = document.getAnimations().filter(
+                (a) =>
+                  a.transitionProperty === 'background-color' &&
+                  a.effect &&
+                  a.effect.target === app,
+              );
+              const a0 = anims[0];
+              frames.push({
+                at: Math.round(performance.now() - t0),
+                cls: document.documentElement.className,
+                appBg: getComputedStyle(app).backgroundColor,
+                nodes,
+                bgAnim: a0
+                  ? {
+                      dur: a0.effect.getTiming().duration,
+                      state: a0.playState,
+                      elapsed: Math.round(performance.now() - (a0.startTime || performance.now())),
+                    }
+                  : null,
+              });
+              if (performance.now() - t0 < 380) requestAnimationFrame(tick);
+              else resolve(frames);
+            };
+            requestAnimationFrame(tick);
+          }),
+        selector,
+      );
 
-  const judgeThemeSwitch = (label, frames, before) => {
-    if (!frames || frames.error) {
-      fail(`${label}：找不到切换按钮（${frames && frames.error}）`);
-      return null;
-    }
-    const withCls = frames.filter((f) => f.cls.includes('is-theme-switching'));
-    if (withCls.length === 0) fail(`${label}：切换时没有挂 is-theme-switching`, frames[0]);
-    else if (withCls[0].at > 80) fail(`${label}：过渡类挂得太晚（首帧已过 80ms）`, withCls[0].at);
+    const judgeThemeSwitch = (label, frames, before) => {
+      if (!frames || frames.error) {
+        fail(`${label}：找不到切换按钮（${frames && frames.error}）`);
+        return null;
+      }
+      const withCls = frames.filter((f) => f.cls.includes('is-theme-switching'));
+      if (withCls.length === 0) fail(`${label}：切换时没有挂 is-theme-switching`, frames[0]);
+      else if (withCls[0].at > 80) fail(`${label}：过渡类挂得太晚（首帧已过 80ms）`, withCls[0].at);
 
-    const badDur = [];
-    const badProp = [];
-    for (const f of withCls) {
-      for (const [sel, v] of Object.entries(f.nodes)) {
-        if (!v.dur.includes('0.2s')) badDur.push([f.at, sel, v.dur]);
-        // transition-property 的计算值是逗号串；三个属性必须都在
-        if (!(v.prop.includes('background-color') && v.prop.includes('color') && v.prop.includes('border-color'))) {
-          badProp.push([f.at, sel, v.prop]);
+      const badDur = [];
+      const badProp = [];
+      for (const f of withCls) {
+        for (const [sel, v] of Object.entries(f.nodes)) {
+          if (!v.dur.includes('0.2s')) badDur.push([f.at, sel, v.dur]);
+          // transition-property 的计算值是逗号串；三个属性必须都在
+          if (!(v.prop.includes('background-color') && v.prop.includes('color') && v.prop.includes('border-color'))) {
+            badProp.push([f.at, sel, v.prop]);
+          }
         }
       }
-    }
-    if (badDur.length) fail(`${label}：带类的帧里有节点不是 200ms`, badDur.slice(0, 4));
-    if (badProp.length) fail(`${label}：带类的帧里缺三属性之一`, badProp.slice(0, 3));
+      if (badDur.length) fail(`${label}：带类的帧里有节点不是 200ms`, badDur.slice(0, 4));
+      if (badProp.length) fail(`${label}：带类的帧里缺三属性之一`, badProp.slice(0, 3));
 
-    const after = frames.filter((f) => f.at > 300);
-    if (after.length === 0) fail(`${label}：没采到 300ms 之后的帧`);
-    if (after.some((f) => f.cls.includes('is-theme-switching'))) {
-      fail(`${label}：320ms 后过渡类还在（常驻了）`, after[after.length - 1].cls);
-    }
+      const after = frames.filter((f) => f.at > 300);
+      if (after.length === 0) fail(`${label}：没采到 300ms 之后的帧`);
+      if (after.some((f) => f.cls.includes('is-theme-switching'))) {
+        fail(`${label}：320ms 后过渡类还在（常驻了）`, after[after.length - 1].cls);
+      }
 
-    /* 中间态：不许瞬切。判据用 CSS Transition 对象自身的时长与状态 ——
-       不用「色值到达终点的时刻」（色差小的时候量化会提前 60–100ms 到达，属假阴性）。 */
-    const finalBg = frames[frames.length - 1].appBg;
-    if (finalBg === before.appBg) {
-      fail(`${label}：切换后底色没变（后面几条断言就是假的）`, { before: before.appBg, final: finalBg });
-    }
-    const seen = frames.filter((f) => f.bgAnim);
-    if (seen.length === 0) {
-      fail(`${label}：.app 上根本没有 background-color 过渡（瞬切）`, {
-        before: before.appBg,
-        final: finalBg,
-      });
-    }
-    const badAnimDur = seen.filter((f) => f.bgAnim.dur !== 200);
-    if (badAnimDur.length) fail(`${label}：底色过渡不是 200ms`, badAnimDur.slice(0, 2));
-    const long = seen.filter((f) => f.bgAnim.state === 'running' && f.bgAnim.elapsed >= 120);
-    if (long.length === 0) {
-      fail(`${label}：底色过渡没有真正跑满 120ms 以上（像是瞬切）`, seen.slice(0, 3));
-    }
-    const tail = frames[frames.length - 1];
-    if (tail.bgAnim && tail.bgAnim.state === 'running') {
-      fail(`${label}：380ms 后底色过渡还在跑（时长不对）`, tail.bgAnim);
-    }
-    const midFrame = frames.find((f) => f.appBg !== before.appBg && f.appBg !== finalBg);
-    return {
-      firstClsAt: withCls.length ? withCls[0].at : null,
-      clsFrames: withCls.length,
-      totalFrames: frames.length,
-      bgAnim: seen[0].bgAnim,
-      runningPast120: long.length,
-      mid: midFrame ? { at: midFrame.at, bg: midFrame.appBg } : null,
-      finalBg,
+      /* 中间态：不许瞬切。判据用 CSS Transition 对象自身的时长与状态 ——
+         不用「色值到达终点的时刻」（色差小的时候量化会提前 60–100ms 到达，属假阴性）。 */
+      const finalBg = frames[frames.length - 1].appBg;
+      if (finalBg === before.appBg) {
+        fail(`${label}：切换后底色没变（后面几条断言就是假的）`, { before: before.appBg, final: finalBg });
+      }
+      const seen = frames.filter((f) => f.bgAnim);
+      if (seen.length === 0) {
+        fail(`${label}：.app 上根本没有 background-color 过渡（瞬切）`, {
+          before: before.appBg,
+          final: finalBg,
+        });
+      }
+      const badAnimDur = seen.filter((f) => f.bgAnim.dur !== 200);
+      if (badAnimDur.length) fail(`${label}：底色过渡不是 200ms`, badAnimDur.slice(0, 2));
+      const long = seen.filter((f) => f.bgAnim.state === 'running' && f.bgAnim.elapsed >= 120);
+      if (long.length === 0) {
+        fail(`${label}：底色过渡没有真正跑满 120ms 以上（像是瞬切）`, seen.slice(0, 3));
+      }
+      const tail = frames[frames.length - 1];
+      if (tail.bgAnim && tail.bgAnim.state === 'running') {
+        fail(`${label}：380ms 后底色过渡还在跑（时长不对）`, tail.bgAnim);
+      }
+      const midFrame = frames.find((f) => f.appBg !== before.appBg && f.appBg !== finalBg);
+      return {
+        firstClsAt: withCls.length ? withCls[0].at : null,
+        clsFrames: withCls.length,
+        totalFrames: frames.length,
+        bgAnim: seen[0].bgAnim,
+        runningPast120: long.length,
+        mid: midFrame ? { at: midFrame.at, bg: midFrame.appBg } : null,
+        finalBg,
+      };
     };
-  };
 
-  await gotoHome('paper', 'light');
-  const themeBase = await styleSnap();
-  const allAll = await scanAllTransition();
-  if (allAll.length > 0) fail('有元素用了 transition: all（规约禁止）', allAll);
+    await gotoHome('paper', 'light');
+    const themeBase = await styleSnap();
+    const allAll = await scanAllTransition();
+    if (allAll.length > 0) fail('有元素用了 transition: all（规约禁止）', allAll);
 
-  await page.evaluate(() =>
-    document.querySelector('.icon-btn[aria-label="切换外观风格"]').click(),
-  );
-  await page.waitForSelector('.segmented[aria-label="明暗"]', { timeout: 4000 });
-  await page.waitForTimeout(360); // 等面板入场动画结束：否则长任务会把过渡起点推后（实测 175ms），判据会假阳性
-  const themeFrames = await clickAndRecord('button[aria-label="深色"]');
-  const themeJudge = judgeThemeSwitch('切深色', themeFrames, themeBase);
+    await page.evaluate(() =>
+      document.querySelector('.icon-btn[aria-label="切换外观风格"]').click(),
+    );
+    await page.waitForSelector('.segmented[aria-label="明暗"]', { timeout: 4000 });
+    await page.waitForTimeout(360); // 等面板入场动画结束：否则长任务会把过渡起点推后（实测 175ms），判据会假阳性
+    const themeFrames = await clickAndRecord('button[aria-label="深色"]');
+    const themeJudge = judgeThemeSwitch('切深色', themeFrames, themeBase);
 
-  // 320ms 之后：类必须消失，六节点样式必须逐字回到基线
-  await page.waitForTimeout(360);
-  const themeAfter = await styleSnap();
-  const drift = Object.keys(themeBase.nodes)
-    .filter((sel) => {
-      const a = themeAfter.nodes[sel];
-      const b = themeBase.nodes[sel];
-      return !a || !b || a.prop !== b.prop || a.dur !== b.dur;
-    })
-    .map((sel) => ({
-      sel,
-      base: themeBase.nodes[sel],
-      after: themeAfter.nodes[sel],
-    }));
-  if (drift.length > 0) fail('320ms 后过渡属性没回到基线（= 常驻了）', drift.slice(0, 3));
-  if (themeAfter.cls.includes('is-theme-switching')) fail('320ms 后类还在', themeAfter.cls);
+    // 320ms 之后：类必须消失，六节点样式必须逐字回到基线
+    await page.waitForTimeout(360);
+    const themeAfter = await styleSnap();
+    const drift = Object.keys(themeBase.nodes)
+      .filter((sel) => {
+        const a = themeAfter.nodes[sel];
+        const b = themeBase.nodes[sel];
+        return !a || !b || a.prop !== b.prop || a.dur !== b.dur;
+      })
+      .map((sel) => ({
+        sel,
+        base: themeBase.nodes[sel],
+        after: themeAfter.nodes[sel],
+      }));
+    if (drift.length > 0) fail('320ms 后过渡属性没回到基线（= 常驻了）', drift.slice(0, 3));
+    if (themeAfter.cls.includes('is-theme-switching')) fail('320ms 后类还在', themeAfter.cls);
 
-  // 切皮肤也要走同一条过渡（§13.4 触发条件包含 skin）
-  const skinFrames = await clickAndRecord('.skin-grid .skin-card:nth-child(2)');
-  const skinJudge = judgeThemeSwitch('切皮肤', skinFrames, themeAfter);
+    // 切皮肤也要走同一条过渡（§13.4 触发条件包含 skin）
+    const skinFrames = await clickAndRecord('.skin-grid .skin-card:nth-child(2)');
+    const skinJudge = judgeThemeSwitch('切皮肤', skinFrames, themeAfter);
 
-  /* 自证伪：挂一个 CSS 不认识的旧类名 —— 320ms 后它必须还在，否则「类消失」这条是自欺 */
-  await page.evaluate(() => document.documentElement.classList.add('is-theme-fade'));
-  await page.waitForTimeout(320);
-  const stale = await page.evaluate(() => document.documentElement.className);
-  await page.evaluate(() => document.documentElement.classList.remove('is-theme-fade'));
-  if (!stale.includes('is-theme-fade')) {
-    fail('自证伪失败：人为挂上的旧类竟然自己消失了（「类消失」这条断言不可信）', stale);
+    /* 自证伪：挂一个 CSS 不认识的旧类名 —— 320ms 后它必须还在，否则「类消失」这条是自欺 */
+    await page.evaluate(() => document.documentElement.classList.add('is-theme-fade'));
+    await page.waitForTimeout(320);
+    const stale = await page.evaluate(() => document.documentElement.className);
+    await page.evaluate(() => document.documentElement.classList.remove('is-theme-fade'));
+    if (!stale.includes('is-theme-fade')) {
+      fail('自证伪失败：人为挂上的旧类竟然自己消失了（「类消失」这条断言不可信）', stale);
   }
 
   /* 减弱动效 · 第 1 条：JS 跳过（类一次都不出现 + 背景瞬切到终值） */
@@ -646,6 +683,7 @@ async (page) => {
     counter,
     allAll,
   };
+  }
 
   /* ================= 0c. v2 读数数字滚动（docs/MOTION_SPEC.md §13.7 G3）=====
      真流程：0 张卡 → 首页「已学 0」→ 学一批（列表 → 即时复习全「认识」→ 总结页）
@@ -655,17 +693,18 @@ async (page) => {
      300ms 后到终值；全程宿主盒宽高逐帧不变（幽灵占位在工作）、scrollHeight 不变；
      390 × 8 皮肤 × 明暗的读数带不溢出；冷启动首帧不滚；减弱动效直接给终值。 */
 
-  const learnedTexts = () =>
-    page.evaluate(() =>
-      [...document.querySelectorAll('[data-num-key="home.learned"]')].map((el) =>
-        el.textContent.trim(),
-      ),
-    );
+  if (want('G3')) {
+    const learnedTexts = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('[data-num-key="home.learned"]')].map((el) =>
+          el.textContent.trim(),
+        ),
+      );
 
-  await gotoHome('paper', 'light');
-  const beforeLearn = await learnedTexts();
-  if (beforeLearn.length < 3) {
-    fail('首页「已学」宿主不足 3 处（读数带 / start__meta / start__spec）', beforeLearn);
+    await gotoHome('paper', 'light');
+    const beforeLearn = await learnedTexts();
+    if (beforeLearn.length < 3) {
+      fail('首页「已学」宿主不足 3 处（读数带 / start__meta / start__spec）', beforeLearn);
   }
   const startState = await page.evaluate(() => {
     const b = document.querySelector('.start__actions .btn--primary');
@@ -923,6 +962,7 @@ async (page) => {
     }
   }
   notes.numberRoll = { judge: rollJudge, coldStart, ghostProbe, bandRows };
+  }
 
   /* ---------------- 1. 8 套皮肤：按压统一 + 答对变体 ---------------- */
 
@@ -952,63 +992,66 @@ async (page) => {
     desk: 'ack-lift',
   };
 
-  for (const skin of skins) {
-    await seed({ skin });
-    const p = await press(KNOWN);
-    if (!p.pressed || !p.up) {
-      fail(`[${skin}] 按下没有缩下去`, p.trace);
-      continue;
-    }
-    if (Math.abs(scaleOf(p.pressed.transform) - 0.97) > 0.002) {
-      fail(`[${skin}] 按下不是 scale(0.97)`, p.pressed.transform);
-    }
-    if (!p.pressed.duration.includes('0.05s')) fail(`[${skin}] 按下不是 50ms`, p.pressed.duration);
-    if (p.up.transform !== 'none') fail(`[${skin}] 松开 260ms 后没归位`, p.up.transform);
-    if (!p.up.duration.includes('0.18s')) fail(`[${skin}] 松开不是 180ms`, p.up.duration);
+  if (want('press')) {
+    for (const skin of skins) {
+      await seed({ skin });
+      const p = await press(KNOWN);
+      if (!p.pressed || !p.up) {
+        fail(`[${skin}] 按下没有缩下去`, p.trace);
+        continue;
+      }
+      if (Math.abs(scaleOf(p.pressed.transform) - 0.97) > 0.002) {
+        fail(`[${skin}] 按下不是 scale(0.97)`, p.pressed.transform);
+      }
+      if (!p.pressed.duration.includes('0.05s')) fail(`[${skin}] 按下不是 50ms`, p.pressed.duration);
+      if (p.up.transform !== 'none') fail(`[${skin}] 松开 260ms 后没归位`, p.up.transform);
+      if (!p.up.duration.includes('0.18s')) fail(`[${skin}] 松开不是 180ms`, p.up.duration);
 
-    const w0 = await wordOf();
-    await page.click(KNOWN);
-    await page.waitForTimeout(60);
-    const during = await cardState();
-    await page.waitForTimeout(240);
-    const after = await cardState();
+      const w0 = await wordOf();
+      await page.click(KNOWN);
+      await page.waitForTimeout(60);
+      const during = await cardState();
+      await page.waitForTimeout(240);
+      const after = await cardState();
 
-    if (!during.cls.includes('is-ack-known')) fail(`[${skin}] 作答后没挂 is-ack-known`, during.cls);
-    if (during.anim !== expectKnown[skin]) {
-      fail(`[${skin}] 答对动画应为 ${expectKnown[skin]}`, during.anim);
-    }
-    if (skin === 'nocturne' && during.wordAnim !== 'nc-ack-ink') {
-      fail('[nocturne] 词头没闪墨色', during.wordAnim);
-    }
-    if (after.cls.includes('is-ack-')) fail(`[${skin}] 反馈类没摘掉`, after.cls);
-    if (after.word === w0) fail(`[${skin}] 反馈结束后没换卡`, { before: w0, after: after.word });
+      if (!during.cls.includes('is-ack-known')) fail(`[${skin}] 作答后没挂 is-ack-known`, during.cls);
+      if (during.anim !== expectKnown[skin]) {
+        fail(`[${skin}] 答对动画应为 ${expectKnown[skin]}`, during.anim);
+      }
+      if (skin === 'nocturne' && during.wordAnim !== 'nc-ack-ink') {
+        fail('[nocturne] 词头没闪墨色', during.wordAnim);
+      }
+      if (after.cls.includes('is-ack-')) fail(`[${skin}] 反馈类没摘掉`, after.cls);
+      if (after.word === w0) fail(`[${skin}] 反馈结束后没换卡`, { before: w0, after: after.word });
 
-    skinRows.push({
-      skin,
-      msDown: p.msDown,
-      pressed: p.pressed,
-      up: p.up,
-      anim: during.anim,
-      wordAnim: during.wordAnim,
-      after: { cls: after.cls, word: after.word },
-    });
+      skinRows.push({
+        skin,
+        msDown: p.msDown,
+        pressed: p.pressed,
+        up: p.up,
+        anim: during.anim,
+        wordAnim: during.wordAnim,
+        after: { cls: after.cls, word: after.word },
+      });
+  }
   }
 
   /* ---------------- 2. 答错抖动 + 遮罩不泄露 + 布局不跳 ---------------- */
 
-  await seed({ skin: 'paper' });
-  const before = await cardState();
-  await page.click(UNKNOWN);
-  await page.waitForTimeout(70);
-  const shakeA = await cardState();
-  await page.waitForTimeout(40); // ≈110ms：抖动中段，方向应已反转
-  const shakeB = await cardState();
-  await page.waitForTimeout(170);
-  const shakeEnd = await cardState();
+  if (want('shake')) {
+    await seed({ skin: 'paper' });
+    const before = await cardState();
+    await page.click(UNKNOWN);
+    await page.waitForTimeout(70);
+    const shakeA = await cardState();
+    await page.waitForTimeout(40); // ≈110ms：抖动中段，方向应已反转
+    const shakeB = await cardState();
+    await page.waitForTimeout(170);
+    const shakeEnd = await cardState();
 
-  if (!(Math.abs(txOf(shakeA.tf)) > 1)) fail('答错 70ms 时卡片没有水平位移', shakeA.tf);
-  if (txOf(shakeB.tf) !== 0 && Math.sign(txOf(shakeA.tf)) === Math.sign(txOf(shakeB.tf))) {
-    fail('抖动的两个采样点方向相同（没有来回）', { a: shakeA.tf, b: shakeB.tf });
+    if (!(Math.abs(txOf(shakeA.tf)) > 1)) fail('答错 70ms 时卡片没有水平位移', shakeA.tf);
+    if (txOf(shakeB.tf) !== 0 && Math.sign(txOf(shakeA.tf)) === Math.sign(txOf(shakeB.tf))) {
+      fail('抖动的两个采样点方向相同（没有来回）', { a: shakeA.tf, b: shakeB.tf });
   }
   if (shakeEnd.tf !== 'none') fail('抖动结束后 transform 未归零', shakeEnd.tf);
   if (shakeA.masked !== 'rgba(0, 0, 0, 0)') fail('反馈窗口内遮罩释义泄露', shakeA.masked);
@@ -1019,28 +1062,30 @@ async (page) => {
     });
   }
   notes.shake = { a: shakeA.tf, b: shakeB.tf, end: shakeEnd.tf, masked: shakeA.masked };
+  }
 
   /* ---------------- 3. toast：上移 12px 淡入 / 停留 2.5s / 淡出无位移 ---------------- */
 
-  await seed({ skin: 'paper', already: true });
-  await page.click(KNOWN); // 三张都已答过：必被拒 → toast，且会话继续（还剩两张）
+  if (want('toast')) {
+    await seed({ skin: 'paper', already: true });
+    await page.click(KNOWN); // 三张都已答过：必被拒 → toast，且会话继续（还剩两张）
 
-  const t0 = Date.now();
-  const samples = [];
-  while (Date.now() - t0 < 3400) {
-    const s = await page.evaluate(() => {
-      const t = document.querySelector('.session-toast');
-      if (!t) return null;
-      const cs = getComputedStyle(t);
-      return {
-        o: Number(cs.opacity),
-        tf: cs.transform,
-        leaving: t.classList.contains('is-leaving'),
-        text: t.textContent.trim(),
-      };
-    });
-    samples.push({ at: Date.now() - t0, s });
-    await page.waitForTimeout(40);
+    const t0 = Date.now();
+    const samples = [];
+    while (Date.now() - t0 < 3400) {
+      const s = await page.evaluate(() => {
+        const t = document.querySelector('.session-toast');
+        if (!t) return null;
+        const cs = getComputedStyle(t);
+        return {
+          o: Number(cs.opacity),
+          tf: cs.transform,
+          leaving: t.classList.contains('is-leaving'),
+          text: t.textContent.trim(),
+        };
+      });
+      samples.push({ at: Date.now() - t0, s });
+      await page.waitForTimeout(40);
   }
   const seenT = samples.filter((x) => x.s);
   const fadeIn = seenT.some((x) => x.s.o > 0.02 && x.s.o < 0.98);
@@ -1074,22 +1119,24 @@ async (page) => {
     goneAfter,
     n: seenT.length,
   };
+  }
 
   /* ---------------- 4. 减弱动效：无位移、无延迟、toast 仍淡入淡出 ---------------- */
 
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await seed({ skin: 'paper', already: false });
+  if (want('reduce')) {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await seed({ skin: 'paper', already: false });
 
-  const box = await page.locator(KNOWN).boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(180);
-  const reducePressed = await btnState(KNOWN);
-  await page.mouse.move(2, 2);
-  await page.mouse.up();
-  await page.waitForTimeout(200);
-  if (Math.abs(scaleOf(reducePressed.transform) - 1) > 0.001) {
-    fail('减弱动效下按压仍有位移', reducePressed.transform);
+    const box = await page.locator(KNOWN).boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(180);
+    const reducePressed = await btnState(KNOWN);
+    await page.mouse.move(2, 2);
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    if (Math.abs(scaleOf(reducePressed.transform) - 1) > 0.001) {
+      fail('减弱动效下按压仍有位移', reducePressed.transform);
   }
 
   const wordBefore = await wordOf();
@@ -1128,90 +1175,93 @@ async (page) => {
     word: { before: wordBefore, after: wordFast },
     toast: { n: rSeen.length, fade: rFade, move: rMove },
   };
+  }
 
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
   /* ---------------- 5. 按压底色可读性：8 皮肤 × 明暗 ---------------- */
 
-  const contrastRows = [];
-  const readContrast = () =>
-    page.evaluate((sel) => {
-      // 注意：color-mix() 的计算值在 Chromium 里序列化成 color(srgb r g b / a)，
-      // 不是 rgb()/rgba()。只认 rgb() 会把「按压薄涂」这一层漏掉、拿底色顶替，
-      // 测出来的对比度是假的（第一次跑 foundry 深色报 1.0 就是这个坑）。
-      const parse = (s) => {
-        const rgb = s.match(/^rgba?\(([^)]+)\)/);
-        if (rgb) {
-          const p = rgb[1].split(',').map((x) => Number(x.trim()));
-          return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
-        }
-        const srgb = s.match(/^color\(srgb ([^)]+)\)/);
-        if (srgb) {
-          const [body, alpha] = srgb[1].split('/');
-          const p = body.trim().split(/\s+/).map(Number);
-          return {
-            r: p[0] * 255,
-            g: p[1] * 255,
-            b: p[2] * 255,
-            a: alpha === undefined ? 1 : Number(alpha.trim()),
-          };
-        }
-        return null;
-      };
-      const lum = (r, g, b) => {
-        const f = (v) => {
-          const x = v / 255;
-          return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  if (want('contrast')) {
+    const contrastRows = [];
+    const readContrast = () =>
+      page.evaluate((sel) => {
+        // 注意：color-mix() 的计算值在 Chromium 里序列化成 color(srgb r g b / a)，
+        // 不是 rgb()/rgba()。只认 rgb() 会把「按压薄涂」这一层漏掉、拿底色顶替，
+        // 测出来的对比度是假的（第一次跑 foundry 深色报 1.0 就是这个坑）。
+        const parse = (s) => {
+          const rgb = s.match(/^rgba?\(([^)]+)\)/);
+          if (rgb) {
+            const p = rgb[1].split(',').map((x) => Number(x.trim()));
+            return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+          }
+          const srgb = s.match(/^color\(srgb ([^)]+)\)/);
+          if (srgb) {
+            const [body, alpha] = srgb[1].split('/');
+            const p = body.trim().split(/\s+/).map(Number);
+            return {
+              r: p[0] * 255,
+              g: p[1] * 255,
+              b: p[2] * 255,
+              a: alpha === undefined ? 1 : Number(alpha.trim()),
+            };
+          }
+          return null;
         };
-        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-      };
-      const btn = document.querySelector(sel);
-      const cs = getComputedStyle(btn);
-      const fg = parse(cs.color);
-      const layers = [];
-      for (let n = btn; n; n = n.parentElement) {
-        const c = parse(getComputedStyle(n).backgroundColor);
-        if (c && c.a > 0) {
-          layers.push(c);
-          if (c.a >= 1) break;
+        const lum = (r, g, b) => {
+          const f = (v) => {
+            const x = v / 255;
+            return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+          };
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const btn = document.querySelector(sel);
+        const cs = getComputedStyle(btn);
+        const fg = parse(cs.color);
+        const layers = [];
+        for (let n = btn; n; n = n.parentElement) {
+          const c = parse(getComputedStyle(n).backgroundColor);
+          if (c && c.a > 0) {
+            layers.push(c);
+            if (c.a >= 1) break;
+          }
         }
-      }
-      let r = 255;
-      let g = 255;
-      let b = 255;
-      for (let i = layers.length - 1; i >= 0; i -= 1) {
-        const l = layers[i];
-        r = l.r * l.a + r * (1 - l.a);
-        g = l.g * l.a + g * (1 - l.a);
-        b = l.b * l.a + b * (1 - l.a);
-      }
-      const l1 = lum(fg.r, fg.g, fg.b);
-      const l2 = lum(r, g, b);
-      return {
-        ratio: Math.round(((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)) * 100) / 100,
-        fg: cs.color,
-        bg: `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`,
-        tf: cs.transform,
-      };
-    }, KNOWN);
+        let r = 255;
+        let g = 255;
+        let b = 255;
+        for (let i = layers.length - 1; i >= 0; i -= 1) {
+          const l = layers[i];
+          r = l.r * l.a + r * (1 - l.a);
+          g = l.g * l.a + g * (1 - l.a);
+          b = l.b * l.a + b * (1 - l.a);
+        }
+        const l1 = lum(fg.r, fg.g, fg.b);
+        const l2 = lum(r, g, b);
+        return {
+          ratio: Math.round(((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)) * 100) / 100,
+          fg: cs.color,
+          bg: `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`,
+          tf: cs.transform,
+        };
+      }, KNOWN);
 
-  for (const skin of skins) {
-    for (const theme of ['light', 'dark']) {
-      await seed({ skin, theme });
-      const box = await page.locator(KNOWN).boundingBox();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.waitForTimeout(95);
-      const c = await readContrast();
-      await page.mouse.move(2, 2);
-      await page.mouse.up();
-      await page.waitForTimeout(220);
-      contrastRows.push({ skin, theme, ...c });
-      // 按下只有 50ms，不按 WCAG 的 4.5 卡；但「字快看不见」= 缺陷
-      if (!(c.ratio >= 3)) fail(`[${skin}/${theme}] 按下时「认识」字读不出来`, c);
-    }
+    for (const skin of skins) {
+      for (const theme of ['light', 'dark']) {
+        await seed({ skin, theme });
+        const box = await page.locator(KNOWN).boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.waitForTimeout(95);
+        const c = await readContrast();
+        await page.mouse.move(2, 2);
+        await page.mouse.up();
+        await page.waitForTimeout(220);
+        contrastRows.push({ skin, theme, ...c });
+        // 按下只有 50ms，不按 WCAG 的 4.5 卡；但「字快看不见」= 缺陷
+        if (!(c.ratio >= 3)) fail(`[${skin}/${theme}] 按下时「认识」字读不出来`, c);
+      }
   }
   notes.pressContrast = contrastRows;
+  }
 
   if (fails.length > 0) {
     const err = new Error(`作答手感实测 ${fails.length} 项失败：${fails.slice(0, 8).join(' | ')}`);
@@ -1219,5 +1269,5 @@ async (page) => {
     throw err;
   }
 
-  return { ok: true, skins: skinRows.length, fails, skinRows, notes };
+  return { ok: true, ran: RAN, partial, skins: skinRows.length, fails, skinRows, notes };
 };
