@@ -14,6 +14,7 @@ import type { CardState, MistakeRow, Scheduler } from '../lib/scheduler';
 import { wordLookup } from '../lib/deck';
 import type { Wordbook } from '../lib/types';
 import { useAnswerFeedback } from '../hooks/useAnswerFeedback';
+import { RollingNumber } from './RollingNumber';
 import { IconBack, IconCheck, IconClose } from './Icons';
 import { SessionToast } from './SessionToast';
 
@@ -126,7 +127,13 @@ export function MistakesScreen({
         <div className="study-bar__info">
           <div className="study-bar__title">{quizWord ? '错词单测' : '错词本'}</div>
           <div className="study-bar__sub">
-            {quizWord ? '答对移出 · 答错继续留着' : `${rows.length} 个词 · 最后错的排在前面`}
+            {quizWord ? (
+              '答对移出 · 答错继续留着'
+            ) : (
+              <>
+                <RollingNumber value={rows.length} memoKey="mistakes.count" digits={4} /> 个词 · 最后错的排在前面
+              </>
+            )}
           </div>
         </div>
         <button type="button" className="avatar-btn" onClick={onOpenMe} aria-label="打开我的">

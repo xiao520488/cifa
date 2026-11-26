@@ -28,6 +28,7 @@ import {
 } from '../lib/scheduler';
 import type { CalendarDay, Scheduler } from '../lib/scheduler';
 import { Hint } from './Hint';
+import { RollingNumber } from './RollingNumber';
 import { IconBack, IconPalette } from './Icons';
 
 interface CalendarScreenProps {
@@ -155,7 +156,10 @@ export function CalendarScreen({
           <section className="cal-hero" aria-labelledby="cal-today-title">
             <p className="cal-kicker">今天 · 学习日 {today} · 凌晨 4 点换天</p>
             <h1 className="cal-title" id="cal-today-title">
-              新词 <b>{plan.newWordLimit}</b>
+              新词{' '}
+              <b>
+                <RollingNumber value={plan.newWordLimit} memoKey="cal.newLimit" digits={3} />
+              </b>
               {headline.tag ? <span className={`cal-title__tag is-${headline.tone}`}>{headline.tag}</span> : null}
               <span className="cal-title__sep" aria-hidden="true">
                 /
@@ -169,22 +173,28 @@ export function CalendarScreen({
               <div className="cal-figure">
                 <dt>到期复习</dt>
                 <dd>
-                  {plan.totals.doneToday} / {plan.totals.dueToday}
+                  <RollingNumber value={plan.totals.doneToday} memoKey="cal.review.done" digits={3} />{' '}
+                  /{' '}
+                  <RollingNumber value={plan.totals.dueToday} memoKey="cal.review.due" digits={3} />
                 </dd>
               </div>
               <div className="cal-figure">
                 <dt>逾期</dt>
                 <dd className={plan.totals.overdue > 0 ? 'is-warn' : undefined}>
-                  {plan.totals.overdue}
+                  <RollingNumber value={plan.totals.overdue} memoKey="cal.overdue" digits={4} />
                 </dd>
               </div>
               <div className="cal-figure">
                 <dt>今日已学</dt>
-                <dd>{plan.totals.newLearned}</dd>
+                <dd>
+                  <RollingNumber value={plan.totals.newLearned} memoKey="cal.newLearned" digits={4} />
+                </dd>
               </div>
               <div className="cal-figure">
                 <dt>连续优秀</dt>
-                <dd>{stats.consecutiveGoodDays} 天</dd>
+                <dd>
+                  <RollingNumber value={stats.consecutiveGoodDays} memoKey="cal.streak" digits={3} /> 天
+                </dd>
               </div>
             </dl>
 
@@ -251,9 +261,13 @@ export function CalendarScreen({
           </section>
 
           <p className="cal-foot">
-            {stats.currentLimit} / 目标 {stats.userDailyGoal} / 上限 {stats.maxLimit} · 未学{' '}
-            {stats.unlearned} · 短期 {stats.shortCards} · 长期 {stats.longCards} · 归档{' '}
-            {stats.archivedCards}
+            <RollingNumber value={stats.currentLimit} memoKey="cal.limit" digits={3} /> / 目标{' '}
+            <RollingNumber value={stats.userDailyGoal} memoKey="cal.goal" digits={3} /> / 上限{' '}
+            <RollingNumber value={stats.maxLimit} memoKey="cal.max" digits={3} /> · 未学{' '}
+            <RollingNumber value={stats.unlearned} memoKey="cal.unlearned" digits={4} /> · 短期{' '}
+            <RollingNumber value={stats.shortCards} memoKey="cal.short" digits={4} /> · 长期{' '}
+            <RollingNumber value={stats.longCards} memoKey="cal.long" digits={4} /> · 归档{' '}
+            <RollingNumber value={stats.archivedCards} memoKey="cal.archived" digits={4} />
           </p>
         </div>
       </main>

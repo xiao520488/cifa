@@ -459,7 +459,13 @@ html.is-theme-switching *::after {
 ```
 
 - **宽度为什么用「幽灵占位」而不是 `min-width: 4ch`**：`ch` 只在「等宽数字 + 无字距 + 有 `tnum`」时才准。8 套皮肤里有加 `letter-spacing` 的、有比例数字的、有可能缺 `tnum` 的 —— `4ch` 一定小于真实「0000」宽度，于是 999→1000 那一帧照样撑开。幽灵层渲染的是同样字体的同样个数的 `0`，**盒宽天生等于最宽情形**，`live` 是绝对定位的，文本再宽也只能往左溢出，推不动布局（这就是「右对齐 + 预留宽度」的合体）。
-- **跨挂载记忆（不写这条功能等于不存在）**：四个屏是条件渲染，答完题回首页时屏是**重新挂载**的。若组件只在本地存 `prev`，mount 时 `prev === value` → 永远不滚。所以 `motion.ts` 里放一个模块级 `Map<string, number>`，`memoKey` 做键：mount 时「有旧值且 ≠ 新值」→ 从旧值滚到新值；否则直接显示。**冷启动首屏仍然不滚**（Map 是空的）。
+- **跨挂载记忆（不写这条功能等于不存在）**：四个屏是条件渲染，答完题回首页时屏是**重新挂载**的。若组件只在本地存 `prev`，mount 时 `prev === value` → 永远不滚。所以 `RollingNumber.tsx` 里放一个模块级 `Map<string, number>`，`memoKey` 做键：mount 时「有旧值且 ≠ 新值」→ 从旧值滚到新值；否则直接显示。**冷启动首屏仍然不滚**（Map 是空的）。
+  **模块态可以放（key 有限、不会泄漏），但卸载清理里绝不能把 `lastShown` 写成目标值 `e.to`**——这是本轮真正的坑，不是"模块记忆被清掉"：
+  StrictMode 在开发模式下会把「挂载 → 卸载 → 再挂载」走一遍同一个 commit，卸载时的清理如果写 `lastShown = e.to`，
+  等于**把起点抹成终点**，紧接着的第二次挂载 `ensure` 看到「已是终值」→ 一帧不滚、直接落终值。
+  实测日志：`3966ms set-unsub home.learned 10` → `3967ms ensure cur=10 last=10` → 三处文本首帧就是 10。
+  清理里只能记 **`e.current`（用户最后真正看到的那个数）**；这条对「滚到一半离开首页」同样正确 —— 回来从半路接着滚。
+  生产构建没有 StrictMode 双跑，但清理逻辑仍然必须正确（切屏 / 退出都会走到同一路径）。
 - **每帧只做两件事**：`live.textContent = format(round(eased(t)))`；不 `getBoundingClientRect`、不 `getComputedStyle`、不读写布局属性。
 - **缓动**：起滚时读一次当前 `--ease-out`（皮肤可覆盖），用 `motion.ts` 里的 cubic-bezier 求值器算进度。不硬编码 `1-p³`。
 - **打断**：同一个 `memoKey` 二次变化 → 取消上一帧循环，从「当前显示值」接着滚（不回跳到旧旧值）。
@@ -520,8 +526,8 @@ html.is-theme-switching *::after {
 |---|---|---|
 | `src/styles/tokens.css` | `--screen-shift`、`--motion-theme`（别名）、`--motion-number`（待批）；归零块加 `--screen-shift: 0px` | +5 |
 | `src/styles/app.css` | `@keyframes screen-in`、`.app.is-screen-entering > …`、`html.is-theme-switching …`（+ reduced 反制）、`.num-roll` 三件 | +40 |
-| `src/lib/motion.ts` | `cubicBezier()` 求值器、`startThemeTransition()`、`readEaseOut()`、`lastShown` Map | +60 |
-| `src/components/RollingNumber.tsx`（新） | 幽灵占位 + rAF 滚动 + 打断/卸载清理 | ~75 |
+| `src/lib/motion.ts` | `cubicBezier()` 求值器、`startThemeTransition()`、`readEaseOut()` | +70 |
+| `src/components/RollingNumber.tsx`（新） | 幽灵占位 + 每 key 一条 rAF + 同 key 共享时钟 + 打断/卸载清理 | ~110 |
 | `src/components/Readouts.tsx` | `value` 从字符串改为数字 + 用 `RollingNumber` 渲染（`data-readout` / 类名不许变） | +12 / −6 |
 | `src/components/StudyScreen.tsx` | `.start__meta` 两个 `<b>`、`.start__spec` 三处数字 | +8 / −8 |
 | `src/components/CalendarScreen.tsx` | `.cal-title b`、`.cal-figures` 四组、`.cal-foot` 三数 | +15 / −10 |
@@ -538,10 +544,10 @@ html.is-theme-switching *::after {
 
 1. 转场期间 `main.app__main` 带 `transform` → 350ms 内打开 Hint 浮层会偏 8px。
 2. 主题切换只有三色过渡：渐变、阴影、字族、间距会硬切；判丑靠人眼抽查，不靠阈值。
-   **中间态会掉对比度，这是必然的**：前景色与背景色同时过渡，两者亮度必然在某一刻交叉。
-   实测 16 组（8 皮肤 × 明暗互切）中段最低 **1.04–1.59**，终态 4.59–7.36（`docs/screenshots/motion/v2-theme/`
-   的 48 张截图 + 每张的 `ratio` 记录）。改法只有「不做过渡」或「缩到 120ms 以内」，两条都与拍板冲突，
-   所以按「接受 + 记录」处理；真机上觉得那一瞬太灰，唯一旋钮是把过渡压到 140–160ms，而不是加新特效。
+   **中间态发灰是「fg/bg 同时过渡」的固有结果，不是 bug**：中段对比度 **1.04–1.59**、落定 **4.59–7.36**，
+   16 组（8 皮肤 × 明暗互切）已记录，截图在 `docs/screenshots/motion/v2-theme/`（每张带 `ratio`）。
+   2026-11-26 用户拍板：**接受 200ms 不动**。将来若要优化，方向是**错开 fg / bg 的起点**
+   （背景 0–200ms、文字 80–280ms），**不是压时长** —— 压时长只是让那一下更快，交叉本身还在。
 3. **⚠️ 本轮对「只用 transform / opacity」有两处破例，逐条写在案，不许悄悄破**：
    - **破例一 · 颜色过渡**：主题 / 皮肤切换做 `background-color` / `color` / `border-color` 200ms 过渡（§13.4）。颜色只重绘不重排，是最古老的那条例外；仍然**逐属性列，永不用 `all`**。
    - **破例二 · 文本变化**：数字滚动逐帧改 `textContent`（D6-A）。布局稳定不是靠「只动 transform」，而是靠**幽灵占位锁宽 + 每帧不读布局**两条可测约束兜住；`--motion-number` 的适用范围写死到这一处。

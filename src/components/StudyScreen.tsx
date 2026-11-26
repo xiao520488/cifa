@@ -10,6 +10,7 @@
 import type { ReactNode } from 'react';
 import type { LevelMeta } from '../lib/types';
 import { Readouts, type ReadoutItem } from './Readouts';
+import { RollingNumber } from './RollingNumber';
 import { IconCalendar, IconPalette } from './Icons';
 
 interface StudyScreenProps {
@@ -109,10 +110,18 @@ export function StudyScreen({
                 </p>
                 <div className="start__meta">
                   <span>
-                    今日 <b>{allowedNew}</b> 词
+                    今日{' '}
+                    <b>
+                      <RollingNumber value={allowedNew} memoKey="home.today" digits={3} />
+                    </b>{' '}
+                    词
                   </span>
                   <span>
-                    已学 <b>{learnedCount}</b> 词
+                    已学{' '}
+                    <b>
+                      <RollingNumber value={learnedCount} memoKey="home.learned" digits={4} />
+                    </b>{' '}
+                    词
                   </span>
                 </div>
                 <div className="start__spec">
@@ -122,18 +131,22 @@ export function StudyScreen({
                   </div>
                   <div className="start__spec-row">
                     <span className="start__spec-k">今日新词</span>
-                    <span className="start__spec-v">{allowedNew} 词</span>
+                    <span className="start__spec-v">
+                      <RollingNumber value={allowedNew} memoKey="home.today" digits={3} /> 词
+                    </span>
                   </div>
                   <div className="start__spec-row">
                     <span className="start__spec-k">今日批次</span>
                     <span className="start__spec-v">
-                      共 {todayBatchCount} 批 · 每批 {batchSize} 词
+                      共 <RollingNumber value={todayBatchCount} memoKey="home.batch" digits={2} /> 批 ·
+                      每批 {batchSize} 词
                     </span>
                   </div>
                   <div className="start__spec-row">
                     <span className="start__spec-k">已学</span>
                     <span className="start__spec-v">
-                      {learnedCount} / {totalCount} 词
+                      <RollingNumber value={learnedCount} memoKey="home.learned" digits={4} /> /{' '}
+                      {totalCount} 词
                     </span>
                   </div>
                 </div>

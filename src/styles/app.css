@@ -1960,6 +1960,32 @@ p {
   animation: screen-in var(--motion-swap) var(--ease-out) backwards;
 }
 
+/* ---------- v2 · 读数数字滚动（MOTION_SPEC §13.5）-----------------------
+   宽度靠「幽灵占位」锁死：::before 用当前字体渲染 digits 个 0 并 visibility:hidden，
+   盒子宽度由此定死；真正的数字绝对定位盖在上面。
+   为什么不用 min-width: Nch —— ch 只在「等宽数字 + 无字距 + 有 tnum」时才准；
+   8 套皮肤里有加 letter-spacing 的、有比例数字的，ch 一定偏小，999→1000 那一帧照样撑开。
+   ::before 的 width 不吃 textContent，所以既有审计脚本读 .readout__v 的文本不会被幽灵污染。 */
+.num-roll {
+  position: relative;
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.num-roll::before {
+  content: attr(data-ghost);
+  visibility: hidden;
+}
+
+/* 绝对定位 + text-align: inherit：对齐方式跟随宿主（左/中/右都由皮肤决定），
+   只保证盒宽不变；文本再宽也只能往左溢出，推不动布局。 */
+.num-roll__live {
+  position: absolute;
+  inset: 0;
+  text-align: inherit;
+}
+
 /* ---------- v2 · 主题 / 皮肤切换的颜色过渡（MOTION_SPEC §13.4）-------------
    一次性类挂在 <html> 上，由 startThemeTransition() 加、240ms 后摘。
    只在「切的那一下」存在，绝不常驻（常驻就会把 hover / 按压的颜色节奏全改掉）。
