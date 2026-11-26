@@ -6,7 +6,8 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `out/cijian-1.0.apk` | 1.06 MB，已签名，直接装 |
+| `out/cijian-1.1.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode 2，含轮次模型 + 备份 + 正式复习回队尾） |
+| `out/cijian-1.0.apk` | 旧包（2026-11-25，versionCode 1），已被 1.1 取代，留着只作历史 |
 | `out/cijian.keystore` | **签名证书，必须备份**。丢了就再也无法覆盖升级同一个 App（只能卸载重装，进度会丢） |
 | `scripts/build-apk.ps1` | 重新打包的脚本 |
 
@@ -40,6 +41,14 @@ Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\ -Force
 **发新版必须同时做两件事**：
 - 把 `AndroidManifest.xml` 的 `android:versionCode` 加 1（`versionName` 随你写）—— 否则覆盖安装会被拒；
 - 用**同一个** `out/cijian.keystore` 签名（脚本默认复用 D:\AndroidBuild\cijian.keystore）。
+
+**⚠️ `aapt` / `aapt.exe` 不认中文路径**：直接对 `D:\背单词\out\cijian-1.1.apk` 跑 `aapt dump badging` 会报
+`Illegal byte sequence` / `Error opening archive`（aapt 走 ANSI 路径）。先复制到纯 ASCII 路径
+（如 `$env:TEMP\xxx.apk`）再 dump。`apksigner`、`zipalign` 不受影响。
+
+**覆盖安装的前提是证书一致**：`apksigner verify --print-certs` 吐的
+`certificate SHA-256 digest` 必须和上一版相同（1.0 与 1.1 都是 `bee17fe6…6984`）。不一致 = 系统拒绝升级，
+只能卸载重装、进度清零。
 
 ## 技术选择（为什么这么做）
 
@@ -76,3 +85,8 @@ Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\ -Force
 - ✅ 已验证：APK 内 28 个条目，`dist/` 的 21 个文件**一个不缺**，`index.html` 引用的 2 个带 hash 资源都在包内。
 - ✅ 已验证：`aapt dump badging` → `package com.cijian.app`、`label 词笺`、`launchable-activity MainActivity`、`sdkVersion 24`、`targetSdkVersion 34`。
 - ✅ 已验证（2026-11-25）：**真机安装并打开正常**（用户本人安卓手机确认）。
+- ✅ 已验证（2026-11-26，1.1 / versionCode 2）：APK 内 **28 个条目**，`dist/` 的 **21 个文件逐个 SHA256 与包内一致**
+  （0 不一致），`assets/index.html` 引用的新哈希资源（`index-KglkUNTR.js` / `index-DuMee3km.css`）都在包内；
+  `apksigner verify` → v2 + v3 通过、签名证书 SHA-256 = `bee17fe6…6984`（与 1.0 同一把，可覆盖安装）；
+  `aapt dump badging` → `versionCode='2' versionName='1.1'`、`sdkVersion 24`、`targetSdk 34`、`label 词笺`。
+  **未做**：本轮没有再上真机（等你装）。
