@@ -8,6 +8,7 @@
 - **修法**（`fix(android)`，versionCode 6 / 1.4.1）：① 首帧底色先存变量，`setContentView` 之后再刷；② controller 改从 `window.getDecorView().getWindowInsetsController()` 取，decor/controller 双判空。
 - **真机验证（都有实物）**：冷启动后 8s `pidof` 仍在、`logcat -b crash` 0 行、FATAL 0；切主题两档的状态栏像素 —— 深色 `#12110E` + 图标 `#FFFFFF`（对比度 18.88）、浅色 `#F6F3EC` + 图标 `#4A4947`（对比度 8.12）；双击静态文字前后内容区差异 **0.000%**（缩放已关）。截图在 `out/t1-paper-dark.png`、`out/t2-paper-light.png`、`out/final-state.png`，日志 `out/crash.log`。
 - **未验的**：**双指捏合无法用 adb 注入**（`input` 只有单指），需要手上试一次；两处防线在 viewport `user-scalable=no` + `WebSettings.setSupportZoom(false)/setBuiltInZoomControls(false)`。
+  → **2026-11-26 用户手动确认：两指撑不开，缩放已关，通过。**
 - **工具坑**：本机原本没有 adb，装了 platform-tools 到 `D:\AndroidBuild\platform-tools`（不进 PATH）；`scripts/grab-crash.ps1` 必须存成 **UTF-8 带 BOM**，否则 powershell.exe 按 ANSI 读中文直接语法错。
 
 ## 2026-11-26 · 三条工程纪律落地（单组开关 / 状态钩子 / 时间盒）
