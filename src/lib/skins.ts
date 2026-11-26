@@ -105,6 +105,15 @@ export const SKINS: SkinMeta[] = [
     darkBg: '#141613',
     persistentReadouts: true,
   },
+  {
+    key: 'breeze',
+    name: '晴空',
+    latin: 'BREEZE',
+    tagline: '晴蓝 · 通透',
+    swatch: { bg: '#F4F8FB', ink: '#0F172A', accent: '#2563EB', line: '#E6ECF3' },
+    darkBg: '#121212',
+    persistentReadouts: false,
+  },
 ];
 
 export function skinMeta(key: Skin): SkinMeta {

@@ -66,7 +66,8 @@ export type Skin =
   | 'bento'
   | 'nocturne'
   | 'desk'
-  | 'vinyl';
+  | 'vinyl'
+  | 'breeze';
 
 export interface Profile {
   name: string;

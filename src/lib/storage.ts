@@ -58,7 +58,17 @@ const BATCH_SIZES = [5, 8, 10, 15, 20];
 const STAGES = ['senior', 'cet4', 'cet6', 'kaoyan', 'custom'];
 const MEANING_MODES = ['auto', 'main', 'all'];
 const THEMES = ['system', 'light', 'dark'];
-const SKINS = ['paper', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'desk', 'vinyl'];
+const SKINS = [
+  'paper',
+  'foundry',
+  'instrument',
+  'broadsheet',
+  'bento',
+  'nocturne',
+  'desk',
+  'vinyl',
+  'breeze',
+];
 
 /** 读取并清洗本地数据：任何损坏字段都回退到默认值，绝不让 App 白屏。 */
 export function loadStore(): Store {

@@ -1,0 +1,816 @@
+/* ==========================================================================
+   词笺 · 皮肤「晴空 BREEZE」—— 第 9 套（v14）
+   --------------------------------------------------------------------------
+   气质：清透。极浅蓝灰底 + 纯白大圆角卡 + 一点亮蓝，字更大更粗；
+   分层靠留白与柔和阴影，不靠线条（顶栏 / 底栏 / 卡片都没有硬边框）。
+   提炼自百词斩的视觉语言：白卡浮在浅底上、一个释义一张卡、词头极大且居中、
+   音标是浅灰小字、主按钮通体蓝、次按钮是同色系浅底。
+
+   结构语言：0 令牌（深/浅） 1 基底 2 顶栏 3 首页 4 今日卡 5 按钮
+             6 学习栏与进度 7 学习卡（复习 / 即时） 8 词表 9 底部控制条
+             10 其它页继承面 11 外观选择卡 12 断点 13 hover 14 减弱动效
+
+   红线：零 DOM / 零逻辑 / 不改 tokens.css；全部选择器带 [data-skin='breeze']，
+   不用 !important，不写裸 :root —— 8 套旧皮肤不受影响是结构性的。
+   ========================================================================== */
+
+/* ---------- 0a. 深色令牌（先设计它：夜间不是白天反色） -------------------- */
+[data-skin='breeze'][data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #121212;
+  --surface: #1b1d21;
+  --surface-raised: #24272c;
+  --surface-sunken: #0c0d0f;
+  --border: #2b2f36;
+  --border-strong: #3c424b;
+  --text: #f2f5f9;
+  --text-secondary: #b4bcc8;
+  --text-tertiary: #9aa4b2;
+  --accent: #6e9bff;
+  --accent-hover: #8cb0ff;
+  --accent-press: #5a87f0;
+  --accent-weak: #16233d;
+  --on-accent: #0a1020;
+  --success: #6fd3a8;
+  --warning: #f0b24a;
+  --danger: #ff9b85;
+  --mask: #262a31;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --row-hover: rgba(242, 245, 249, 0.05);
+  --toggle-on: #1e2a3f;
+
+  /* 深色档阴影重写（不是把浅色阴影调透明）：黑底上没有「淡」可言，靠更长的模糊拉开层次 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+
+  /* 皮肤私有（明暗各一套，组件规则只引用，不写第二遍颜色） */
+  --bz-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --bz-float-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+  --bz-glow: 0 10px 22px rgba(0, 0, 0, 0.5);
+  --bz-reading: #c6d1e0; /* 释义正文：深色下的深灰 */
+  --bz-btn-grey: #24272c;
+  --bz-phon-bg: #24272c;
+  --bz-press-tint: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+/* ---------- 0b. 浅色令牌（清透白天：蓝灰底 + 纯白卡） ---------------------- */
+[data-skin='breeze'] {
+  color-scheme: light;
+
+  /* 两族字：Space Grotesk 只给拉丁与数字（词头 / 音标 / 读数），中文回系统无衬线 */
+  --font-sans: 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', 'Source Han Sans SC',
+    'Microsoft YaHei', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bz-latin: 'Space Grotesk', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC',
+    'Microsoft YaHei', system-ui, sans-serif;
+  --bz-num: 'Space Grotesk', ui-monospace, 'PingFang SC', system-ui, sans-serif;
+
+  --bg: #f4f8fb;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #edf2f8;
+  --border: #e6ecf3;
+  --border-strong: #d3dde9;
+  --text: #0f172a;
+  --text-secondary: #475467;
+  --text-tertiary: #5f6c7b;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-press: #1e3a8a;
+  --accent-weak: #e8f0ff;
+  --on-accent: #ffffff;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #c2410c;
+  --mask: #dee7f2;
+  --scrim: rgba(15, 23, 42, 0.42);
+  --row-hover: rgba(37, 99, 235, 0.045);
+  --toggle-on: #e9eff7;
+
+  /* 柔和弥散：三档递增，没有硬边 */
+  --shadow-sm: 0 2px 8px rgba(23, 43, 77, 0.05);
+  --shadow-md: 0 10px 28px rgba(23, 43, 77, 0.08);
+  --shadow-lg: 0 20px 48px rgba(23, 43, 77, 0.14);
+
+  --bz-card-shadow: 0 2px 10px rgba(23, 43, 77, 0.05);
+  --bz-float-shadow: 0 -8px 24px rgba(15, 23, 42, 0.06);
+  --bz-glow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  --bz-reading: #334155;
+  --bz-btn-grey: #ffffff;
+  --bz-phon-bg: #edf2f8;
+  --bz-press-tint: color-mix(in srgb, var(--accent) 8%, var(--surface-sunken));
+
+  /* 圆角：卡 20 / 按钮与释义卡 16 / 小件 10 */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  /* 字号：在基线阶梯上整体抬一档，词头单独再大一号 */
+  --fs-display: 34px;
+  --fs-h1: 26px;
+  --fs-h2: 19px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-word: clamp(24px, 7vw, 30px);
+  --fs-phonetic: 13px;
+  --fs-meaning: 16px;
+  --fs-load: 14px;
+  --bz-word-card: clamp(38px, 11vw, 54px);
+
+  --page-x: 20px;
+  --content-max: 640px;
+  --app-max: 760px;
+  --dock-height: 76px;
+
+  /* 按压薄涂：基线是 surface 混黑，这里换成「蓝灰薄涂」，按压时才像这个皮肤 */
+  --press-tint: var(--bz-press-tint);
+}
+
+/* ---------- 1. 基底 ------------------------------------------------------ */
+
+/* 768+ 基线会在应用列两侧画 1px 竖线；这皮肤没有硬边，线留位置但不显色 */
+[data-skin='breeze'] .app {
+  border-inline: 1px solid transparent;
+}
+
+[data-skin='breeze'] .screen {
+  padding-bottom: var(--space-6);
+}
+
+/* ---------- 2. 顶栏：没有下边框，靠底色与页面融为一体 -------------------- */
+
+[data-skin='breeze'] .topbar {
+  background: var(--bg);
+}
+
+[data-skin='breeze'] .topbar--bordered {
+  border-bottom-color: transparent;
+}
+
+[data-skin='breeze'] .brand {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+[data-skin='breeze'] .brand__name {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+[data-skin='breeze'] .brand__dot {
+  width: 6px;
+  height: 6px;
+  transform: translateY(0);
+}
+
+[data-skin='breeze'] .icon-btn {
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+}
+
+[data-skin='breeze'] .avatar-btn {
+  background: var(--accent-weak);
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ---------- 3. 首页：药丸标签 → 读数 → 主按钮 → 今日卡 ------------------- */
+
+[data-skin='breeze'] .start {
+  padding-top: var(--space-4);
+}
+
+/* 「四级核心词 · 3846 词」：蓝底药丸，去掉自带的小横线 */
+[data-skin='breeze'] .start__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  background: var(--accent-weak);
+  color: var(--accent-hover);
+  font-family: var(--font-sans);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+[data-skin='breeze'] .start__eyebrow::before {
+  content: none;
+}
+
+[data-skin='breeze'] .start__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-6);
+  margin-top: var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--fs-small);
+}
+
+[data-skin='breeze'] .start__meta b {
+  margin-inline: 2px;
+  color: var(--text);
+  font-family: var(--bz-num);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='breeze'] .start__actions {
+  margin-top: var(--space-5);
+}
+
+[data-skin='breeze'] .start__foot {
+  padding-top: var(--space-6);
+  color: var(--text-tertiary);
+  font-size: var(--fs-small);
+}
+
+[data-skin='breeze'] .start__rule {
+  background: transparent;
+}
+
+/* ---------- 4. 今日卡：一张白卡，数字大、标签小 ------------------------- */
+
+[data-skin='breeze'] .today-card {
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+[data-skin='breeze'] .today-card__label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+
+[data-skin='breeze'] .today-card__links .btn--text {
+  color: var(--accent);
+}
+
+/* 四个读数排成 2×2（手机）/ 1×4（768+）：
+   基线的 flex-wrap 在 390 下会折成「3 + 1」，最后那个 0 会孤零零落在左边。 */
+[data-skin='breeze'] .today-card__figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+[data-skin='breeze'] .today-card__figure {
+  gap: 6px;
+  font-size: var(--fs-small);
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .today-card__figure b {
+  font-family: var(--bz-num);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+[data-skin='breeze'] .today-card__tag {
+  padding: 1px 8px;
+  border: 0;
+  background: var(--accent-weak);
+  color: var(--accent-hover);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+[data-skin='breeze'] .today-card__reason {
+  font-size: var(--fs-small);
+  line-height: 1.65;
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .today-card__reason.is-decrease,
+[data-skin='breeze'] .today-card__reason.is-paused {
+  color: var(--warning);
+}
+
+/* ---------- 5. 按钮：通体大圆角、无描边、主键带柔光 --------------------- */
+
+[data-skin='breeze'] .btn {
+  border: 0;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+[data-skin='breeze'] .btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--bz-glow);
+}
+
+[data-skin='breeze'] .btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+[data-skin='breeze'] .btn--primary:active:not(:disabled) {
+  background: var(--accent-press);
+  box-shadow: none;
+}
+
+[data-skin='breeze'] .btn--block {
+  min-height: 56px;
+  border-radius: var(--radius-md);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+[data-skin='breeze'] .btn--secondary {
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin='breeze'] .btn--secondary:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+[data-skin='breeze'] .btn--text {
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .btn--text:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+/* ---------- 6. 学习栏 + 进度：一根粗一点的蓝条 ------------------------- */
+
+[data-skin='breeze'] .study-bar__title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+[data-skin='breeze'] .study-bar__title-total {
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .study-bar__sub {
+  margin-top: 2px;
+  font-size: var(--fs-small);
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .study-progress {
+  height: 6px;
+  margin-bottom: 2px;
+  background: var(--surface-sunken);
+}
+
+[data-skin='breeze'] .study-progress__bar {
+  background: var(--accent);
+}
+
+/* ---------- 7. 学习卡：词头居中极大，一个释义一张白卡 ------------------- */
+
+[data-skin='breeze'] .flash {
+  gap: var(--space-4);
+  padding-block: var(--space-5) var(--space-6);
+}
+
+[data-skin='breeze'] .flash-card {
+  gap: var(--space-5);
+  padding: var(--space-2) 0 0;
+  border: 0;
+  background: transparent;
+}
+
+[data-skin='breeze'] .flash-card__head {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: center;
+}
+
+[data-skin='breeze'] .flash-card__word {
+  font-family: var(--bz-latin);
+  font-size: var(--bz-word-card);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+[data-skin='breeze'] .flash-card__ph {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--bz-phon-bg);
+  color: var(--text-tertiary);
+  font-family: var(--bz-latin);
+  font-size: var(--fs-phonetic);
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+[data-skin='breeze'] .flash-card__meanings {
+  align-items: stretch;
+  width: 100%;
+  max-width: none;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+[data-skin='breeze'] .meaning {
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--bz-card-shadow);
+  color: var(--bz-reading);
+  font-size: var(--fs-meaning);
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+}
+
+[data-skin='breeze'] .meaning--main {
+  color: var(--bz-reading);
+}
+
+[data-skin='breeze'] .meaning--extra {
+  color: var(--text-secondary);
+  font-size: calc(var(--fs-meaning) - 1px);
+}
+
+[data-skin='breeze'] .meaning__pos {
+  font-family: var(--bz-latin);
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .masked {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--mask);
+}
+
+[data-skin='breeze'] .flash-card__reveal {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  font-size: var(--fs-small);
+}
+
+/* 即时复习的居中档：基线把释义容器收窄到 32em 并居中，这里要全文宽的白卡 */
+[data-skin='breeze'] .flash-card--centered {
+  align-items: stretch;
+  text-align: center;
+}
+
+[data-skin='breeze'] .flash-card--centered .flash-card__head {
+  align-items: center;
+}
+
+[data-skin='breeze'] .flash-card--centered .flash-card__word {
+  font-size: var(--bz-word-card);
+}
+
+[data-skin='breeze'] .flash-card--centered .flash-card__meanings {
+  align-items: stretch;
+  max-width: none;
+}
+
+[data-skin='breeze'] .flash-card--centered .meaning {
+  font-size: var(--fs-meaning);
+}
+
+/* ---------- 8. 词表：每行一张白卡 --------------------------------------- */
+
+[data-skin='breeze'] .word-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  border-top: 0;
+}
+
+[data-skin='breeze'] .word-row {
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 0 var(--space-3);
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--bz-card-shadow);
+}
+
+[data-skin='breeze'] .word-row--peekable {
+  margin-inline: 0;
+  padding-inline: 16px;
+}
+
+[data-skin='breeze'] .word-row__index {
+  padding-top: 3px;
+  font-family: var(--bz-num);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .word-row__word {
+  font-family: var(--bz-latin);
+  font-size: var(--fs-word);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+[data-skin='breeze'] .word-row__ph {
+  font-family: var(--bz-latin);
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .word-row__meanings {
+  gap: 3px;
+  margin-top: 6px;
+}
+
+[data-skin='breeze'] .word-row__meanings .meaning {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: var(--fs-meaning);
+  line-height: 1.6;
+}
+
+/* ---------- 9. 底部控制条：没有上边框，靠淡阴影浮起来 ------------------- */
+
+[data-skin='breeze'] .dock {
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 0;
+  background: var(--bg);
+  box-shadow: var(--bz-float-shadow);
+}
+
+[data-skin='breeze'] .dock__btn {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+[data-skin='breeze'] .dock__state {
+  font-size: 12px;
+  opacity: 1;
+  color: var(--text-tertiary);
+}
+
+[data-skin='breeze'] .dock__toggle[aria-pressed='true'] {
+  background: var(--toggle-on);
+  color: var(--text);
+}
+
+[data-skin='breeze'] .dock__toggle[aria-pressed='false'] {
+  border-style: solid;
+  border-color: transparent;
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+[data-skin='breeze'] .dock__toggle:hover {
+  filter: none;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin='breeze'] .dock__nav {
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin='breeze'] .dock__nav:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+[data-skin='breeze'] .dock__nav--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--bz-glow);
+}
+
+[data-skin='breeze'] .dock__nav--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+[data-skin='breeze'] .dock__nav--primary:active:not(:disabled) {
+  background: var(--accent-press);
+}
+
+/* ---------- 10. 作答栏（复习三键 / 即时两键） --------------------------- */
+
+[data-skin='breeze'] .answer-dock {
+  gap: var(--space-2);
+  border-top: 0;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--bz-float-shadow);
+}
+
+[data-skin='breeze'] .answer-btn {
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+[data-skin='breeze'] .answer-btn--known {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--bz-glow);
+}
+
+[data-skin='breeze'] .answer-btn--known:hover {
+  background: var(--accent-hover);
+}
+
+[data-skin='breeze'] .answer-btn--fuzzy {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+[data-skin='breeze'] .answer-btn--fuzzy:hover {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+
+[data-skin='breeze'] .answer-btn--unknown {
+  background: var(--bz-btn-grey);
+  color: var(--danger);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin='breeze'] .answer-btn--unknown:hover {
+  background: var(--surface-sunken);
+}
+
+/* 收尾页：跟着令牌走，只把标题与按钮收干净 */
+[data-skin='breeze'] .session-done__title {
+  font-family: var(--font-sans);
+  font-size: var(--fs-h1);
+  line-height: 1.3;
+}
+
+[data-skin='breeze'] .session-done__kicker {
+  color: var(--accent);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+[data-skin='breeze'] .session-done__text,
+[data-skin='breeze'] .session-done__note {
+  font-size: var(--fs-small);
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+/* ---------- 11. 其它页（日历 / 我的 / 错词本 / 浮层）：只吃令牌 ---------- */
+
+/* 浮层与卡片同语言：无硬边、大圆角、柔和阴影 */
+[data-skin='breeze'] .sheet {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-skin='breeze'] .dialog {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-skin='breeze'] .segmented {
+  border-radius: var(--radius-md);
+}
+
+[data-skin='breeze'] .stat,
+[data-skin='breeze'] .section {
+  border-radius: var(--radius-md);
+}
+
+/* 外观选择卡：当前选中用蓝环而不是描边（描边在这套语言里不存在） */
+[data-skin='breeze'] .skin-card {
+  border: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin='breeze'] .skin-card[aria-pressed='true'] {
+  border: 0;
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    var(--shadow-sm);
+}
+
+[data-skin='breeze'] .skin-card__swatch {
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 12. 断点：768+ 放大一档（与基线同一组令牌各写一遍） --------- */
+
+@media (min-width: 768px) {
+  [data-skin='breeze'] {
+    --fs-display: 38px;
+    --fs-h1: 28px;
+    --fs-h2: 20px;
+    --fs-phonetic: 14px;
+    --fs-meaning: 17px;
+    --fs-word: clamp(26px, 2.6vw, 32px);
+    --bz-word-card: clamp(44px, 4.4vw, 58px);
+    --page-x: 32px;
+    --dock-height: 80px;
+  }
+
+  [data-skin='breeze'] .today-card {
+    padding: var(--space-6);
+  }
+
+  [data-skin='breeze'] .today-card__figure b,
+  [data-skin='breeze'] .start__meta b {
+    font-size: 28px;
+  }
+
+  [data-skin='breeze'] .today-card__figures {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  [data-skin='breeze'] .dock {
+    margin-bottom: var(--space-4);
+    border: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* ---------- 13. hover 只在真有指针的设备上（触屏不粘滞） --------------- */
+
+@media (hover: hover) {
+  [data-skin='breeze'] .icon-btn:hover {
+    background: var(--accent-weak);
+    color: var(--accent);
+  }
+
+  [data-skin='breeze'] .word-row--peekable:hover {
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+  }
+
+  [data-skin='breeze'] .today-card__links .btn--text:hover:not(:disabled) {
+    color: var(--accent-hover);
+  }
+
+  [data-skin='breeze'] .skin-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+
+  [data-skin='breeze'] .avatar-btn:hover {
+    transform: none;
+    background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  }
+}
+
+/* ---------- 14. 减弱动效：这套皮肤没有自己的位移，只剩基线的颜色过渡 --- */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='breeze'] .btn,
+  [data-skin='breeze'] .answer-btn,
+  [data-skin='breeze'] .icon-btn,
+  [data-skin='breeze'] .word-row {
+    transition: none;
+  }
+}

@@ -1,7 +1,7 @@
 async (page) => {
   // ② 专项扫描：所有「>4 个汉字但字号 <14px」的文本节点，按 类名|字号 聚合，附真实文案样本。
   // 用法：复制到 playwright-mcp/scripts 后 browser_run_code_unsafe({ filename: 'scripts/scan-tiny.js' })。文件必须以 } 结尾。
-  const skins = ['paper', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'desk', 'vinyl'];
+  const skins = ['paper', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'desk', 'vinyl', 'breeze'];
   const screens = ['home', 'cal', 'me', 'mistakes', 'sheet'];
   const SCAN = () => {
     const rows = [];

@@ -394,6 +394,7 @@ async (page) => {
     'nocturne',
     'vinyl',
     'desk',
+    'breeze',
   ]) {
     for (const theme of ['light', 'dark']) {
       await gotoHome(skin, theme);
@@ -576,7 +577,10 @@ async (page) => {
         firstClsAt: withCls.length ? withCls[0].at : null,
         clsFrames: withCls.length,
         totalFrames: frames.length,
-        bgAnim: seen[0].bgAnim,
+        /* seen 为空时这里必须是 null 而不是 seen[0].bgAnim ——
+           否则「没有过渡」这条 fail 会被 TypeError 吞掉，整个审计当场崩、
+           连其它组的结论都拿不到（2026-11-27 实测遇到过一次）。 */
+        bgAnim: seen.length ? seen[0].bgAnim : null,
         runningPast120: long.length,
         mid: midFrame ? { at: midFrame.at, bg: midFrame.appBg } : null,
         finalBg,
@@ -613,8 +617,10 @@ async (page) => {
     if (drift.length > 0) fail('320ms 后过渡属性没回到基线（= 常驻了）', drift.slice(0, 3));
     if (themeAfter.cls.includes('is-theme-switching')) fail('320ms 后类还在', themeAfter.cls);
 
-    // 切皮肤也要走同一条过渡（§13.4 触发条件包含 skin）
-    const skinFrames = await clickAndRecord('.skin-grid .skin-card:nth-child(2)');
+    // 切皮肤也要走同一条过渡（§13.4 触发条件包含 skin）。
+    // 选择器不能写 nth-child(2)：卡片顺序随 SKINS 变（v14 把默认皮肤 breeze 排到了第一），
+    // 真点到「当前已选中」那张就什么都不会发生 —— 断言会变成「没有过渡」的假失败。
+    const skinFrames = await clickAndRecord('.skin-grid .skin-card[aria-pressed="false"]');
     const skinJudge = judgeThemeSwitch('切皮肤', skinFrames, themeAfter);
 
     /* 自证伪：挂一个 CSS 不认识的旧类名 —— 320ms 后它必须还在，否则「类消失」这条是自欺 */
@@ -942,6 +948,7 @@ async (page) => {
     'nocturne',
     'vinyl',
     'desk',
+    'breeze',
   ]) {
     for (const theme of ['light', 'dark']) {
       await gotoHome(skin, theme);
@@ -980,7 +987,7 @@ async (page) => {
   const skins =
     Array.isArray(only) && only.length > 0
       ? only
-      : ['paper', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'vinyl', 'desk'];
+      : ['paper', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'vinyl', 'desk', 'breeze'];
   const expectKnown = {
     paper: 'ack-lift',
     foundry: 'ack-lift',
@@ -990,6 +997,7 @@ async (page) => {
     nocturne: 'none', // 卡片不动，词头闪墨
     vinyl: 'vy-ack-tilt',
     desk: 'ack-lift',
+    breeze: 'ack-lift',
   };
 
   if (want('press')) {
