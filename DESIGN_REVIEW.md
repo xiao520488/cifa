@@ -385,6 +385,11 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
 - **`.empty`（无词库）状态下带子的值未测**：三档读数会显示 `00 / 00 / 000`，逻辑上安全，但没有截图证据。
 - ~~**裸尺寸令牌化未做**~~ → **已落地**：见「v11.1 · `refactor(tokens)`」段，12 个令牌 + 17 条金值 + 像素级 15/16 逐字节相同。
 - **400–767 窄档除 nocturne 顶栏外未系统测过**，作为已知限制留档，后续按需再开。
+- **vinyl 浅色 390：`.cal-figures` 第 4 格（连续优秀）右侧被裁掉**（v12 动效第二轮发现，
+  **既有缺陷，不是动效引入**：转场只动 `transform` / `opacity`，且结束帧的静止截图与起手帧表现一致）。
+  成因是 vinyl 把四组读数排成一行、每格给固定圆盘直径，390 下总宽超过 `.app__main`
+  （`overflow-x: hidden` 直接裁掉，连横向滚动都没有）。v10 那 272 组矩阵没覆盖这一格的真实列宽，
+  属**探针覆盖缺口**。**排期：三个动效 commit 全部验收后单独开 `fix(vinyl)` commit 修，禁止夹带。**
 
 ### 操作坑（v11 新增，写死）
 
@@ -404,6 +409,13 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
   事后靠 `git checkout -- <file>` 回滚，**回滚后必须 `git diff --stat` 确认为空**再继续往下做。
 - **PowerShell 数行不可信**：`Measure-Object -Line` 对这个仓库的 md 会少算（97 KB 的 `NOTES.md` 报 189 行，
   实际 715+）。要行号/总量用 read 工具的 `of N`，别拿 `Measure-Object` 当尺子。
+- **规约被实测推翻：改规约 + 留档，不许悄悄改口径（v12 动效第二轮，2026-11-26）**：
+  `docs/MOTION_SPEC.md` §13.2 第 4 条原写「desk / vinyl 在日历 / 我的的常驻读数带跨屏存在、
+  **不参与**转场」。实测推翻——换屏时 `showBand` 由 false→true 会重新挂载，它就是跟着淡入，
+  desk 那一帧是三个节点（topbar / readouts / app__main）同动，
+  截图 `docs/screenshots/motion/v2-enter/enter-390-desk-dark-1.png`。已修正为「常驻带也属于进入屏」。
+  **教训不是「当时想错了」，而是「没实测就写进了规约」**：涉及挂载 / 复用的判断，
+  写之前先量一次；量不了就明确写「待验证」，别写成结论。
 
 ## v11.2 · 2026-11-25 · nocturne 顶栏小标签 13px → 14px（建议修 #2 落地）+ 顺手挖出 400–767 盲区
 

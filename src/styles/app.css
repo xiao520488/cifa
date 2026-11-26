@@ -1960,6 +1960,42 @@ p {
   animation: screen-in var(--motion-swap) var(--ease-out) backwards;
 }
 
+/* ---------- v2 · 主题 / 皮肤切换的颜色过渡（MOTION_SPEC §13.4）-------------
+   一次性类挂在 <html> 上，由 startThemeTransition() 加、240ms 后摘。
+   只在「切的那一下」存在，绝不常驻（常驻就会把 hover / 按压的颜色节奏全改掉）。
+
+   三个约束，改之前先看：
+   1. 逐属性列，永远不用 transition: all —— all 会把 transform / box-shadow 一起卷进来，
+      等于全站动效被这一个类劫持。
+   2. 必须 !important：元素身上有 20+ 处自己的 transition（140ms 那批），不加的话
+      同一帧里一半元素走 140ms、一半走 200ms，观感是「颜色在两段里各走各的」。
+   3. 用 * 而不是枚举类名：8 套皮肤的色面分散在容器 / 文字 / 边框 / 分隔线 / ::before 贴条，
+      枚举必然漏一层，漏一层比不过渡更丑。
+
+   覆盖不了（已知，见 §13.10）：background-image（渐变 / 纹理）、box-shadow、color-scheme、
+   字族与间距 —— 这些仍然硬切。 */
+html.is-theme-switching,
+html.is-theme-switching *,
+html.is-theme-switching *::before,
+html.is-theme-switching *::after {
+  transition-property: background-color, color, border-color !important;
+  transition-duration: var(--motion-theme) !important;
+  transition-timing-function: var(--ease-state) !important;
+  transition-delay: 0s !important;
+}
+
+/* 这条不是可选：上面的块特异性高于全局 `*` 兜底（app.css 里那条 0.01ms !important），
+   两处都 !important 时它会赢 —— 于是「关掉动效的人」反而会看到唯一一个他不想要的 200ms 过渡。
+   JS 里也跳过（主保险），这里是二保险，G2 两条都测。 */
+@media (prefers-reduced-motion: reduce) {
+  html.is-theme-switching,
+  html.is-theme-switching *,
+  html.is-theme-switching *::before,
+  html.is-theme-switching *::after {
+    transition: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

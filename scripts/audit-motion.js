@@ -381,6 +381,272 @@ async (page) => {
   }
   notes.enterSkins = enterSkinRows;
 
+  /* ================= 0b. v2 主题 / 皮肤切换过渡（docs/MOTION_SPEC.md §13.7 G2）=====
+     四条判据：
+     ① 切换那一下必须挂 is-theme-switching，且带类的帧里六节点是 0.2s + 三属性；
+     ② 320ms 后类必须消失，且六节点的 transition-property / duration 与基线**逐字相等**
+        （基线允许本来就含颜色过渡 —— 基座与皮肤本来就有 140ms 的 hover 颜色，判据是「回到基线」）；
+     ③ 中间态真的存在：100ms 时 .app 的底色既不等于切换前也不等于切换后；
+     ④ 减弱动效两条都测：JS 跳过（类一次都不出现 + 背景瞬切）、CSS 反制（强制加类后时长必须归零）。
+     另加自证伪：人为挂一个 CSS 不认识的旧类名，320ms 后它必须还在（否则「类消失」这条是自欺）。 */
+
+  const STYLE_SELS = ['.app', '.topbar', '.screen', '.readout', '.btn', '.start'];
+
+  const styleSnap = () =>
+    page.evaluate((sels) => {
+      const nodes = {};
+      for (const s of sels) {
+        const el = document.querySelector(s);
+        if (!el) continue;
+        const cs = getComputedStyle(el);
+        nodes[s] = { prop: cs.transitionProperty, dur: cs.transitionDuration };
+      }
+      return {
+        cls: document.documentElement.className,
+        nodes,
+        appBg: getComputedStyle(document.querySelector('.app')).backgroundColor,
+      };
+    }, STYLE_SELS);
+
+  /** 全站扫一遍 transition-property 里有没有 all **并且真的在跑**（duration > 0） */
+  const scanAllTransition = () =>
+    page.evaluate(() => {
+      const bad = [];
+      for (const el of document.querySelectorAll('*')) {
+        const cs = getComputedStyle(el);
+        const p = cs.transitionProperty;
+        if (!p.split(',').some((x) => x.trim() === 'all')) continue;
+        // Chromium 里 transition-property 的初始值就是 all，duration 为 0 时什么都不会动；
+        // 只认「all + 非零时长」才是真的违规。
+        const running = cs.transitionDuration
+          .split(',')
+          .some((d) => parseFloat(d) > 0);
+        if (running) {
+          bad.push(el.tagName + '.' + String(el.className).slice(0, 24) + ' :: ' + cs.transitionDuration);
+          if (bad.length > 5) break;
+        }
+      }
+      return bad;
+    });
+
+  /** 点一个 CSS 选择器指向的元素，并从同一帧开始录 380ms（类 + 六节点样式 + .app 底色） */
+  const clickAndRecord = (selector) =>
+    page.evaluate(
+      (sel) =>
+        new Promise((resolve) => {
+          const btn = document.querySelector(sel);
+          if (!btn) {
+            resolve({ error: 'no-element:' + sel });
+            return;
+          }
+          btn.click();
+          const t0 = performance.now();
+          const frames = [];
+          const tick = () => {
+            const app = document.querySelector('.app');
+            const nodes = {};
+            for (const s of ['.app', '.topbar', '.screen', '.readout', '.btn', '.start']) {
+              const el = document.querySelector(s);
+              if (!el) continue;
+              const cs = getComputedStyle(el);
+              nodes[s] = { prop: cs.transitionProperty, dur: cs.transitionDuration };
+            }
+            /* 底色到底有没有在 200ms 里过渡：直接读 CSS Transition 对象，
+               比「什么时候变成终色」可靠 —— 颜色差只有几个色阶时（paper→foundry 的白），
+               量化的到达时刻会比真实过渡早 60–100ms，拿它当判据就是假阴性。 */
+            const anims = document.getAnimations().filter(
+              (a) =>
+                a.transitionProperty === 'background-color' &&
+                a.effect &&
+                a.effect.target === app,
+            );
+            const a0 = anims[0];
+            frames.push({
+              at: Math.round(performance.now() - t0),
+              cls: document.documentElement.className,
+              appBg: getComputedStyle(app).backgroundColor,
+              nodes,
+              bgAnim: a0
+                ? {
+                    dur: a0.effect.getTiming().duration,
+                    state: a0.playState,
+                    elapsed: Math.round(performance.now() - (a0.startTime || performance.now())),
+                  }
+                : null,
+            });
+            if (performance.now() - t0 < 380) requestAnimationFrame(tick);
+            else resolve(frames);
+          };
+          requestAnimationFrame(tick);
+        }),
+      selector,
+    );
+
+  const judgeThemeSwitch = (label, frames, before) => {
+    if (!frames || frames.error) {
+      fail(`${label}：找不到切换按钮（${frames && frames.error}）`);
+      return null;
+    }
+    const withCls = frames.filter((f) => f.cls.includes('is-theme-switching'));
+    if (withCls.length === 0) fail(`${label}：切换时没有挂 is-theme-switching`, frames[0]);
+    else if (withCls[0].at > 80) fail(`${label}：过渡类挂得太晚（首帧已过 80ms）`, withCls[0].at);
+
+    const badDur = [];
+    const badProp = [];
+    for (const f of withCls) {
+      for (const [sel, v] of Object.entries(f.nodes)) {
+        if (!v.dur.includes('0.2s')) badDur.push([f.at, sel, v.dur]);
+        // transition-property 的计算值是逗号串；三个属性必须都在
+        if (!(v.prop.includes('background-color') && v.prop.includes('color') && v.prop.includes('border-color'))) {
+          badProp.push([f.at, sel, v.prop]);
+        }
+      }
+    }
+    if (badDur.length) fail(`${label}：带类的帧里有节点不是 200ms`, badDur.slice(0, 4));
+    if (badProp.length) fail(`${label}：带类的帧里缺三属性之一`, badProp.slice(0, 3));
+
+    const after = frames.filter((f) => f.at > 300);
+    if (after.length === 0) fail(`${label}：没采到 300ms 之后的帧`);
+    if (after.some((f) => f.cls.includes('is-theme-switching'))) {
+      fail(`${label}：320ms 后过渡类还在（常驻了）`, after[after.length - 1].cls);
+    }
+
+    /* 中间态：不许瞬切。判据用 CSS Transition 对象自身的时长与状态 ——
+       不用「色值到达终点的时刻」（色差小的时候量化会提前 60–100ms 到达，属假阴性）。 */
+    const finalBg = frames[frames.length - 1].appBg;
+    if (finalBg === before.appBg) {
+      fail(`${label}：切换后底色没变（后面几条断言就是假的）`, { before: before.appBg, final: finalBg });
+    }
+    const seen = frames.filter((f) => f.bgAnim);
+    if (seen.length === 0) {
+      fail(`${label}：.app 上根本没有 background-color 过渡（瞬切）`, {
+        before: before.appBg,
+        final: finalBg,
+      });
+    }
+    const badAnimDur = seen.filter((f) => f.bgAnim.dur !== 200);
+    if (badAnimDur.length) fail(`${label}：底色过渡不是 200ms`, badAnimDur.slice(0, 2));
+    const long = seen.filter((f) => f.bgAnim.state === 'running' && f.bgAnim.elapsed >= 120);
+    if (long.length === 0) {
+      fail(`${label}：底色过渡没有真正跑满 120ms 以上（像是瞬切）`, seen.slice(0, 3));
+    }
+    const tail = frames[frames.length - 1];
+    if (tail.bgAnim && tail.bgAnim.state === 'running') {
+      fail(`${label}：380ms 后底色过渡还在跑（时长不对）`, tail.bgAnim);
+    }
+    const midFrame = frames.find((f) => f.appBg !== before.appBg && f.appBg !== finalBg);
+    return {
+      firstClsAt: withCls.length ? withCls[0].at : null,
+      clsFrames: withCls.length,
+      totalFrames: frames.length,
+      bgAnim: seen[0].bgAnim,
+      runningPast120: long.length,
+      mid: midFrame ? { at: midFrame.at, bg: midFrame.appBg } : null,
+      finalBg,
+    };
+  };
+
+  await gotoHome('paper', 'light');
+  const themeBase = await styleSnap();
+  const allAll = await scanAllTransition();
+  if (allAll.length > 0) fail('有元素用了 transition: all（规约禁止）', allAll);
+
+  await page.evaluate(() =>
+    document.querySelector('.icon-btn[aria-label="切换外观风格"]').click(),
+  );
+  await page.waitForSelector('.segmented[aria-label="明暗"]', { timeout: 4000 });
+  await page.waitForTimeout(360); // 等面板入场动画结束：否则长任务会把过渡起点推后（实测 175ms），判据会假阳性
+  const themeFrames = await clickAndRecord('button[aria-label="深色"]');
+  const themeJudge = judgeThemeSwitch('切深色', themeFrames, themeBase);
+
+  // 320ms 之后：类必须消失，六节点样式必须逐字回到基线
+  await page.waitForTimeout(360);
+  const themeAfter = await styleSnap();
+  const drift = Object.keys(themeBase.nodes)
+    .filter((sel) => {
+      const a = themeAfter.nodes[sel];
+      const b = themeBase.nodes[sel];
+      return !a || !b || a.prop !== b.prop || a.dur !== b.dur;
+    })
+    .map((sel) => ({
+      sel,
+      base: themeBase.nodes[sel],
+      after: themeAfter.nodes[sel],
+    }));
+  if (drift.length > 0) fail('320ms 后过渡属性没回到基线（= 常驻了）', drift.slice(0, 3));
+  if (themeAfter.cls.includes('is-theme-switching')) fail('320ms 后类还在', themeAfter.cls);
+
+  // 切皮肤也要走同一条过渡（§13.4 触发条件包含 skin）
+  const skinFrames = await clickAndRecord('.skin-grid .skin-card:nth-child(2)');
+  const skinJudge = judgeThemeSwitch('切皮肤', skinFrames, themeAfter);
+
+  /* 自证伪：挂一个 CSS 不认识的旧类名 —— 320ms 后它必须还在，否则「类消失」这条是自欺 */
+  await page.evaluate(() => document.documentElement.classList.add('is-theme-fade'));
+  await page.waitForTimeout(320);
+  const stale = await page.evaluate(() => document.documentElement.className);
+  await page.evaluate(() => document.documentElement.classList.remove('is-theme-fade'));
+  if (!stale.includes('is-theme-fade')) {
+    fail('自证伪失败：人为挂上的旧类竟然自己消失了（「类消失」这条断言不可信）', stale);
+  }
+
+  /* 减弱动效 · 第 1 条：JS 跳过（类一次都不出现 + 背景瞬切到终值） */
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await gotoHome('paper', 'light');
+  await page.evaluate(() =>
+    document.querySelector('.icon-btn[aria-label="切换外观风格"]').click(),
+  );
+  await page.waitForSelector('.segmented[aria-label="明暗"]', { timeout: 4000 });
+  await page.waitForTimeout(360); // 等面板入场动画结束：否则长任务会把过渡起点推后（实测 175ms），判据会假阳性
+  const reduceThemeFrames = await clickAndRecord('button[aria-label="深色"]');
+  const reduceWithCls = reduceThemeFrames.filter((f) => f.cls.includes('is-theme-switching'));
+  if (reduceWithCls.length > 0) {
+    fail('减弱动效下仍挂了过渡类（JS 没跳过）', reduceWithCls[0].cls);
+  }
+  const rFirst = reduceThemeFrames[0];
+  const rFinal = reduceThemeFrames[reduceThemeFrames.length - 1];
+  if (rFirst.appBg === rFinal.appBg) {
+    fail('减弱动效下底色没变（这次切换没生效，下面两条是假绿）', rFirst);
+  }
+  const rEarly = reduceThemeFrames.find((f) => f.at >= 50) || rFinal;
+  if (rEarly.appBg !== rFinal.appBg) {
+    fail('减弱动效下底色仍在渐变（应当在 ~1 帧内瞬切）', {
+      at: rEarly.at,
+      bg: rEarly.appBg,
+      final: rFinal.appBg,
+    });
+  }
+
+  /* 减弱动效 · 第 2 条：CSS 反制（手动强制加类，时长必须归零） */
+  const counter = await page.evaluate(() => {
+    const root = document.documentElement;
+    root.classList.add('is-theme-switching');
+    const out = {};
+    for (const s of ['.app', '.topbar', '.screen', '.readout', '.btn', '.start']) {
+      const el = document.querySelector(s);
+      if (!el) continue;
+      out[s] = getComputedStyle(el).transitionDuration;
+    }
+    root.classList.remove('is-theme-switching');
+    return out;
+  });
+  const counterBad = Object.entries(counter).filter(
+    ([, d]) => !(d.includes('0s') || d.includes('0.00001s') || d.includes('1e-05s')),
+  );
+  if (counterBad.length > 0) {
+    fail('减弱动效下 CSS 反制没生效（强制加类后仍按 0.2s 过渡）', counterBad.slice(0, 3));
+  }
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  notes.themeSwitch = {
+    base: themeBase,
+    judge: themeJudge,
+    skin: skinJudge,
+    drift: drift.length,
+    reduce: { clsSeen: reduceWithCls.length, earlyBg: rEarly.appBg, finalBg: rFinal.appBg },
+    counter,
+    allAll,
+  };
+
   /* ---------------- 1. 8 套皮肤：按压统一 + 答对变体 ---------------- */
 
   // cfg 里可以只跑某几套皮肤（改一套皮肤的 CSS 时省一轮全矩阵）：

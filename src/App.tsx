@@ -21,6 +21,7 @@ import { TodayCard } from './components/TodayCard';
 import { useScheduler } from './hooks/useScheduler';
 import { preloadBook } from './lib/books';
 import { deckWords } from './lib/deck';
+import { startThemeTransition } from './lib/motion';
 import { emptyStageProgress, loadStore, saveStore } from './lib/storage';
 import type { LevelKey, Profile, Store, Word } from './lib/types';
 import { persistentReadoutsFor, skinMeta } from './lib/skins';
@@ -83,7 +84,16 @@ export default function App() {
     !session &&
     (screen === 'calendar' || screen === 'me');
 
-  /* 主题：跟随系统时监听系统变化 */
+  /**
+   * 主题 + 皮肤：两者都写在 `<html>` 上（`data-theme` / `data-skin`），CSS 按它们切换。
+   * 合并成一个 effect 的原因：切皮肤时 theme-color meta 也要跟着换，拆成两个会重复写 DOM；
+   * 而且「切的那一下」必须挂**一次**颜色过渡（docs/MOTION_SPEC.md §13.4）。
+   *
+   * 首轮不挂过渡：开 App 不该先演一遍 200ms 的颜色渐变（与「首帧不播转场」同一条原则）。
+   * 用「上一次的 key」而不是布尔量判断，是为了扛住 StrictMode 开发模式下挂载时 effect 跑两遍
+   * —— 布尔量会被第二遍翻成「不是首轮」，于是冷启动照样渐变一次。
+   */
+  const appliedColorKey = useRef<string | null>(null);
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
@@ -95,16 +105,23 @@ export default function App() {
         .querySelector('meta[name="theme-color"]')
         ?.setAttribute('content', dark ? meta.darkBg : meta.swatch.bg);
     };
-    apply();
-    if (store.profile.theme !== 'system') return;
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
-  }, [store.profile.theme, store.profile.skin]);
 
-  /* 皮肤：四套排印系统，写在 <html data-skin>，CSS 按它切换 */
-  useEffect(() => {
+    const key = `${store.profile.theme}/${store.profile.skin}`;
+    const isSwitch = appliedColorKey.current !== null && appliedColorKey.current !== key;
+    appliedColorKey.current = key;
+    if (isSwitch) startThemeTransition(); // 必须在写 dataset 之前：类要先落到「旧颜色」上
+
     document.documentElement.dataset.skin = store.profile.skin;
-  }, [store.profile.skin]);
+    apply();
+
+    if (store.profile.theme !== 'system') return;
+    const onSystemChange = () => {
+      startThemeTransition();
+      apply();
+    };
+    media.addEventListener('change', onSystemChange);
+    return () => media.removeEventListener('change', onSystemChange);
+  }, [store.profile.theme, store.profile.skin]);
 
   /**
    * v2 页面转场（docs/MOTION_SPEC.md §13.3）：`screen` 变化时给 .app 挂一次性类，

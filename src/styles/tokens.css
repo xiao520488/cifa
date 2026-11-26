@@ -99,7 +99,11 @@
   --motion-feedback: 200ms; /* 档 2：卡片反馈 + 反馈期间的换卡延迟 */
   --motion-toast-in: 200ms;
   --motion-toast-out: 150ms;
-  --motion-swap: 350ms; /* 档 3：转场，本轮只定义不接线 */
+  --motion-swap: 350ms; /* 档 3：转场（§13.3 起接线） */
+  /* 主题 / 皮肤切换的颜色过渡（MOTION_SPEC §13.4）：200ms，**写死字面量**。
+     不能写 var(--duration-base) —— foundry 把 --duration-base 改成 160ms、instrument 改成 180ms，
+     那样「切主题 200ms」会随皮肤变（第一次实测就是 0.16s）。主题过渡必须跨皮肤同一条时长。 */
+  --motion-theme: 200ms;
   --ease-state: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* 幅度：全部皮肤共用同一组数字（这是触感，不是皮肤语言） */

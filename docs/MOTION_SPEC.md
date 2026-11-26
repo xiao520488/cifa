@@ -332,12 +332,14 @@ node run-audit-node.js D:\背单词\scripts\audit-motion-shots.js D:\背单词\s
 |---|---|---|---|
 | 转场 | `350ms` | `--motion-swap` | 已有（§1 一直「只定义不接线」，本轮首次接线） |
 | 转场位移 | `8px` | `--screen-shift`（新） | **幅度**令牌，不是时长档（与 `--toast-shift` / `--press-scale` 同类） |
-| 主题 / 皮肤过渡 | `200ms` | `--motion-theme: var(--duration-base)` | 别名，**零新增值**（`--duration-base` 本来就是 200ms） |
+| 主题 / 皮肤过渡 | `200ms` | `--motion-theme: 200ms`（字面量） | 零新增值；**不能别名 `--duration-base`**，见下 |
 | 数字滚动 | `250ms` | `--motion-number` | **已批准（2026-11-26）：唯一破例，只给数字滚动，不得挪用** |
 | 曲线 | — | `--ease-out` / `--ease-state` | 已有，不新增 |
 
 **为什么是 350 / 200 / 250**：转场是「一屏换一屏」，人要重建位置感 → 350；颜色是「同一位置换衣服」，超过 200ms 就像卡顿；数字是最短的一段连续变化，250 是「看得出在动」的下限。
 严格说 250 是第四个值 —— **本轮唯一破例，且写死三条限制**：① 只给数字滚动用；② **不得挪用**给任何其他交互（新交互要用的时长必须回 50 / 200 / 350 选，或另开一轮拍板）；③ 令牌名 `--motion-number` 只许出现在数字滚动的实现里，出现第二处即判越界。
+
+**200ms 为什么写成字面量而不是别名 `--duration-base`**：`foundry` 把 `--duration-base` 改成 **160ms**、`instrument` 改成 180ms。别名一接上，「切主题 200ms」就变成随皮肤变 —— 第一次实测切到 foundry 直接是 **0.16s**。主题过渡是跨皮肤的同一条节奏，必须写死 200ms。
 
 ### 13.1 三处拍板（2026-11-26 用户已定，下述为定稿口径）
 
@@ -419,6 +421,7 @@ html.is-theme-switching *::after {
 ```
 
 - **为什么用 `*`**：8 套皮肤的色面分散在容器底色、文字、边框、分隔线、`::before` 贴条五处，逐类名枚举必然漏一层；漏一层就是「大部分在过渡、某几块硬切」，比不过渡更丑。
+- **为什么要先强制一次样式重算**：类与 `data-theme` / `data-skin` 如果**同一次任务里**一起改，浏览器在两次重算之间从没观察过「带 transition 属性的旧颜色」→ 过渡根本不会触发（看起来就是瞬切）。所以 `startThemeTransition()` 里加完类必须先 `void documentElement.offsetHeight` 把样式压下去，再改 `dataset`。这条不写清，实现出来会是「代码全对、就是不渐变」。
 - **为什么必须 `!important`**：元素身上有 20+ 处自己的 `transition`（`app.css` 里 140ms 那批），不加 `!important` 会有一半元素走 140ms、一半走 200ms，同一帧里两种节奏。
 - **为什么那条 reduced-motion 反制是硬要求**：`app.css:1933` 的全局兜底把 `transition-duration` 压到 `0.01ms !important`；本块的 `!important` + 类选择器特异性更高，会把 200ms **重新打开** —— 等于给「明确关掉动效」的人加上唯一一个他不想看的过渡。JS 里跳过是主保险，这条 CSS 是二保险，门禁两条都测。
 - **覆盖不了的（如实列）**：`background-image`（8 套里 5 套有渐变 / 纹理）、`box-shadow`（明暗档不同）、`color-scheme`（原生控件与滚动条）、字族与间距（皮肤切换会瞬切）。这些会硬切 —— 判定标准是抽查截图，不是数值。
@@ -484,11 +487,13 @@ html.is-theme-switching *::after {
 5. reduced-motion：全程 `translateY` 分量恒 0，60ms 时 `opacity < 1`。
 
 **G2 主题过渡不常驻**
-1. 基线（切换前）：`body` / `.app` / `.topbar` / `.screen` / `.btn` / `.readout` 六个节点的 `transition-property` **不含** `background-color|color|border-color`，且永远不含 `all`。
-2. 点「深色」后一帧：`html` 有 `is-theme-switching`；上述节点含三属性、`transition-duration` 含 `0.2s`、无 `all`。
-3. `+320ms`：类消失；六个节点的 `transition-property` 与基线**逐字相等**（这是「不常驻」的判据，不是「看起来还好」）。
-4. 真在过渡：100ms 时 `body` 的 `background-color` 既不等于切换前、也不等于切换后。
-5. reduced-motion：手动强制加类 → `transition-duration` 不含 `0.2s`（必须是 `0s` / `0.01ms`）。
+1. 基线（切换前）：`<html>` 上没有 `is-theme-switching`；记录六个节点（`.app` / `.topbar` / `.screen` / `.readout` / `.btn` / `.cal-figure`）的 `transition-property` 与 `transition-duration` 原串；任意时刻 computed `transition-property` **不含 `all`**。
+   ⚠️ **基线允许本来就含 `background-color / color / border-color`**：基座与 8 套皮肤本来就有 140ms 的 hover 颜色过渡。真正的判据是「320ms 后逐字回到基线」，不是「基线里没有颜色」——第一版规约写成「基线不含」，是错的，已按实测改。
+2. 点「深色」后一帧：类在；上述节点 `transition-duration` 含 `0.2s`、`transition-property` 含三属性、无 `all`。
+3. `+320ms`：类消失；六个节点的两条属性字符串与基线**逐字相等**（这是「不常驻」的判据，不是「看起来还好」）。
+4. 真在过渡：100ms 时 `.app` 的 `background-color` 既不等于切换前、也不等于切换后。
+5. **reduced-motion 两条都要测**：① **JS 跳过** —— 点「深色」后连续采样，类一次都不出现，且 `.app` 背景 60ms 内已经是终值（没有中间态）；② **CSS 反制** —— 手动强制加类后，六个节点的 `transition-duration` 必须是 `0s` / `0.01ms`，不许是 `0.2s`（否则等于给「明确关掉动效」的人加了他唯一不想看的过渡）。
+6. **自证伪**：手动加一个旧类名（`is-theme-fade`）→ 「320ms 后类消失」这条必须红；红不了就是探针在自欺。
 
 **G3 数字滚动不撑布局**
 1. 隔离 context 造 1 张今日卡 → 首页读「已学」→ 进 session 答完 → 回首页；回首页 30ms 采样：文本 ≠ 新值；125ms：介于旧值与新值之间；300ms：等于新值。
@@ -533,6 +538,10 @@ html.is-theme-switching *::after {
 
 1. 转场期间 `main.app__main` 带 `transform` → 350ms 内打开 Hint 浮层会偏 8px。
 2. 主题切换只有三色过渡：渐变、阴影、字族、间距会硬切；判丑靠人眼抽查，不靠阈值。
+   **中间态会掉对比度，这是必然的**：前景色与背景色同时过渡，两者亮度必然在某一刻交叉。
+   实测 16 组（8 皮肤 × 明暗互切）中段最低 **1.04–1.59**，终态 4.59–7.36（`docs/screenshots/motion/v2-theme/`
+   的 48 张截图 + 每张的 `ratio` 记录）。改法只有「不做过渡」或「缩到 120ms 以内」，两条都与拍板冲突，
+   所以按「接受 + 记录」处理；真机上觉得那一瞬太灰，唯一旋钮是把过渡压到 140–160ms，而不是加新特效。
 3. **⚠️ 本轮对「只用 transform / opacity」有两处破例，逐条写在案，不许悄悄破**：
    - **破例一 · 颜色过渡**：主题 / 皮肤切换做 `background-color` / `color` / `border-color` 200ms 过渡（§13.4）。颜色只重绘不重排，是最古老的那条例外；仍然**逐属性列，永不用 `all`**。
    - **破例二 · 文本变化**：数字滚动逐帧改 `textContent`（D6-A）。布局稳定不是靠「只动 transform」，而是靠**幽灵占位锁宽 + 每帧不读布局**两条可测约束兜住；`--motion-number` 的适用范围写死到这一处。
