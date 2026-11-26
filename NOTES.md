@@ -1,5 +1,16 @@
 # NOTES
 
+## 2026-11-26 · 移动端两处修复：状态栏跟随主题 / 禁止双指缩放（`04665f4` + `3c19ce7` + `f7bf3cf`），APK 1.4
+
+- **最该记住的一条**：**WebView 不认 `<meta name="theme-color">`**。App.tsx 一直在按主题改这条 meta，看着对、在 APK 里完全无效——系统状态栏只有原生 `Window.setStatusBarColor()` 说了算。上一版 MainActivity 直接写死 `0xFFF6F3EC` + 永远 `LIGHT_STATUS_BAR`，所以深色主题下顶部是一条白胶带（真机截图 16:40）。修法是加 JS 桥 `cijianChrome.setStatusBar('#RRGGBB')`，`src/lib/native.ts` 里包一层，浏览器中桥不存在＝空操作。
+- **图标明暗按底色亮度算，不按主题名**：`Color.luminance(color) < 0.5` → 白图标。因为 instrument 皮肤浅色主题下底色也是 `#0B0D0F`，按 theme 名判会把深色图标压在近黑状态栏上。八套皮肤明暗两档的亮度离 0.5 阈值最近也有 0.378，不会摇摆。
+- **桥注入时机**：`addJavascriptInterface` 在页面脚本执行前就存在，所以 `index.html` 的首帧内联脚本也能先设一次（按已存主题 + 兜底色），App 挂载后再按皮肤精确校正 —— 冷启动不会先闪一条白状态栏。
+- **缩放两边都缺**：`index.html` 的 viewport 没有 `maximum-scale / user-scalable`，原生只写了 `setSupportZoom(false)`、没关 `setBuiltInZoomControls / setDisplayZoomControls`。两边都补上才挡得住。代价：Chrome/PWA 里 `user-scalable=no` 会被无障碍策略忽略（本 App 只发 APK，认这条）。
+- **结构变更（顺手但必要）**：原生源码进仓库 `android/`（此前只在 `D:\AndroidBuild`，没有 diff、不能单独回退）；`scripts/build-apk.ps1` 每次构建前把它覆盖进工作区，仓库是唯一真源。
+- **坑（复用）**：`build-apk.ps1` 必须存成 **UTF-8 with BOM**。无 BOM 时 PowerShell 5.1 按 ANSI 解码，中文注释把脚本解析坏——实测报 `Test-Path 参数为 null`（`$RepoSrc` 压根没赋上值），排查方向会被带偏。
+- **证据（实物）**：`out/cijian-1.4.apk` 28 条目、21 个 `dist/` 文件逐个 SHA256 一致（0 不一致）；`classes.dex` 里查到 `MainActivity$ChromeBridge` / `"cijianChrome"` / `addJavascriptInterface` / `Color.luminance` / `setSystemBarsAppearance` / `setBuiltInZoomControls` / `setDisplayZoomControls`；v2+v3 签名、证书 `bee17fe6…6984`；`aapt` → versionCode 5 / 1.4。构建产物上注入假桥实测四组：dark/instrument `#12110E→#0B0D0F`、light/instrument `#F6F3EC→#0B0D0F`、light/paper `#F6F3EC`、dark/vinyl `#12110E→#121113`，与 meta 逐项一致。
+- **下一步**：手机覆盖安装 1.4，只看两件事 —— **深色下状态栏和顶栏是不是一块色 / 双指还能不能捏大**。两个都对了就回到「背一周、只回答三个问题」的老路线。
+
 ## 2026-11-26 · 真机验收 APK 1.3 通过 —— 动效第二轮收口
 
 - **用户确认（20:10）**：`out/cijian-1.3.apk` 装到手机、实机使用「可以」。转场 / 主题过渡 / 数字滚动三件**不需要回退**。这是本轮唯一缺的最后一块验收（本机无设备，之前只验到包内 21 文件 SHA256 一致 + v2/v3 签名 + aapt 字段）。
