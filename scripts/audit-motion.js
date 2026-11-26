@@ -367,11 +367,27 @@ async (page) => {
   const contrastRows = [];
   const readContrast = () =>
     page.evaluate((sel) => {
+      // 注意：color-mix() 的计算值在 Chromium 里序列化成 color(srgb r g b / a)，
+      // 不是 rgb()/rgba()。只认 rgb() 会把「按压薄涂」这一层漏掉、拿底色顶替，
+      // 测出来的对比度是假的（第一次跑 foundry 深色报 1.0 就是这个坑）。
       const parse = (s) => {
-        const m = s.match(/rgba?\(([^)]+)\)/);
-        if (!m) return null;
-        const p = m[1].split(',').map((x) => Number(x.trim()));
-        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+        const rgb = s.match(/^rgba?\(([^)]+)\)/);
+        if (rgb) {
+          const p = rgb[1].split(',').map((x) => Number(x.trim()));
+          return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+        }
+        const srgb = s.match(/^color\(srgb ([^)]+)\)/);
+        if (srgb) {
+          const [body, alpha] = srgb[1].split('/');
+          const p = body.trim().split(/\s+/).map(Number);
+          return {
+            r: p[0] * 255,
+            g: p[1] * 255,
+            b: p[2] * 255,
+            a: alpha === undefined ? 1 : Number(alpha.trim()),
+          };
+        }
+        return null;
       };
       const lum = (r, g, b) => {
         const f = (v) => {
