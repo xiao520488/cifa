@@ -1,6 +1,24 @@
 # 词笺 · 交付前 Design Review
 
+## v14 · 2026-11-27 · 第 9 套皮肤「晴空 BREEZE」+ 新装默认（v1.4.3）
+
+- **一条皮肤 = 5 处注册**，其中第 5 处最容易漏，且**症状是静默的**：
+  ① `src/lib/types.ts` 的 `Skin` 联合类型；② `src/lib/skins.ts` 的 `SKINS` 元数据（`persistentReadouts` 必填，漏写编译期就红）；
+  ③ `src/main.tsx` 的 CSS `import`；④ **`src/lib/storage.ts` 的 `SKINS` 白名单（`loadStore()` 用它决定已存偏好是否合法，不合法静默回退默认）**；
+  ⑤ `index.html` 首帧脚本（`data-skin` 要在 App 挂载前挂上，否则按 tokens 默认纸色画一屏）。
+  **漏 ④ 的表现**：CSS 全部生效、`tsc` 0 错、门禁全绿，页面却一直是 paper——第一版交付截图里主按钮还是朱砂红才发现。
+  **自查口子**：新增皮肤后第一件事是 `document.documentElement.dataset.skin` 是否等于新 key（而不是看截图好不好看）。
+  建议后续把这 4 份名单合并成一个真源（目前是历史遗留的重复），本轮为控范围未动。
+- **默认与兜底必须是同一套**：`DEFAULT_PROFILE.skin` 改成 breeze 时，`SKINS[0]` 也要跟着变——`skinMeta()` 的兜底取 `SKINS[0]`，
+  否则「未知 key 用 breeze，但新装默认是 breeze」这种一致性只能靠运气。
+- **量具两处修正**（不是产品代码）：切皮肤断言改用 `[aria-pressed="false"]`，不用 `nth-child(2)`——
+  皮肤顺序一变，`nth-child(2)` 可能正好是「已选中」那张，点了没有过渡 → 假失败；
+  `judgeThemeSwitch` 里 `seen[0].bgAnim` 在空数组时改取 `null`——否则该 fail 被 TypeError 吞掉，整轮审计崩、其余 7 组结论全丢。
+- **本轮门禁**：`tsc` 0 错；`scan-tiny` 9 皮肤 × 5 界面 `groups 0 / hardFail 0`；`audit-screens` 390+1440 与 360+768 各 24 组 `failCount 0`；
+  `audit-motion` 全量 8 组 × 9 皮肤 `fails []`（breeze 按压 0.97 / 50ms→180ms / `ack-lift`，按压对比度 6.37 浅 / 8.45 深）。
+
 ## v10 · 2026-11-25 · 五界面全站精修（bento / nocturne / desk / vinyl）+ 现有四套首页重排 + 全站中文排印提档
+
 
 **范围**：用户选定 A=bento / C=nocturne / D=desk / F=vinyl，E=deck 作废（四处注册摘掉，CSS 存档 `docs/v8-variants/deck.v1.css`）。
 四套入选皮肤从「只有首页」扩到**五个界面**（学习流 / 日历 / 错词本 / 我的 / 浮层）；现有四套（paper / foundry / instrument / broadsheet）**首页那句功能介绍随 DOM 真删**并重排；

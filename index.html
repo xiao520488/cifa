@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#F6F3EC" />
+    <meta name="theme-color" content="#F4F8FB" />
     <meta name="description" content="词笺 —— 一页五个词，看一遍就会。安静、专注的背单词 App。" />
     <title>词笺 · 一页五个词</title>
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -22,12 +22,32 @@
             theme === 'dark' ||
             (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          // 皮肤也照同样的路子先挂上：App 挂载后才设 data-skin，而 Boot 要先等词库
+          // 动态 import 完才渲染，中间这段时间会按 tokens.css 的默认纸色画一屏。
+          // 这里提前挂上已存皮肤（新装 = 默认 breeze），冷启动不再先闪一帧别的皮肤。
+          var KNOWN_SKINS = [
+            'breeze',
+            'paper',
+            'foundry',
+            'instrument',
+            'broadsheet',
+            'bento',
+            'nocturne',
+            'desk',
+            'vinyl',
+          ];
+          var skin = raw ? (JSON.parse(raw).profile || {}).skin : 'breeze';
+          if (KNOWN_SKINS.indexOf(skin) >= 0) {
+            document.documentElement.dataset.skin = skin;
+          }
           // WebView 不认下面那条 theme-color meta，状态栏只能走原生桥（见 src/lib/native.ts）。
           // 这里先按「已知主题 + 兜底底色」设一次，App 挂载后再按皮肤校正；
           // 图标明暗由原生按底色亮度自己算，不在这里判断。
+          // 兜底色 = 默认皮肤「晴空」的明暗两档（v14 起新装默认 breeze），
+          // 否则全新安装会先闪一帧纸色再被 App 纠正。
           try {
             if (window.cijianChrome && window.cijianChrome.setStatusBar) {
-              window.cijianChrome.setStatusBar(dark ? '#12110E' : '#F6F3EC');
+              window.cijianChrome.setStatusBar(dark ? '#121212' : '#F4F8FB');
             }
           } catch (e) {}
         } catch (e) {

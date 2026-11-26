@@ -1,5 +1,16 @@
 # NOTES
 
+## 2026-11-27 · 第 9 套皮肤「晴空 BREEZE」+ 新装默认（`breeze.css`，未提交）
+
+- **交付**：`src/styles/skins/breeze.css`（809 行 / 107 条规则 / 0 处 `!important`，每条选择器都带 `[data-skin='breeze']`；`tokens.css` 一个字节没改）。白卡 20r + 弥散阴影 + 亮蓝 `#2563EB`（白字 **5.17:1**；百词斩那个 `#2F6BFF` 白字只有 4.2:1，压深一档才过 AA）。学习卡：词头 `clamp(38px,11vw,54px)/700` Space Grotesk 居中、音标浅灰药丸、**一个释义一张白卡**（16px/1.75/`#334155`）。
+- **最大的坑：新皮肤要登记 5 处，第 5 处会静默失败**。`types.ts` 联合类型 / `skins.ts` 元数据 / `main.tsx` 样式表 import / **`storage.ts:61` 的 `SKINS` 白名单** / `index.html` 首帧。漏 `storage.ts` 的症状是「CSS 全对、页面一直是 paper」——`loadStore()` 把不认识的 skin 静默回退，一声不响（第一版截图 accent 还是朱砂红才发现）。
+- **默认改成 breeze**：`DEFAULT_PROFILE.skin` + `SKINS[0]`（兜底与默认必须是同一套）+ `index.html` 首帧按已存 skin 提前挂 `data-skin`（顺带修掉 9 套皮肤共有的「冷启动先闪一帧纸色」）。**已有用户的 `profile.skin` 不动**：只影响全新安装 / 清空数据，手机上已存的偏要去「外观」面板点一次「晴空」。
+- **门禁全绿**（原始输出在 `docs/SKIN_BREEZE_SPEC.md` §10）：`scan-tiny` 9 皮肤 × 5 界面 `groups 0 / hardFail 0`；`audit-screens` breeze 390+1440 与 360+768 **各 24 组 `failCount 0`**；`audit-motion` 全量 8 组 × 9 皮肤 `fails []`，breeze 按压 `0.97`/`50ms→180ms`/`ack-lift`、按压对比度 **6.37（浅）/ 8.45（深）**；全新 context → `dataset.skin=breeze`、外观面板 9 张、BREEZE 排第一。
+- **审计侧两处修正（都不是产品代码，但不改就是假绿/假红）**：① `.skin-card:nth-child(2)` 换成 `[aria-pressed="false"]`——皮肤顺序一变，点到「已选中」那张等于没换皮肤 = 没有过渡 = 假失败；② `judgeThemeSwitch` 里 `seen[0].bgAnim` 改成空数组给 `null`——当时这条 fail 被 TypeError 吞掉，整轮审计当场崩，其它 7 组的结论全丢。
+- **舍掉的**：`.topbar__meta` 继续隐藏（一打开就把品牌「词笺」挤成两行，实测 390）；`.start__spec` 四行小表不开（与 `.start__meta` 重复报数）。
+- **截图**：`out/breeze-home-{light,dark}-{390,1440}.png`、`out/breeze-card-{light,dark}-390.png`、`out/breeze-card-masked-light-390.png`、`out/breeze-list-light-390.png`、`out/breeze-sheet-light-390.png`。
+- **未验 / 已知取舍**：APK 未重打包（versionCode 仍 7，manifest 没动）；iOS Safari 未测；首页上下留白各 ~140px 是 `.start__body{margin-block:auto}` 的既有骨架，想更紧凑必须动 DOM（本轮红线）。
+
 ## 2026-11-26 · 1.4.2：即时复习默认遮罩 + 点按揭示（`3b8eeeb`）· APK versionCode 7
 
 - **Bug 根因不是状态初值**：`revealed` 本来就是 `false`；是 `54b61e3`（24 日即时复习居中版式）写了 `phase === 'immediate'` 旁路让释义恒显，而 `showMeaning` 只认 review。改成统一按 `revealed` 判断，即时卡未揭示时也挂 `flash-card--masked`（居中版式不动）。

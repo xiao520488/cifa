@@ -8,7 +8,9 @@ export const DEFAULT_PROFILE: Profile = {
   batchSize: 5,
   meaningMode: 'auto',
   theme: 'system',
-  skin: 'paper',
+  /* v14：新装默认「晴空 BREEZE」（第 9 套）。老用户的偏好存在 profile.skin 里，
+     这个改动只影响全新安装 / 清空数据，不会把人已经选好的皮肤换掉。 */
+  skin: 'breeze',
 };
 
 export function todayKey(date = new Date()): string {

@@ -29,10 +29,21 @@ export interface SkinMeta {
  * 不参与排版，改色请改 src/styles/skins/*.css 的令牌。
  *
  * bento / nocturne 是 v8 再设计保留下来的两版；
- * desk / deck / vinyl 是 v9 三版（栏 / 栈 / 横 三条互斥骨架轴），目前只重做首页；
+ * desk / vinyl 是 v9 两版（栏 / 横 两条互斥骨架轴），目前只重做首页；
+ * breeze 是 v14 第 9 套（清透白卡），**已是新装默认**，所以排在第一位——
+ * 兜底的 skinMeta() 取 SKINS[0]，默认与兜底必须是同一套。
  * 色板以各自 CSS 的令牌为准，这里的 swatch 只供选择卡片预览与 theme-color。
  */
 export const SKINS: SkinMeta[] = [
+  {
+    key: 'breeze',
+    name: '晴空',
+    latin: 'BREEZE',
+    tagline: '晴蓝 · 通透',
+    swatch: { bg: '#F4F8FB', ink: '#0F172A', accent: '#2563EB', line: '#E6ECF3' },
+    darkBg: '#121212',
+    persistentReadouts: false,
+  },
   {
     key: 'paper',
     name: '词典纸页',
@@ -105,15 +116,6 @@ export const SKINS: SkinMeta[] = [
     darkBg: '#141613',
     persistentReadouts: true,
   },
-  {
-    key: 'breeze',
-    name: '晴空',
-    latin: 'BREEZE',
-    tagline: '晴蓝 · 通透',
-    swatch: { bg: '#F4F8FB', ink: '#0F172A', accent: '#2563EB', line: '#E6ECF3' },
-    darkBg: '#121212',
-    persistentReadouts: false,
-  },
 ];
 
 export function skinMeta(key: Skin): SkinMeta {
@@ -123,7 +125,7 @@ export function skinMeta(key: Skin): SkinMeta {
 /**
  * 该皮肤在日历 / 「我的」屏是否常驻读数带。全项目唯一的「JS 层皮肤感知」入口之一：
  * 屏组件（CalendarScreen / ProfileScreen）对皮肤零感知，开关只在 App 顶层查表。
- * 兜底走 skinMeta 的 SKINS[0]（paper = false），未知键不会凭空冒出一条带子。
+ * 兜底走 skinMeta 的 SKINS[0]（breeze = false），未知键不会凭空冒出一条带子。
  */
 export function persistentReadoutsFor(key: Skin): boolean {
   return skinMeta(key).persistentReadouts;
