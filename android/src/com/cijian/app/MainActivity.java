@@ -67,7 +67,12 @@ public class MainActivity extends Activity {
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
+        /* 禁缩放：viewport 里已经写了 user-scalable=no / maximum-scale=1，
+           这里再从原生侧关掉内置缩放手势 —— 两边都关才挡得住（2026-11-26 真机反馈：
+           页面能双指放大，放大后版式全乱且回不到 100%）。 */
         settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
         settings.setTextZoom(100);             // 不跟随系统字号，避免版式被撑坏
         settings.setUseWideViewPort(true);     // 让 <meta viewport> 生效
         settings.setLoadWithOverviewMode(true);
