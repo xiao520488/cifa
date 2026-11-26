@@ -397,6 +397,13 @@ vinyl 的 cal/me 必须 `content:none`，其余皮肤常驻带必须 `animationN
   活动工作树与 dev server 全程不动；只有被迫在活动工作树上演练过，才需要重启 dev server 兜底。
 - **MCP 单调用有超时上限**：长矩阵改走 `scripts/run-audit-node.js`（后台 job + `job_output` 收），
   别把 128 组塞进一次 `browser_run_code_unsafe`。
+- **`-replace | Set-Content` 会毁中文 md（2026-11-26 实测，写死）**：为了改 `NOTES.md` 里的一个 commit hash，
+  用了 `(Get-Content -Raw) -replace 'a1d1a36','df04e24' | Set-Content -NoNewline`，
+  结果整份 727 行被写成 225 行乱码（编码混写 + 丢行），`git diff` 一眼就是 `+185 / −687`。
+  **改文档一律用 edit 工具**（定点替换、UTF-8 安全）；PowerShell 只用来跑命令、查状态、数行。
+  事后靠 `git checkout -- <file>` 回滚，**回滚后必须 `git diff --stat` 确认为空**再继续往下做。
+- **PowerShell 数行不可信**：`Measure-Object -Line` 对这个仓库的 md 会少算（97 KB 的 `NOTES.md` 报 189 行，
+  实际 715+）。要行号/总量用 read 工具的 `of N`，别拿 `Measure-Object` 当尺子。
 
 ## v11.2 · 2026-11-25 · nocturne 顶栏小标签 13px → 14px（建议修 #2 落地）+ 顺手挖出 400–767 盲区
 
