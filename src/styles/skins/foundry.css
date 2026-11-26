@@ -1484,3 +1484,11 @@
 [data-skin='foundry'][data-theme='light'] .today-card__figure b.is-accent {
   color: #c23212;
 }
+
+/* 深色档按压：on-accent 是近黑，底面再按全局 accent-press 压深一档后
+   实测只剩 3.72:1（字发闷）。改成往自身亮面薄涂 —— 比 hover 再亮一档，
+   桌面从 hover 按下也有变化，不靠压深。 */
+[data-skin='foundry'][data-theme='dark'] .answer-btn--known:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent-hover) 78%, var(--text));
+  border-color: color-mix(in srgb, var(--accent-hover) 78%, var(--text));
+}

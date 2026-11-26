@@ -232,6 +232,7 @@
 | `src/styles/skins/vinyl.css` | 按压去掉 `translateY(2px)`；hover 加 `:not(:active)`；`is-ack-known` 倾斜变体；描边键按压用自身墨色 | +20 / −2 |
 | `src/styles/skins/bento.css` | `is-ack-known` 磁贴下压变体 | +14 |
 | `src/styles/skins/nocturne.css` | `is-ack-known` 词头闪墨变体；按压用 accent/on-accent 配对 | +18 |
+| `src/styles/skins/foundry.css` | 深色档按压改往亮面薄涂（3.72 → 8.32） | +8 |
 | `scripts/audit-motion.js`、`audit-motion-shots.js`、`audit-motion-pressed.js`、`cfg-motion.json`（新） | 8 皮肤按压/反馈/toast/降级/对比度门禁 + 截图 | 新增 |
 | `scripts/audit-requeue.js`、`audit-immediate-rounds.js`、`audit-phases.js` | 每次点作答后等待 120/140/200ms → 260ms（换卡被推迟了） | 各 +2 |
 
@@ -262,7 +263,7 @@
 3. **3 个 audit 脚本要改**：换卡被推迟，原来的"点完立刻读词"会读错。属于必须同步的改动，不是可选。
 4. 皮肤里 `animation: vy-pulse`（vinyl 呼吸点）等既有动效**不参与**本轮，保持原样。
 5. **会话一结束，toast 就没有宿主**：`session-done` 分支不渲染 `.session-toast`（改动前的结构就是这样）。所以"最后一题被拒"的提示会随收尾页一起消失。**本轮不修**（属于结构问题，不是手感问题），真机上如果觉得该看见，加一行 host 即可。
-6. `foundry` 深色档按压时「认识」的对比度是 **3.72:1**（其余 15 组 5.8–14.6）。这是该皮肤 `--on-accent` 与 `--accent-press` 的既有配对，不是本轮引入；按压只有 50ms，未处理。
+6. `foundry` 深色档按压时「认识」曾只有 **3.72:1**（`--accent-press` 比 `--accent` 更深，而该档 `--on-accent` 是近黑，越压越闷）。**已修**：改成往自身亮面薄涂（`color-mix(--accent-hover 78%, --text)`），现在 **8.32:1**，且比 hover 更亮一档，桌面从 hover 按下也有变化。
 
 ---
 
@@ -301,7 +302,7 @@ node run-audit-node.js D:\背单词\scripts\audit-motion-shots.js D:\背单词\s
 | 布局不跳 | 反馈前后卡片盒宽高逐点相同 | PASS |
 | toast | 首帧 `opacity 0 / translateY(12px)` → 300ms 后 `1 / none` → 停留到 2487ms → 2612ms 时 `leaving, opacity 0.05, transform none` → 3.4s 已卸载 | PASS |
 | 减弱动效 | 按压 `matrix(1,0,0,1,0,0)`；作答后 90ms 内已换卡（无延迟）；toast 仍淡入、位移恒 `none` | PASS |
-| 按压底色对比度（16 组） | 3.72（foundry 深）～14.58，见 §9 第 6 条 | PASS（≥3） |
+| 按压底色对比度（16 组） | **4.64（vinyl 浅）～14.58（broadsheet 浅）**，最低的 foundry 深色已从 3.72 修到 8.32 | PASS（≥3，实测全 ≥4.6） |
 | 回归 | `tsc` 0 错、`vite build` 过、`test:scheduler` 459 / `test:backup` 49 全过、`audit-requeue` 全绿（三哈希一致）、`audit-immediate-rounds` 全绿 | PASS |
 
 截图：`docs/screenshots/motion/`（390/360/768/1440 复习屏 + vinyl/bento/nocturne 变体 + 3 张按住态）。
