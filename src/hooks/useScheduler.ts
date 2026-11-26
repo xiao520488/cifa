@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Scheduler, loadScheduler, saveScheduler } from '../lib/scheduler';
 import type { SessionStart } from '../lib/scheduler';
+import { clearImporting, isImporting } from '../lib/backup';
 import { deckSignature, deckWords } from '../lib/deck';
 import type { Wordbook } from '../lib/types';
 
@@ -45,6 +46,8 @@ export function useScheduler(book: Wordbook | null): SchedulerHandle {
     engine.seed(deckWords(book));
     const start = engine.startOfSession();
     saveScheduler(engine.state);
+    // 上一页刚做完导入：这次启动读到的是导入后的数据，落盘无害；把闸门标记清掉
+    clearImporting();
     return { engine, start };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -59,6 +62,8 @@ export function useScheduler(book: Wordbook | null): SchedulerHandle {
   /* ---------------------------------------------------------------- 落盘 */
 
   const flush = useCallback(() => {
+    // 导入后正在刷新：内存里还是旧状态，别把刚写进去的备份盖回去
+    if (isImporting()) return;
     if (saveTimer.current !== null) {
       window.clearTimeout(saveTimer.current);
       saveTimer.current = null;
@@ -67,9 +72,11 @@ export function useScheduler(book: Wordbook | null): SchedulerHandle {
   }, []);
 
   const scheduleSave = useCallback(() => {
+    if (isImporting()) return;
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       saveTimer.current = null;
+      if (isImporting()) return;
       saveScheduler(engineRef.current.state);
     }, SAVE_DELAY);
   }, []);

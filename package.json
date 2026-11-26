@@ -15,6 +15,7 @@
     "test:books": "node scripts/test-books.ts",
     "build:books": "node scripts/build-books.ts",
     "test:scheduler": "node scripts/test-scheduler.ts",
+    "test:backup": "node scripts/test-backup.ts",
     "bench:scheduler": "node scripts/bench-scheduler.ts",
     "demo:scheduler": "node scripts/demo-scheduler.ts"
   },

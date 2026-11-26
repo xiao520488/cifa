@@ -782,6 +782,14 @@ p {
   margin-top: 0;
 }
 
+/* 备份导入的失败提示：图标 + 文案 + 颜色三重编码（不只靠红色） */
+.section__hint--error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--danger);
+}
+
 .stage-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

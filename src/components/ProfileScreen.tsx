@@ -1,10 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { LevelKey, Profile, Store, Wordbook } from '../lib/types';
 import type { NewWordAllowance, SchedulerStats } from '../lib/scheduler';
 import { explainMaxLimitChange, MAX_LIMIT_EXPLAIN_BODY, MAX_LIMIT_EXPLAIN_TITLE } from '../lib/scheduler';
+import {
+  applyBackup,
+  backupFileName,
+  buildBackup,
+  clearImporting,
+  markImporting,
+  serializeBackup,
+  summarizeBackup,
+  validateBackupText,
+  type BackupPayload,
+  type BackupSummary,
+} from '../lib/backup';
 import { bookCount, bookStats, LEVELS, levelMeta, showAllMeanings } from '../lib/words';
 import { Hint } from './Hint';
-import { IconBack } from './Icons';
+import { IconAlert, IconBack } from './Icons';
+import { ConfirmDialog } from './Modal';
 import { Segmented } from './Segmented';
 import { SkinPicker } from './SkinPicker';
 
@@ -62,6 +75,75 @@ export function ProfileScreen({
   const progressPercent = total > 0 ? Math.min(100, (learnedCount / total) * 100) : 0;
 
   const stageWords = (key: LevelKey): number => bookCount(key, custom);
+
+  /* ---------------------------------------------------------------- 进度备份 */
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [backupNote, setBackupNote] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{ data: BackupPayload; summary: BackupSummary } | null>(null);
+
+  const exportProgress = () => {
+    setBackupError(null);
+    setBackupNote(null);
+    try {
+      const payload = buildBackup(localStorage);
+      const name = backupFileName();
+      const url = URL.createObjectURL(new Blob([serializeBackup(payload)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      const summary = summarizeBackup(payload);
+      setBackupNote(`已导出 ${name}（${summary.cards} 张卡片、${summary.unlearned} 个未学词）`);
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : '导出失败');
+    }
+  };
+
+  const pickBackupFile = () => {
+    setBackupError(null);
+    setBackupNote(null);
+    fileRef.current?.click();
+  };
+
+  const onBackupFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // 允许连续选同一个文件重试
+    if (!file) return;
+    setReading(true);
+    setBackupError(null);
+    setBackupNote(null);
+    try {
+      const result = validateBackupText(await file.text());
+      if (!result.ok) {
+        setBackupError(`导入失败：${result.reason}`);
+        return;
+      }
+      setPendingImport({ data: result.data, summary: summarizeBackup(result.data) });
+    } catch {
+      setBackupError('导入失败：这个文件读不出来');
+    } finally {
+      setReading(false);
+    }
+  };
+
+  const confirmImport = () => {
+    if (!pendingImport) return;
+    try {
+      // 先挂上落盘闸门：刷新时 pagehide 会拿内存里的旧状态回写，会把刚导入的数据盖掉
+      markImporting();
+      applyBackup(pendingImport.data, localStorage);
+      window.location.reload();
+    } catch (error) {
+      clearImporting();
+      setPendingImport(null);
+      setBackupError(`导入失败：${error instanceof Error ? error.message : '写入出错'}，当前进度没有改动`);
+    }
+  };
 
   return (
     <>
@@ -361,6 +443,55 @@ export function ProfileScreen({
             </div>
           </section>
 
+          <section className="section">
+            <div className="section__head">
+              <h2 className="section__title">数据备份</h2>
+            </div>
+            <div className="setting-row">
+              <div>
+                <div className="setting-row__label">导出进度</div>
+                <div className="setting-row__value">下载 JSON：卡片、队列、错词本与外观</div>
+              </div>
+              <button type="button" className="btn btn--secondary btn--compact" onClick={exportProgress}>
+                导出
+              </button>
+            </div>
+            <div className="setting-row">
+              <div>
+                <div className="setting-row__label">导入进度</div>
+                <div className="setting-row__value">从备份文件恢复；会覆盖当前进度</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn--secondary btn--compact"
+                onClick={pickBackupFile}
+                disabled={reading}
+                aria-busy={reading}
+              >
+                {reading ? '读取中' : '选择文件'}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={onBackupFile}
+                aria-label="选择备份文件"
+              />
+            </div>
+            {backupError ? (
+              <p className="section__hint section__hint--error" role="alert">
+                <IconAlert size={16} />
+                <span>{backupError}</span>
+              </p>
+            ) : null}
+            {backupNote ? (
+              <p className="section__hint" role="status" aria-live="polite">
+                {backupNote}
+              </p>
+            ) : null}
+          </section>
+
           <section className="section section--danger-zone">
             <div className="setting-row">
               <div>
@@ -376,10 +507,20 @@ export function ProfileScreen({
           </section>
 
           <p className="section__hint">
-            词笺 v0.1 · 离线可用 · 数据只存在这台设备，不上传任何服务器。桌面端可用 ← → 翻批、空格切换中文。
+            词笺 v0.1 · 离线可用 · 数据只存在这台设备，不上传任何服务器；要带走就用上面的「数据备份」。桌面端可用 ← → 翻批、空格切换中文。
           </p>
         </div>
       </main>
+
+      {pendingImport ? (
+        <ConfirmDialog
+          title="导入这份备份？"
+          text={`会覆盖这台设备当前的学习进度，换成备份里的 ${pendingImport.summary.cards} 张卡片、${pendingImport.summary.unlearned} 个未学词、${pendingImport.summary.mistakes} 个错词。这个操作不能撤销。`}
+          confirmLabel="覆盖并导入"
+          onConfirm={confirmImport}
+          onCancel={() => setPendingImport(null)}
+        />
+      ) : null}
     </>
   );
 }
