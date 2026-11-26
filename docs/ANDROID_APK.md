@@ -6,8 +6,9 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `out/cijian-1.4.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode **5**，含两处移动端修复：状态栏跟随主题 / 禁止双指缩放） |
-| `out/cijian-1.3.apk` | 旧包（versionCode 4，动效第二轮：页面转场 / 主题过渡 / 读数数字滚动），已被 1.4 取代 |
+| `out/cijian-1.4.1.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode **6**，修 1.4 启动即崩；含状态栏跟随主题 / 禁止缩放） |
+| `out/cijian-1.4.apk` | **启动即崩，别装**（versionCode 5）：API 30+ 在 `setContentView` 之前调 `getInsetsController()` → DecorView 为 null → NPE。原因与堆栈见下面「启动崩溃」一节 |
+| `out/cijian-1.3.apk` | 旧包（versionCode 4，动效第二轮：页面转场 / 主题过渡 / 读数数字滚动） |
 | `out/cijian-1.2.apk` | 更旧（versionCode 3，作答手感：按压 / 答后卡片反馈 / toast） |
 | `out/cijian-1.1.apk` | 更旧（versionCode 2，轮次模型 + 备份 + 回队尾） |
 | `out/cijian-1.0.apk` | 更旧的包（2026-11-25，versionCode 1），只作历史 |
@@ -17,12 +18,12 @@
 
 包名 `com.cijian.app`，应用名「词笺」，minSdk 24（Android 7.0+），targetSdk 34。
 
-**装新版请直接覆盖安装，不要先卸载。** 1.0 / 1.1 / 1.2 / 1.3 / 1.4 用的是同一把证书（SHA-256 `bee17fe6…6984`），
+**装新版请直接覆盖安装，不要先卸载。** 1.0 – 1.4.1 用的是同一把证书（SHA-256 `bee17fe6…6984`），
 覆盖安装时系统会把它当成同一个 App 的升级，**WebView 里的学习进度原样保留**；卸载才会清零。
 
 ## 装到手机
 
-1. 把 `cijian-1.3.apk` 传到手机：数据线拷贝 / 微信「文件传输助手」发给自己的手机 / QQ 我的设备。
+1. 把 `cijian-1.4.1.apk` 传到手机：数据线拷贝 / 微信「文件传输助手」发给自己的手机 / QQ 我的设备。
 2. 手机上点开这个文件。
 3. 若提示「禁止安装未知来源应用」→ 点「设置」→ 允许这个来源（文件管理器或微信）→ 返回继续安装。
 4. 小米 / 华为等可能弹「安全检测」「风险应用」提示 —— 选「仍要安装」。
@@ -56,6 +57,32 @@ Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\cijian-1.4.apk -Force
 **覆盖安装的前提是证书一致**：`apksigner verify --print-certs` 吐的
 `certificate SHA-256 digest` 必须和上一版相同（1.0 – 1.4 都是 `bee17fe6…6984`）。不一致 = 系统拒绝升级，
 只能卸载重装、进度清零。
+
+## 1.4 启动即崩（已修，留档）
+
+真机 TAS-AL00（Mate 30，Android 12 / API 31）装上 1.4 后立刻「屡次停止运行」。`adb logcat -b crash` 原文：
+
+```
+java.lang.RuntimeException: Unable to start activity ComponentInfo{com.cijian.app/com.cijian.app.MainActivity}
+Caused by: java.lang.NullPointerException: Attempt to invoke virtual method
+  'android.view.WindowInsetsController com.android.internal.policy.DecorView.getWindowInsetsController()'
+  on a null object reference
+    at com.android.internal.policy.PhoneWindow.getInsetsController(PhoneWindow.java:4325)
+    at com.cijian.app.MainActivity.applyStatusBarIcons30(MainActivity.java:152)
+    at com.cijian.app.MainActivity.applyStatusBar(MainActivity.java:144)
+    at com.cijian.app.MainActivity.onCreate(MainActivity.java:59)
+```
+
+**根因**：`applyStatusBar()` 在 `setContentView()` **之前**被调用。API 30+ 的 `Window.getInsetsController()`
+内部要先 `mDecor.getWindowInsetsController()`，而 DecorView 还没建 → NPE 抛在**框架内部**；
+调用方写 `if (controller == null) return` 救不了，因为异常根本轮不到它判。
+
+**修法（1.4.1 / versionCode 6）**：
+1. 首帧底色先存进变量，等 `setContentView` 之后再把状态栏刷上去；
+2. `WindowInsetsController` 改成从 `window.getDecorView().getWindowInsetsController()` 拿，decor / controller 双重判空。
+
+**规矩**：`WindowInsetsController` / `WindowInsets` 这类窗口装饰 API 一律放在 `setContentView` 之后调；
+「首帧就要刷」的东西必须在代码里把调用时机写明确，不能靠「反正 onCreate 里总有一处」的假设。
 
 ## 技术选择（为什么这么做）
 

@@ -1,5 +1,15 @@
 # NOTES
 
+## 2026-11-26 · 1.4 启动即崩：API 30+ 在 setContentView 之前调 getInsetsController
+
+- **现象**：1.4（versionCode 5）装到 Mate 30（TAS-AL00 / Android 12 / API 31）立刻「屡次停止运行」。1.3 正常，所以是 3c19ce7 那段状态栏代码引入。
+- **堆栈（`adb logcat -b crash`，原文在 `docs/ANDROID_APK.md`）**：`NullPointerException: Attempt to invoke virtual method 'android.view.WindowInsetsController ...DecorView.getWindowInsetsController()' on a null object reference` at `PhoneWindow.getInsetsController(PhoneWindow.java:4325)` ← `MainActivity.applyStatusBarIcons30:152` ← `applyStatusBar:144` ← `onCreate:59`。
+- **根因**：`applyStatusBar()` 在 `setContentView()` 之前调用；API 30+ 的 `Window.getInsetsController()` 要 DecorView，而它还没建。**NPE 抛在框架内部**，所以 `if (controller == null) return` 这种判空完全无效（异常在 `window.getInsetsController()` 调用点就抛了）。
+- **修法**（`fix(android)`，versionCode 6 / 1.4.1）：① 首帧底色先存变量，`setContentView` 之后再刷；② controller 改从 `window.getDecorView().getWindowInsetsController()` 取，decor/controller 双判空。
+- **真机验证（都有实物）**：冷启动后 8s `pidof` 仍在、`logcat -b crash` 0 行、FATAL 0；切主题两档的状态栏像素 —— 深色 `#12110E` + 图标 `#FFFFFF`（对比度 18.88）、浅色 `#F6F3EC` + 图标 `#4A4947`（对比度 8.12）；双击静态文字前后内容区差异 **0.000%**（缩放已关）。截图在 `out/t1-paper-dark.png`、`out/t2-paper-light.png`、`out/final-state.png`，日志 `out/crash.log`。
+- **未验的**：**双指捏合无法用 adb 注入**（`input` 只有单指），需要手上试一次；两处防线在 viewport `user-scalable=no` + `WebSettings.setSupportZoom(false)/setBuiltInZoomControls(false)`。
+- **工具坑**：本机原本没有 adb，装了 platform-tools 到 `D:\AndroidBuild\platform-tools`（不进 PATH）；`scripts/grab-crash.ps1` 必须存成 **UTF-8 带 BOM**，否则 powershell.exe 按 ANSI 读中文直接语法错。
+
 ## 2026-11-26 · 三条工程纪律落地（单组开关 / 状态钩子 / 时间盒）
 
 - **为什么**：上一轮一个单行 bug 花掉 40 分钟，根因是「把验证当售后」「量具不自证伪」「没有时间盒」。三条已写进 `~/.dsh/AGENTS.md`「动效 / 跨挂载状态：三条硬约束」，**下次动手前强制执行**（不是建议）。

@@ -56,7 +56,13 @@ public class MainActivity extends Activity {
            页面脚本一跑起来就会用真实主题校正（见 ChromeBridge.setStatusBar）。 */
         boolean systemDark = (getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        applyStatusBar(systemDark ? BG_DARK : BG_LIGHT, systemDark);
+        /* 注意：这里**不能**调 applyStatusBar —— API 30+ 的 getInsetsController() 要 DecorView，
+           而 DecorView 在 setContentView 之后才存在。1.4 就是这么崩的（真机 TAS-AL00 / Android 12）：
+           java.lang.NullPointerException: Attempt to invoke virtual method
+           'android.view.WindowInsetsController ...DecorView.getWindowInsetsController()'
+           on a null object reference —— NPE 抛在框架内部，我们自己判 null 拦不住。
+           所以首帧底色先记在变量里，等视图挂好再刷（见 setContentView 之后那一段）。 */
+        int firstBg = systemDark ? BG_DARK : BG_LIGHT;
 
         web = new WebView(this);
         web.setBackgroundColor(systemDark ? BG_DARK : BG_LIGHT);
@@ -96,6 +102,9 @@ public class MainActivity extends Activity {
         });
 
         setContentView(web);
+        /* 视图已经挂好，DecorView 存在了，这时才能碰 WindowInsetsController。
+           页面脚本跑起来后会用真实主题再校正一次（ChromeBridge.setStatusBar）。 */
+        applyStatusBar(firstBg, systemDark);
         web.loadUrl(ORIGIN);
     }
 
@@ -149,7 +158,12 @@ public class MainActivity extends Activity {
     }
 
     private static void applyStatusBarIcons30(Window window, boolean dark) {
-        WindowInsetsController controller = window.getInsetsController();
+        /* 必须从 DecorView 拿 controller：Window.getInsetsController() 在 DecorView 还没建好时
+           会在框架内部抛 NPE（PhoneWindow.getInsetsController → mDecor.getWindowInsetsController），
+           不是返回 null，所以外面判空救不了。DecorView 自己在没有 controller 时会返回 null。 */
+        View decor = window.getDecorView();
+        if (decor == null) return;
+        WindowInsetsController controller = decor.getWindowInsetsController();
         if (controller == null) return;
         int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS;
         controller.setSystemBarsAppearance(dark ? 0 : mask, mask);
