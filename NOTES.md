@@ -1,5 +1,12 @@
 # NOTES
 
+## 2026-11-26 · vinyl `.cal-figures` 是 peek 不是裁切（误判纠正）+ APK 1.3
+
+- **误判纠正**：上一轮把 vinyl 浅色 390 的第 4 格「露一角」记成裁切缺陷。实测（390×844，vinyl 浅色）：`overflow-x: auto`、`clientWidth 390 / scrollWidth 438 / maxScroll 48`，静止时第 4 格 330–418（探出 28px），`scrollLeft=48` 后落在 282–370、**四格全可见**，没有永久裁切。`vinyl.css:821-838` 是刻意的横向吸附条（出血 + scroll-padding + snap + 隐藏滚动条）。**决定：不改代码**，DESIGN_REVIEW 那条改成实测事实，把「裁切」换成「peek 设计」。教训：**看截图下结论之前，先量 `scrollWidth / clientWidth / overflow-x`**，`overflow-x:auto` 的「露一角」永远不是 bug。
+- **APK 1.3**：`out/cijian-1.3.apk`（1.06 MB，versionCode **4** / versionName 1.3），证书 `bee17fe6…6984`（与 1.0–1.2 同一把，覆盖安装进度不丢）。包内 21 个 `dist/` 文件逐个 SHA256 一致（0 不一致）；`apksigner` v2+v3 通过；`aapt` → versionCode 4 / minSdk 24 / target 34 / label「词笺」；`index.html` 引用的 `index-B3L_0fRW.js` / `index-DnChTkuY.css` 都在包内；产物里能查到 `is-screen-entering` / `is-theme-switching` / `num-roll` 三处新代码。**真机安装尚未验证。**
+- **发版坑（复用）**：本机 PATH 里没有 `pwsh`，打包脚本要用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\AndroidBuild\build.ps1`；`aapt` 不认中文路径，先复制到 `$env:TEMP` 再 dump（老坑）。
+- **下一步**：手机装 1.3 背几天，回来看三件事：转场是否有「被推了一下」的感觉、切主题那一瞬发灰能不能接受、数字滚动看不看得见。代码这轮到此为止。
+
 ## 2026-11-26 · 动效第二轮：页面转场 / 主题过渡 / 数字滚动（`74a1f2b` + `9317a2f` + `0e89358` + `fbb81de`）
 
 - **交付**：规约 `docs/MOTION_SPEC.md` §13（三件分开三个 commit，第四个只修探针）。转场 350ms/8px 只动进入屏（`.app.is-screen-entering` 打 `.app` 的直接子级，`fill-mode: backwards` 不是 `both`）；主题/皮肤切换 200ms 三色过渡（`<html>` 一次性类，240ms 摘，先 `void offsetHeight` 再改 `dataset` 否则根本不触发）；数字滚动 250ms（`--motion-number` 是 D5 破例值，只给数字用）。

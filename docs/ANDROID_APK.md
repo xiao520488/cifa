@@ -6,20 +6,21 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `out/cijian-1.2.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode **3**，含作答手感：按压 / 答后卡片反馈 / toast） |
-| `out/cijian-1.1.apk` | 旧包（2026-11-26，versionCode 2，轮次模型 + 备份 + 回队尾），已被 1.2 取代 |
+| `out/cijian-1.3.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode **4**，含动效第二轮：页面转场 / 主题过渡 / 读数数字滚动） |
+| `out/cijian-1.2.apk` | 旧包（versionCode 3，作答手感：按压 / 答后卡片反馈 / toast），已被 1.3 取代 |
+| `out/cijian-1.1.apk` | 更旧（versionCode 2，轮次模型 + 备份 + 回队尾） |
 | `out/cijian-1.0.apk` | 更旧的包（2026-11-25，versionCode 1），只作历史 |
 | `out/cijian.keystore` | **签名证书，必须备份**。丢了就再也无法覆盖升级同一个 App（只能卸载重装，进度会丢） |
 | `scripts/build-apk.ps1` | 重新打包的脚本 |
 
 包名 `com.cijian.app`，应用名「词笺」，minSdk 24（Android 7.0+），targetSdk 34。
 
-**装新版请直接覆盖安装，不要先卸载。** 1.0 / 1.1 / 1.2 用的是同一把证书（SHA-256 `bee17fe6…6984`），
+**装新版请直接覆盖安装，不要先卸载。** 1.0 / 1.1 / 1.2 / 1.3 用的是同一把证书（SHA-256 `bee17fe6…6984`），
 覆盖安装时系统会把它当成同一个 App 的升级，**WebView 里的学习进度原样保留**；卸载才会清零。
 
 ## 装到手机
 
-1. 把 `cijian-1.2.apk` 传到手机：数据线拷贝 / 微信「文件传输助手」发给自己的手机 / QQ 我的设备。
+1. 把 `cijian-1.3.apk` 传到手机：数据线拷贝 / 微信「文件传输助手」发给自己的手机 / QQ 我的设备。
 2. 手机上点开这个文件。
 3. 若提示「禁止安装未知来源应用」→ 点「设置」→ 允许这个来源（文件管理器或微信）→ 返回继续安装。
 4. 小米 / 华为等可能弹「安全检测」「风险应用」提示 —— 选「仍要安装」。
@@ -39,7 +40,7 @@ Copy-Item D:\背单词\dist D:\AndroidBuild\assets -Recurse -Force
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\背单词\scripts\build-apk.ps1
 
 # 4. 取产物（脚本产物名固定是 cijian-1.0.apk，复制时改成当前版本号）
-Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\cijian-1.2.apk -Force
+Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\cijian-1.3.apk -Force
 ```
 
 **发新版必须同时做两件事**：
@@ -51,7 +52,7 @@ Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\cijian-1.2.apk -Force
 （如 `$env:TEMP\xxx.apk`）再 dump。`apksigner`、`zipalign` 不受影响。
 
 **覆盖安装的前提是证书一致**：`apksigner verify --print-certs` 吐的
-`certificate SHA-256 digest` 必须和上一版相同（1.0 / 1.1 / 1.2 都是 `bee17fe6…6984`）。不一致 = 系统拒绝升级，
+`certificate SHA-256 digest` 必须和上一版相同（1.0 / 1.1 / 1.2 / 1.3 都是 `bee17fe6…6984`）。不一致 = 系统拒绝升级，
 只能卸载重装、进度清零。
 
 ## 技术选择（为什么这么做）
