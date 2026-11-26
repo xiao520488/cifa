@@ -1,5 +1,15 @@
 # NOTES
 
+## 2026-11-26 · 进度导出/导入（`379c7f6` + `7406518`）——工具链到此收口
+
+- **交付**：「我的 → 数据备份」两个按钮。导出 `cijian-backup-YYYY-MM-DD.json`（`version: 1` / `app: cijian` / `profile` / `custom` / `scheduler`）；导入走 选文件 → 校验 → 二次确认 → 写入 → 刷新。
+- **两个硬口径怎么落的**：① 二次确认用既有 `ConfirmDialog`，文案报出备份里的卡片 / 未学词 / 错词 / 词库数；E2E 断言「浮层出现时 localStorage 一个字节没变」，点确认后才写。② 原子拒绝：`validateBackupText` 全量校验通过才 `applyBackup`；写入先算好两个键的字符串，任一 `setItem` 抛错就**回滚两个键**再抛；单测覆盖「拒绝时零写入」「写一半失败回滚」。
+- **⚠️ 抓到的真 bug（以后别再踩）**：点确认后 `location.reload()`，而应用在 `pagehide` 会把**内存里的旧状态**写回 localStorage，正好盖掉刚导入的数据（E2E 实测 `groups` 从备份的 0 又变回 7）。修法：导入前挂 `cijian.importing` 一次性闸门，`useScheduler` 的 `flush` 与防抖存盘见到就不写，新页面 boot 时清掉。**任何「先写 storage 再 reload」的路径都要走这套。**
+- **custom 词库的最终决定：带上**。它就在 `cijian.v1` 里（`Store.custom`），和 `profile` 同键不同字段——`379c7f6` 只取了 profile，等于导出了**半份备份**。**version 不 bump**（可选字段，旧 v1 备份读到 null 按「保留本机词库」处理）；导入三条语义写死：备份有本机没有 → 写入 / 本机有备份没有 → 保留不删 / 两边都有 → 备份覆盖。体积实测 200 词 ≈ 41 KB（含调度数据），不设上限。
+- **design review 的覆盖缺口（如实记）**：备份 UI 只抽查 **390 浅色档**；`--danger` 与 `.section__hint` 复用 v10 审计过的组合，**未做 8 皮肤 × 2 主题回归，接受为已知缺口**。loading 态**未截图**，仅代码路径确认（`disabled` + `aria-busy`）。截图 `docs/screenshots/v12/`（3 张）。
+- **证据**：`test:backup` 49 条断言全过；`tsc` 0 错；`test:scheduler` 459 条全过；`vite build` 过；E2E（隔离 context）导出 / 坏文件拒绝 / 确认后覆盖 / 词库恢复 / 双键 SHA256 全绿。
+- **下一步：别再写代码。** 工具链齐了（能背、能复习、能纠错、能备份迁移）。接下来是使用者的事：手机上按 APK 装好，每天 20 个背一周，回来只说「哪里难用」——那才是下一轮的输入。
+
 ## 2026-11-26 · 即时复习改轮次模型（`215db47`）+ 数据锚点核不了的诚实记录
 
 - **交付**：`fix(immediate)` 单 commit，13 文件 / +1319 −123。状态机改 `schema: 2`（`round / fuzzyThisRound / crossRound / fuzzyCount / hardWords`，删 `loopCount`）：模糊 = 本轮再出现一次 → 第 2 次跨轮 → 下一轮；累计 3 次进错词本但**不出队**；第 5 轮强制收口标 hard。连带修两个 bug：`inMistakes` 时序（记账跑在建卡之前 → `hard=true` 而 `inMistakes=false`）、长期档 fuzzy 的 flag 与账本矛盾（D2-A：只有 unknown 记账）。
