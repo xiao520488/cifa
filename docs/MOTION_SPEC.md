@@ -253,6 +253,11 @@
 7. **减弱动效**：`context = { reducedMotion: 'reduce' }` 重跑 1–6 → 按钮 `transform` 恒 `none`；答对后**立即**换卡（无 200ms）；toast 仍有淡入淡出、位移恒 0。
 8. **回归**：`tsc --noEmit` 0 错、`vite build` 过、`test:scheduler` 459 条全过、`test:backup` 49 条全过；`audit-requeue.js` 与 `audit-immediate-rounds.js` 重跑全绿（脚本已按 §7 加等待）。
 9. **无布局跳动**：作答前后记录 `.flash-card` 的 `getBoundingClientRect()` 宽高，必须相同（transform 不改布局，这条是自证）。
+10. **量具必须先自证伪**：对比度探针新增任何颜色/数值解析，先拿已知期望值校准 ——
+    白字压 `#000` 必须 ≈21:1、`color-mix()` 输出必须等于手算值、拿不到期望值就先给一个必须红的样例。
+    **本轮踩过**：Chromium 把 `color-mix()` 序列化成 `color(srgb r g b / a)`，只认 `rgb()` 的解析会整层跳过、
+    拿容器底色顶替 —— foundry 深色实际 8.32:1 被读成 **1.0:1**，vinyl 4.64 被读成 5.8。
+    这跟 v9「祖先有 `overflow-x` 就跳过出列检查 → `nOut:0` 全假」是同一类：**探针给自己开了洞，绿的是探针不是产品**。
 
 ---
 
