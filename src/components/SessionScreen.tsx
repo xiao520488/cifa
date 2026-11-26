@@ -35,6 +35,15 @@ interface QueueItem {
   kind: 'short' | 'overdue' | 'long';
   label: string;
   sourceDate: string;
+  /** 该词在本次会话里第几次被问（1 = 首次）。首次唯一写调度，2/3 只推进队列。 */
+  attempt: 1 | 2 | 3;
+}
+
+/** 复习队列 + 回看带右端（= 短期段 + 长期段 + 已插入回看词数）。 */
+interface ReviewQueue {
+  items: QueueItem[];
+  /** 回看词插入点：短期 + 长期批次之后、逾期池之前 */
+  end: number;
 }
 
 interface SessionScreenProps {
@@ -55,7 +64,7 @@ interface SessionScreenProps {
   onOpenMe: () => void;
 }
 
-function buildReviewQueue(plan: DailyPlan): QueueItem[] {
+function buildReviewQueue(plan: DailyPlan): ReviewQueue {
   const items: QueueItem[] = [];
   for (const batch of plan.shortTermBatches) {
     for (const word of batch.words) {
@@ -64,6 +73,7 @@ function buildReviewQueue(plan: DailyPlan): QueueItem[] {
         kind: 'short',
         label: `${batch.daysAgo} 天前 · ${formatMonthDay(batch.sourceDate)}`,
         sourceDate: batch.sourceDate,
+        attempt: 1,
       });
     }
   }
@@ -74,9 +84,12 @@ function buildReviewQueue(plan: DailyPlan): QueueItem[] {
         kind: 'long',
         label: `长期 ${batch.type.replace('d', ' 天')}`,
         sourceDate: batch.scheduledDate,
+        attempt: 1,
       });
     }
   }
+  // 回看带插在短期 + 长期之后、逾期池之前（见 REVIEW_REQUEUE_SPEC §5.2）
+  const end = items.length;
   for (const batch of plan.overduePool) {
     for (const word of batch.words) {
       items.push({
@@ -84,10 +97,11 @@ function buildReviewQueue(plan: DailyPlan): QueueItem[] {
         kind: 'overdue',
         label: `逾期 ${batch.overdueDays} 天 · ${formatMonthDay(batch.sourceDate)}`,
         sourceDate: batch.sourceDate,
+        attempt: 1,
       });
     }
   }
-  return items;
+  return { items, end };
 }
 
 interface Tally {
@@ -119,12 +133,12 @@ export function SessionScreen({
 
   /* 进入页面拍一次快照：复习队列 + 今日新词列表（无复习时直接可用）。 */
   const [plan] = useState<DailyPlan>(() => engine.plan());
-  const [reviewQueue] = useState<QueueItem[]>(() => buildReviewQueue(plan));
+  const [review, setReview] = useState<ReviewQueue>(() => buildReviewQueue(plan));
   const [newQueue, setNewQueue] = useState<string[]>(() =>
-    reviewQueue.length > 0 ? [] : engine.nextNewWords(undefined, plan.day),
+    review.items.length > 0 ? [] : engine.nextNewWords(undefined, plan.day),
   );
   const [phase, setPhase] = useState<Phase>(() => {
-    if (reviewQueue.length > 0) return 'review';
+    if (review.items.length > 0) return 'review';
     return engine.nextNewWords(undefined, plan.day).length > 0 ? 'list' : 'done';
   });
 
@@ -135,7 +149,7 @@ export function SessionScreen({
   const [tally, setTally] = useState<Tally>(EMPTY_TALLY);
   const [toast, setToast] = useState<string | null>(null);
 
-  const current = phase === 'review' ? reviewQueue[index] : undefined;
+  const current = phase === 'review' ? review.items[index] : undefined;
   const detail = current ? lookup.get(current.word) : undefined;
 
   /** 复习清空 → 重拍新词列表（复习闸此刻才真正开），无缝进列表。 */
@@ -161,26 +175,54 @@ export function SessionScreen({
         return;
       }
       const outcome = run((target) => target.answer(current.word, rating));
+
+      /** 出队 / 前进：先插入再判是否到头（否则最后一个词答错会直接收尾）。 */
+      const step = () => {
+        setRevealed(false);
+        if (index + 1 >= review.items.length) finishReview();
+        else setIndex((value) => value + 1);
+      };
+
       if (!outcome.ok) {
         setToast(outcome.reason ?? '这个词现在不能作答');
-        setIndex((value) => value + 1);
-        setRevealed(false);
+        step();
         return;
       }
-      if (!outcome.counted) {
+
+      const first = current.attempt === 1;
+      // 回看全程静默（REVIEW_REQUEUE_SPEC §7）：只有「首次但今天已答过」（同日跨批次续答）才提示
+      if (!outcome.counted && first) {
         setToast('今天已经答过这个词了，这次只记重试，不重复计分。');
+      } else {
+        setToast(null);
       }
-      setTally((value) => ({
-        known: value.known + (rating === 'known' ? 1 : 0),
-        fuzzy: value.fuzzy + (rating === 'fuzzy' ? 1 : 0),
-        unknown: value.unknown + (rating === 'unknown' ? 1 : 0),
-        retried: value.retried + (outcome.counted ? 0 : 1),
-      }));
+
+      setTally((value) => {
+        if (first && outcome.counted) {
+          if (rating === 'known') return { ...value, known: value.known + 1 };
+          if (rating === 'fuzzy') return { ...value, fuzzy: value.fuzzy + 1 };
+          return { ...value, unknown: value.unknown + 1 };
+        }
+        return { ...value, retried: value.retried + 1 };
+      });
       setRevealed(false);
-      if (index + 1 >= reviewQueue.length) finishReview();
-      else setIndex((value) => value + 1);
+
+      /* 回队尾：插在「短期 + 长期之后、逾期池之前」；游标已越过回看带时插到游标后一位
+         （否则该词会被静默丢弃，见 REVIEW_REQUEUE_SPEC §5.2 / §8.10）。 */
+      if (rating !== 'known' && current.attempt < 3) {
+        const next = { ...current, attempt: (current.attempt + 1) as 2 | 3 };
+        setReview((prev) => {
+          const items = [...prev.items];
+          items.splice(Math.max(prev.end, index + 1), 0, next);
+          return { items, end: prev.end + 1 };
+        });
+        setIndex((value) => value + 1);
+        return;
+      }
+
+      step();
     },
-    [current, engine, finishReview, index, onExit, plan.day, reviewQueue.length, run],
+    [current, engine, finishReview, index, onExit, plan.day, review.items.length, run],
   );
 
   /* ---------------------------------------------------------------- 新词列表 */
@@ -298,7 +340,6 @@ export function SessionScreen({
       immediateWord,
       onExit,
       plan.day,
-      reviewQueue.length,
       run,
     ],
   );
@@ -346,7 +387,7 @@ export function SessionScreen({
   const showMeaning = phase === 'review' && revealed;
   const progress =
     phase === 'review'
-      ? { done: index, total: reviewQueue.length, label: '今日复习' }
+      ? { done: index, total: review.items.length, label: '今日复习' }
       : phase === 'list'
         ? {
             done: Math.min((batchIdx + 1) * size, newQueue.length),

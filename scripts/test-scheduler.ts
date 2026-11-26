@@ -1697,6 +1697,150 @@ function invariantViolations(
   }
 }
 
+// ---------------------------------------------------------------- 十四、回队尾（REVIEW_REQUEUE_SPEC §9.1）
+//
+// 回看的第 2、3 次作答一律走 `answer()` → `isRetry` 路径（引擎零改动）。
+// 这一节把「重试零写入」从「只对 due 断言」升级为「整卡 + 整天逐字段相等」。
+// ⚠️ 路径上的既有副作用：`submitReview` 首行 `snapshotDue(ensureDay(day))`，而 `ensureDay`
+// 对「今天」会跑 `sweepOverdue`（当天幂等）。所以断言「卡片集合不变」，而不是假设它空转。
+
+/** 跑前跑后比较用的深拷贝。 */
+function snap<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** 去掉 retried 的一天记录：回看唯一允许变化的就是它。 */
+function withoutRetried(record: unknown): unknown {
+  const copy = snap(record) as Record<string, unknown>;
+  delete copy.retried;
+  return copy;
+}
+
+// 14.1–14.5 首次不认识 → 回看认识：卡片/整天/累计/账本/快照全部不动
+{
+  const base = schedulerOn('2026-11-25', 20, ['w1', 'w2']);
+  for (const word of ['w1', 'w2']) base.learnNewWord(word);
+  const s = moveTo(base, '2026-11-26');
+  s.plan('2026-11-26');
+
+  const first = s.answer('w1', 'unknown');
+  eq('14.1 首次不认识的排程', [first.counted, s.state.cards.w1.interval, s.state.cards.w1.due, s.state.cards.w1.lapses], [true, 1, '2026-11-27', 1]);
+
+  const card = snap(s.state.cards.w1);
+  const day = snap(s.state.days['2026-11-26']);
+  const lifetime = snap(s.state.lifetime);
+  const mistakes = snap(s.state.mistakes);
+  const cardKeys = Object.keys(s.state.cards).sort();
+
+  const retry = s.answer('w1', 'known'); // 同日第二次 → 自动 isRetry
+  eq('14.1 回看不计分', retry.counted, false);
+  eq('14.1 卡片逐字段相等', snap(s.state.cards.w1), card);
+  eq('14.2 整天除 retried 外相等', withoutRetried(s.state.days['2026-11-26']), withoutRetried(day));
+  eq('14.3 lifetime 不变', s.state.lifetime, lifetime);
+  eq('14.4 账本不变', snap(s.state.mistakes), mistakes);
+  eq('14.4 inMistakes 仍在', s.state.cards.w1.inMistakes, true);
+  eq('14.5 到期快照/已完成不变', [s.state.days['2026-11-26'].dueSnapshot, s.state.days['2026-11-26'].doneToday], [day.dueSnapshot, day.doneToday]);
+  eq('14.5 dueSnapshot 仍 2 个', s.state.days['2026-11-26'].dueSnapshot.length, 2);
+  eq('14.5 doneToday 仍 1 个', s.state.days['2026-11-26'].doneToday, ['w1']);
+  eq('14.10 卡片集合不变（sweepOverdue 幂等）', Object.keys(s.state.cards).sort(), cardKeys);
+}
+
+// 14.6 三次作答（首次 + 回看 2 次）：卡片仍停在首次，retried = 2
+{
+  const base = schedulerOn('2026-11-25', 20, ['w1']);
+  base.learnNewWord('w1');
+  const s = moveTo(base, '2026-11-26');
+  s.plan('2026-11-26');
+
+  s.answer('w1', 'unknown');
+  const card = snap(s.state.cards.w1);
+  s.answer('w1', 'fuzzy');
+  s.answer('w1', 'known');
+
+  eq('14.6 三次作答后卡片仍等于首次结果', snap(s.state.cards.w1), card);
+  eq('14.6 只记 2 次重试', s.state.days['2026-11-26'].retried, 2);
+  eq('14.6 准确率只记 1 次', s.state.days['2026-11-26'].accCount, 1);
+  eq('14.6 账本只记 1 次', s.state.mistakes.w1.count, 1);
+}
+
+// 14.7 首次模糊 → 回看：排程停在模糊结果（回退一档），账本不进
+{
+  const base = schedulerOn('2026-11-25', 20, ['w6']);
+  base.learnNewWord('w6');
+  const s = moveTo(base, '2026-11-26');
+  s.state.cards.w6.interval = 6;
+  s.state.cards.w6.due = '2026-11-26';
+  s.plan('2026-11-26');
+
+  const first = s.answer('w6', 'fuzzy');
+  eq('14.7 模糊回退一档（6→2）', [s.state.cards.w6.interval, first.nextDue], [2, '2026-11-28']);
+  eq('14.7 模糊不加 lapse', s.state.cards.w6.lapses, 0);
+  eq('14.7 模糊不进账本', s.state.mistakes, {});
+  const card = snap(s.state.cards.w6);
+  s.answer('w6', 'unknown');
+  eq('14.7 回看不改排程', snap(s.state.cards.w6), card);
+  eq('14.7 回看不记账', s.state.mistakes, {});
+  eq('14.7 准确率记 0.5', [s.state.days['2026-11-26'].accScore, s.state.days['2026-11-26'].accCount], [0.5, 1]);
+}
+
+// 14.8 首次不认识：due +1d、interval 1、lapses +1、账本 +1、准确率 0
+{
+  const base = schedulerOn('2026-11-25', 20, ['wu']);
+  base.learnNewWord('wu');
+  const s = moveTo(base, '2026-11-26');
+  s.plan('2026-11-26');
+  s.answer('wu', 'unknown');
+
+  eq('14.8 排程按不认识走', [s.state.cards.wu.interval, s.state.cards.wu.due, s.state.cards.wu.lapses], [1, '2026-11-27', 1]);
+  eq('14.8 账本 count/source', [s.state.mistakes.wu.count, s.state.mistakes.wu.source], [1, 'review']);
+  eq('14.8 准确率记 0', [s.state.days['2026-11-26'].accScore, s.state.days['2026-11-26'].accCount], [0, 1]);
+}
+
+// 14.9 跨天再答：不走 isRetry，正常计分
+{
+  const base = schedulerOn('2026-11-25', 20, ['wd']);
+  base.learnNewWord('wd');
+  const s = moveTo(base, '2026-11-26');
+  s.plan('2026-11-26');
+  s.answer('wd', 'unknown');
+
+  const next = moveTo(s, '2026-11-27');
+  next.plan('2026-11-27');
+  const out = next.answer('wd', 'known');
+  eq('14.9 次日作答计分', [out.counted, next.state.days['2026-11-27'].accCount], [true, 1]);
+  eq('14.9 次日不记重试', next.state.days['2026-11-27'].retried, 0);
+}
+
+// 14.11 回看后点「认识」：第一次的不认识已进账本，重试不清账（清账只在首次认识时发生）
+{
+  const base = schedulerOn('2026-11-25', 20, ['wm']);
+  base.learnNewWord('wm');
+  const s = moveTo(base, '2026-11-26');
+  s.plan('2026-11-26');
+  s.answer('wm', 'unknown');
+  s.answer('wm', 'known');
+  eq('14.11 回看认识不清账本', s.state.mistakes.wm?.count, 1);
+  check('14.11 卡上 inMistakes 仍为真', s.state.cards.wm.inMistakes === true);
+}
+
+// 14.12 长期档首次不认识：打回 short/1，回看不再改 longInterval
+{
+  const base = schedulerOn('2026-11-25', 20, ['wl']);
+  base.learnNewWord('wl');
+  const s = moveTo(base, '2026-11-26');
+  s.state.cards.wl.phase = 'long';
+  s.state.cards.wl.longInterval = 30;
+  s.state.cards.wl.longAnchor = '2026-10-27';
+  s.state.cards.wl.due = null;
+  s.plan('2026-11-26');
+
+  s.answer('wl', 'unknown');
+  eq('14.12 长期不认识打回 short/1', [s.state.cards.wl.phase, s.state.cards.wl.interval, s.state.cards.wl.longInterval], ['short', 1, null]);
+  const card = snap(s.state.cards.wl);
+  s.answer('wl', 'fuzzy');
+  eq('14.12 回看不动长期字段', snap(s.state.cards.wl), card);
+}
+
 // ---------------------------------------------------------------- 汇总
 
 const state: SchedulerState = emptyState();
