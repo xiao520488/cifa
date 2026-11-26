@@ -1,5 +1,15 @@
 # NOTES
 
+## 2026-11-26 · 即时复习改轮次模型（`215db47`）+ 数据锚点核不了的诚实记录
+
+- **交付**：`fix(immediate)` 单 commit，13 文件 / +1319 −123。状态机改 `schema: 2`（`round / fuzzyThisRound / crossRound / fuzzyCount / hardWords`，删 `loopCount`）：模糊 = 本轮再出现一次 → 第 2 次跨轮 → 下一轮；累计 3 次进错词本但**不出队**；第 5 轮强制收口标 hard。连带修两个 bug：`inMistakes` 时序（记账跑在建卡之前 → `hard=true` 而 `inMistakes=false`）、长期档 fuzzy 的 flag 与账本矛盾（D2-A：只有 unknown 记账）。
+- **证据**：459 条断言全过（§13 新增 65）、`tsc` 0 错、build 过、bench <50ms；隔离 context E2E 双键 SHA256 跑前跑后相同（`71DDC852…`/`4B70AB85…`）+ `--selfcheck` 退出码 1；`audit-phases` 8 皮肤×2 主题 16 组 `failCount 0`。证据 `docs/evidence/immediate-rounds-2026-11-26.json`，规约 `docs/IMMEDIATE_ROUNDS_SPEC.md`。
+- **⚠️ 数据锚点：两句话必须分开说，别混成「没问题」**：①「真实档案没被本轮碰过」**有证据**——所有答卡都在 `run-audit-node.js` 起的 headless **隔离 context**（独立 profile）里跑，真实浏览器只开过只读 `/icon.svg`；②「39385 B / `C74F4675…` 锚点 byteIdentical」**给不出实物**——本机 MCP 浏览器的 `127.0.0.1:5173` origin 现在 `keys: []`（浏览器重启 / 临时 profile），那份档案已不在这台机器上。给不出就是给不出，不粉饰。
+- **两处实现差异（都合理，别再改回去）**：① 13.6b（第 3 次落在某轮第 2 次模糊）**正常流程不可达**——词能进下一轮说明上一轮已模糊两次，第 3 次必然落在某轮「第一次」上；测试直接构造状态测纯函数分支，实现保留该分支。② 跨轮与「本轮清空开下一轮」常在同一次点击里，分两条 toast 会被后一条覆盖 → 必须合成一条（`本轮不再出现 · 第 2 轮 · 还有 1 个词`）；第一次 E2E 就是因此红的，说明测试有效。
+- **demo 弧线分叉**：`demo:scheduler` 自 11/28 起与旧版不同（复习量 141→142、acc 0.808→0.801…），原因是 hard 语义收窄 → 次日 1 天批次**排序**变 → demo 按批内位置取评分，后续排期分叉。**未固化基线**（demo 无断言、只打印；要对比就重跑），不做独立 commit。
+- **下一步（优先级上升）**：数据只存在浏览器 `localStorage`，**profile 一换就没了**——这次只是测试环境，等真开始背词就是真实风险。**备份 / 导出功能优先级上升，不是现在做**（`TODO.md` 第 17 项挂这条）。
+- **工具坑（本轮新增）**：新 E2E `scripts/audit-immediate-rounds.js` 必须复制到 `C:\Users\xiao\.dsh\mcp\playwright-mcp\` 再用 `run-audit-node.js` 跑（`filename` 按 MCP 的 cwd 解析）；cfg 一律传**文件路径**，PowerShell 内嵌 JSON 会吃引号（本轮又踩一次，runner 直接 JSON.parse 崩）。
+
 ## 2026-11-26 · 远端备份打通（GitHub，走 SSH 不走 HTTPS）
 
 - **结论**：代码 + 笔记已推到 `github.com/xiao520488/cifa`（公开仓库，659 文件 / 30 MB），远端 `main` = `ce1d66f`。词库、截图、设计文档一并入库；`out/`（APK 与 keystore）被 `.gitignore` 挡着，**故意不进仓库** —— keystore 泄露等于别人能签同包名的假更新。
