@@ -106,7 +106,7 @@ eq('文件名带日期', backupFileName(new Date(2026, 10, 26)), 'cijian-backup-
   if (result.ok) {
     eq('往返后调度数据一致', result.data.scheduler, scheduler);
     eq('往返后 profile 一致', result.data.profile?.skin, 'bento');
-    eq('摘要卡片数', summarizeBackup(result.data), { cards: 1, unlearned: 2, mistakes: 1 });
+    eq('摘要卡片数', summarizeBackup(result.data), { cards: 1, unlearned: 2, mistakes: 1, customWords: 0 });
   }
 }
 
@@ -193,6 +193,96 @@ eq('profile 不是对象', reasonOf(JSON.stringify({ version: 1, app: 'cijian', 
   const storage = memoryStorage({ [STORE_KEY]: JSON.stringify(store) });
   applyBackup(result.data, storage);
   eq('没有 profile 时偏好键原样', JSON.parse(storage.data[STORE_KEY]).profile.name, '小夏');
+}
+
+// 11. 自定义词库：导出带上、坏结构拒绝、三种导入语义
+{
+  const customBook = {
+    lvl: 'custom',
+    label: '我的专业词',
+    words: [
+      { w: 'alpha', ph: '/ˈælfə/', m: ['n. 阿尔法'] },
+      { w: 'beta', ph: '/ˈbiːtə/', m: ['n. 贝塔'] },
+    ],
+  };
+  const withCustom = memoryStorage({
+    [SCHEDULER_KEY]: JSON.stringify(scheduler),
+    [STORE_KEY]: JSON.stringify({ ...store, custom: customBook }),
+  });
+  const payload = buildBackup(withCustom);
+  eq('导出带自定义词库', payload.custom?.label, '我的专业词');
+  eq('摘要给出词库词数', summarizeBackup(payload).customWords, 2);
+
+  const noCustom = memoryStorage({ [SCHEDULER_KEY]: JSON.stringify(scheduler), [STORE_KEY]: JSON.stringify(store) });
+  eq('没有词库时 custom 为空', buildBackup(noCustom).custom, null);
+}
+
+// 12. 坏自定义词库：原子拒绝
+{
+  const make = (custom: unknown) => JSON.stringify({ version: 1, app: 'cijian', scheduler, custom });
+  const reason = (custom: unknown) => {
+    const result = validateBackupText(make(custom));
+    return result.ok ? 'OK（不该通过）' : result.reason;
+  };
+  eq('词库不是对象', reason('x'), '备份里的自定义词库不是对象');
+  eq('词库缺词表', reason({ lvl: 'custom' }), '备份里的自定义词库缺少词表');
+  eq('词库是空的', reason({ words: [] }), '备份里的自定义词库是空的');
+  eq('词条不是对象', reason({ words: ['x'] }), '备份里的自定义词库有坏词条');
+  eq('词条缺单词', reason({ words: [{ ph: '', m: ['x'] }] }), '备份里的自定义词库有词条缺单词');
+  eq('词条缺释义', reason({ words: [{ w: 'a', ph: '', m: [] }] }), '备份里的自定义词库有词条缺释义');
+  eq('释义不是文字', reason({ words: [{ w: 'a', ph: '', m: [1] }] }), '备份里的自定义词库有释义不是文字');
+}
+
+// 13. 导入语义：备份有→写入；备份无→保留；两边都有→备份覆盖
+{
+  const backupWithCustom = validateBackupText(
+    serializeBackup(
+      buildBackup(
+        memoryStorage({
+          [SCHEDULER_KEY]: JSON.stringify(scheduler),
+          [STORE_KEY]: JSON.stringify({ ...store, custom: { lvl: 'custom', label: '备份词库', words: [{ w: 'z', ph: '', m: ['n. 备份'] }] } }),
+        }),
+      ),
+    ),
+  );
+  if (!backupWithCustom.ok) throw new Error('夹具本身不合法');
+
+  // 13a 备份有、本机没有 → 写入
+  const empty = memoryStorage({ [STORE_KEY]: JSON.stringify({ ...store, custom: null }) });
+  applyBackup(backupWithCustom.data, empty);
+  eq('备份有词库就写入', JSON.parse(empty.data[STORE_KEY]).custom.label, '备份词库');
+
+  // 13b 本机有、备份没有 → 保留本机
+  const backupNoCustom = validateBackupText(
+    serializeBackup(buildBackup(memoryStorage({ [SCHEDULER_KEY]: JSON.stringify(scheduler), [STORE_KEY]: JSON.stringify(store) }))),
+  );
+  if (!backupNoCustom.ok) throw new Error('夹具本身不合法');
+  const keep = memoryStorage({
+    [STORE_KEY]: JSON.stringify({ ...store, custom: { lvl: 'custom', label: '本机词库', words: [{ w: 'q', ph: '', m: ['n. 本机'] }] } }),
+  });
+  applyBackup(backupNoCustom.data, keep);
+  eq('备份没有词库就保留本机', JSON.parse(keep.data[STORE_KEY]).custom.label, '本机词库');
+
+  // 13c 两边都有 → 备份覆盖
+  const both = memoryStorage({
+    [STORE_KEY]: JSON.stringify({ ...store, custom: { lvl: 'custom', label: '本机词库', words: [{ w: 'q', ph: '', m: ['n. 本机'] }] } }),
+  });
+  applyBackup(backupWithCustom.data, both);
+  eq('两边都有时用备份覆盖', JSON.parse(both.data[STORE_KEY]).custom.label, '备份词库');
+}
+
+// 14. 体积：200 词的词库大概多大（只报告，不设上限）
+{
+  const words = Array.from({ length: 200 }, (_, i) => ({
+    w: `specialword${i}`,
+    ph: '/ˈspesɪmən/',
+    m: ['n. 一个用来占位的专业术语', 'v. 举例说明这个词条会有多长'],
+  }));
+  const bigStore = { ...store, custom: { lvl: 'custom', label: '我的专业词', words } };
+  const payload = buildBackup(memoryStorage({ [SCHEDULER_KEY]: JSON.stringify(scheduler), [STORE_KEY]: JSON.stringify(bigStore) }));
+  const bytes = Buffer.byteLength(serializeBackup(payload), 'utf8');
+  console.log(`· 200 词自定义词库的备份约 ${(bytes / 1024).toFixed(1)} KB（含调度数据）`);
+  check('200 词备份在几十 KB 量级', bytes > 10 * 1024 && bytes < 200 * 1024, bytes);
 }
 
 console.log(failures === 0 ? '\n全部通过' : `\n${failures} 项失败`);

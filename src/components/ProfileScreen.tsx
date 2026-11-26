@@ -98,7 +98,9 @@ export function ProfileScreen({
       link.remove();
       URL.revokeObjectURL(url);
       const summary = summarizeBackup(payload);
-      setBackupNote(`已导出 ${name}（${summary.cards} 张卡片、${summary.unlearned} 个未学词）`);
+      setBackupNote(
+        `已导出 ${name}（${summary.cards} 张卡片、${summary.unlearned} 个未学词${summary.customWords > 0 ? `、${summary.customWords} 个自定义词` : ''}）`,
+      );
     } catch (error) {
       setBackupError(error instanceof Error ? error.message : '导出失败');
     }
@@ -450,7 +452,7 @@ export function ProfileScreen({
             <div className="setting-row">
               <div>
                 <div className="setting-row__label">导出进度</div>
-                <div className="setting-row__value">下载 JSON：卡片、队列、错词本与外观</div>
+                <div className="setting-row__value">下载一个 JSON 备份文件</div>
               </div>
               <button type="button" className="btn btn--secondary btn--compact" onClick={exportProgress}>
                 导出
@@ -479,6 +481,9 @@ export function ProfileScreen({
                 aria-label="选择备份文件"
               />
             </div>
+            <p className="section__hint">
+              备份包含学习卡片、复习队列、错词本、自定义词库与外观设置；换设备导入即可接着背。
+            </p>
             {backupError ? (
               <p className="section__hint section__hint--error" role="alert">
                 <IconAlert size={16} />
@@ -515,7 +520,11 @@ export function ProfileScreen({
       {pendingImport ? (
         <ConfirmDialog
           title="导入这份备份？"
-          text={`会覆盖这台设备当前的学习进度，换成备份里的 ${pendingImport.summary.cards} 张卡片、${pendingImport.summary.unlearned} 个未学词、${pendingImport.summary.mistakes} 个错词。这个操作不能撤销。`}
+          text={`会覆盖这台设备当前的学习进度，换成备份里的 ${pendingImport.summary.cards} 张卡片、${pendingImport.summary.unlearned} 个未学词、${pendingImport.summary.mistakes} 个错词。${
+            pendingImport.summary.customWords > 0
+              ? `备份里还带 ${pendingImport.summary.customWords} 个词的自定义词库，会一并覆盖当前词库。`
+              : '备份里没有自定义词库，当前词库会保留。'
+          }这个操作不能撤销。`}
           confirmLabel="覆盖并导入"
           onConfirm={confirmImport}
           onCancel={() => setPendingImport(null)}

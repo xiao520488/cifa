@@ -41,7 +41,28 @@ async (page) => {
     const hasSection = await page.evaluate(() => [...document.querySelectorAll('.section__title')].some((n) => n.textContent.trim() === '数据备份'));
     if (!hasSection) problems.push('「我的」页没有「数据备份」区块');
 
-    // ---- 2. 导出并校验下载内容 ----
+    // ---- 2. 先塞一份自定义词库，验证「词库也进备份」 ----
+    // 写在同源非 App 页（App 页 pagehide 会用内存态回写）
+    await page.goto(BASE + '/icon.svg', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('cijian.v1') || '{}');
+      raw.custom = {
+        lvl: 'custom',
+        label: '我的专业词',
+        words: [
+          { w: 'alpha', ph: '/ˈælfə/', m: ['n. 阿尔法'] },
+          { w: 'beta', ph: '/ˈbiːtə/', m: ['n. 贝塔'] },
+        ],
+      };
+      localStorage.setItem('cijian.v1', JSON.stringify(raw));
+    });
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('button[aria-label="打开我的"]', { timeout: 15000 });
+    await page.click('button[aria-label="打开我的"]');
+    await page.waitForSelector('.section__title', { timeout: 10000 });
+    await page.waitForTimeout(300);
+
+    // ---- 3. 导出并校验下载内容 ----
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 15000 }),
       page.getByRole('button', { name: '导出', exact: true }).click(),
@@ -55,6 +76,9 @@ async (page) => {
       app: exported.app,
       hasScheduler: Boolean(exported.scheduler && exported.scheduler.cards),
       hasProfile: Boolean(exported.profile && typeof exported.profile.skin === 'string'),
+      customWords: Array.isArray(exported.custom?.words) ? exported.custom.words.length : 0,
+      customLabel: exported.custom?.label ?? null,
+      bytes: Buffer.byteLength(exportedText, 'utf8'),
       cards: Object.keys(exported.scheduler?.cards ?? {}).length,
       unlearned: (exported.scheduler?.unlearned ?? []).length,
       filename: download.suggestedFilename(),
@@ -63,19 +87,23 @@ async (page) => {
     if (exportChecks.app !== 'cijian') problems.push(`导出 app=${exportChecks.app}`);
     if (!exportChecks.hasScheduler) problems.push('导出里没有 scheduler');
     if (!exportChecks.hasProfile) problems.push('导出里没有 profile');
+    if (exportChecks.customWords !== 2) problems.push(`导出里自定义词库有 ${exportChecks.customWords} 个词，期望 2`);
     if (!/^cijian-backup-\d{4}-\d{2}-\d{2}\.json$/.test(exportChecks.filename)) problems.push(`文件名异常：${exportChecks.filename}`);
     const noteText = await page.evaluate(() => document.querySelector('[role="status"]')?.textContent?.trim() ?? null);
     if (!noteText || !noteText.includes('已导出')) problems.push('导出后没有成功提示');
+    if (noteText && !noteText.includes('自定义词')) problems.push('导出提示没提到自定义词');
 
-    // ---- 3. 改成本地另一份状态，为「覆盖是否真的发生」做对照 ----
+    // ---- 4. 改成本地另一份状态（并删掉词库），为「覆盖是否真的发生」做对照 ----
     // 注意：unlearned 每次启动都会被 seed() 重置，不能当对照；用 immediate.stats.groups。
-    // 必须先在**同源非 App 页**写 storage：App 页 pagehide 会拿内存态回写，直接写在刷新瞬间会被盖掉。
     await page.goto(BASE + '/icon.svg', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       const raw = JSON.parse(localStorage.getItem('cijian.scheduler.v1') || '{}');
       raw.immediate = raw.immediate || { pendingCount: 0, pendingWords: [], active: null, stats: { groups: 0, cards: 0, loops: 0, skipped: 0 }, lastAvgLoops: null };
       raw.immediate.stats.groups = 7;
       localStorage.setItem('cijian.scheduler.v1', JSON.stringify(raw));
+      const store = JSON.parse(localStorage.getItem('cijian.v1') || '{}');
+      delete store.custom;
+      localStorage.setItem('cijian.v1', JSON.stringify(store));
     });
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('button[aria-label="打开我的"]', { timeout: 15000 });
@@ -107,6 +135,7 @@ async (page) => {
     const dialogText = await page.evaluate(() => document.querySelector('.dialog')?.textContent ?? '');
     const schedulerWhileDialog = await page.evaluate(() => localStorage.getItem('cijian.scheduler.v1'));
     if (!dialogText.includes('覆盖')) problems.push('确认框没说要覆盖');
+    if (!dialogText.includes('自定义词库')) problems.push('确认框没交代自定义词库的处置');
     if (schedulerWhileDialog !== schedulerBeforeGood) problems.push('确认前就写了数据（破坏性操作必须后写）');
 
     await Promise.all([
@@ -117,10 +146,18 @@ async (page) => {
     const afterImport = await page.evaluate(() => {
       const s = JSON.parse(localStorage.getItem('cijian.scheduler.v1') || '{}');
       const p = JSON.parse(localStorage.getItem('cijian.v1') || '{}');
-      return { groups: s.immediate?.stats?.groups ?? null, skin: p.profile?.skin ?? null, importingFlag: localStorage.getItem('cijian.importing') };
+      return {
+        groups: s.immediate?.stats?.groups ?? null,
+        skin: p.profile?.skin ?? null,
+        customLabel: p.custom?.label ?? null,
+        customWords: Array.isArray(p.custom?.words) ? p.custom.words.length : 0,
+        importingFlag: localStorage.getItem('cijian.importing'),
+      };
     });
     if (afterImport.groups !== 0) problems.push(`导入后 stats.groups=${afterImport.groups}，期望 0（备份里的值）`);
     if (afterImport.importingFlag !== null) problems.push('导入闸门标记没被清掉（之后会一直不落盘）');
+    if (afterImport.customLabel !== exportChecks.customLabel) problems.push(`导入后词库=${afterImport.customLabel}，期望 ${exportChecks.customLabel}`);
+    if (afterImport.customWords !== 2) problems.push(`导入后词库有 ${afterImport.customWords} 个词，期望 2`);
 
     // ---- 6. 还原 + 校验 ----
     await restore();

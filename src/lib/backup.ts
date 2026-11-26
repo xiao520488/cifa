@@ -26,13 +26,18 @@ export interface BackupStorage {
 }
 
 export interface BackupPayload {
-  /** 备份格式版本；只有 1 能被导入 */
+  /** 备份格式版本；只有 1 能被导入（custom 是可选字段，所以不 bump） */
   version: number;
   /** 固定 'cijian'，防止把别的 JSON 当备份导进来 */
   app: string;
   exportedAt: string;
   /** 只带 profile（外观 / 阶段 / 每批词数），不带 session 等临时状态 */
   profile: Record<string, unknown> | null;
+  /**
+   * 自定义词库（`cijian.v1` 里的 `custom`，与 profile 同键不同字段）。
+   * v1 早期备份没有这个字段；读取时缺失按 null 处理（导入时保留本机现有词库，不删）。
+   */
+  custom: Record<string, unknown> | null;
   /** cijian.scheduler.v1 的原始对象 */
   scheduler: Record<string, unknown>;
 }
@@ -74,11 +79,13 @@ export function buildBackup(storage: BackupStorage, now = new Date()): BackupPay
   if (!scheduler) throw new Error('这台设备还没有可导出的学习数据');
   const store = parseRecord(storage.getItem(STORE_KEY));
   const profile = store && isRecord(store.profile) ? store.profile : null;
+  const custom = store && isRecord(store.custom) ? store.custom : null;
   return {
     version: BACKUP_VERSION,
     app: BACKUP_APP,
     exportedAt: now.toISOString(),
     profile,
+    custom,
     scheduler,
   };
 }
@@ -135,6 +142,13 @@ export function validateBackupText(text: string): BackupResult {
     profile = parsed.profile;
   }
 
+  let custom: Record<string, unknown> | null = null;
+  if (parsed.custom !== undefined && parsed.custom !== null) {
+    const checked = validateCustom(parsed.custom);
+    if (!checked.ok) return { ok: false, reason: checked.reason };
+    custom = checked.value;
+  }
+
   return {
     ok: true,
     data: {
@@ -142,15 +156,39 @@ export function validateBackupText(text: string): BackupResult {
       app: BACKUP_APP,
       exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : '',
       profile,
+      custom,
       scheduler,
     },
   };
+}
+
+/**
+ * 自定义词库的结构校验（与 `lib/storage.ts` 的 sanitizeCustom 同一口径）：
+ * 坏结构整份拒绝，不做半份修复——导入是破坏性操作，宁可让人重导一次。
+ */
+function validateCustom(value: unknown): { ok: true; value: Record<string, unknown> } | { ok: false; reason: string } {
+  if (!isRecord(value)) return { ok: false, reason: '备份里的自定义词库不是对象' };
+  const words = value.words;
+  if (!Array.isArray(words)) return { ok: false, reason: '备份里的自定义词库缺少词表' };
+  if (words.length === 0) return { ok: false, reason: '备份里的自定义词库是空的' };
+  for (const item of words) {
+    if (!isRecord(item)) return { ok: false, reason: '备份里的自定义词库有坏词条' };
+    if (typeof item.w !== 'string' || !item.w) return { ok: false, reason: '备份里的自定义词库有词条缺单词' };
+    if (typeof item.ph !== 'string') return { ok: false, reason: '备份里的自定义词库有词条缺音标字段' };
+    if (!Array.isArray(item.m) || item.m.length === 0) return { ok: false, reason: '备份里的自定义词库有词条缺释义' };
+    if (!item.m.every((sense) => typeof sense === 'string' && sense.length > 0)) {
+      return { ok: false, reason: '备份里的自定义词库有释义不是文字' };
+    }
+  }
+  return { ok: true, value };
 }
 
 export interface BackupSummary {
   cards: number;
   unlearned: number;
   mistakes: number;
+  /** 备份里自定义词库的词数（0 = 没带词库） */
+  customWords: number;
 }
 
 /* ---------------------------------------------------------------- 导入时的落盘闸门 */
@@ -189,10 +227,12 @@ export function clearImporting(storage: Storage = localStorage): void {
 /** 导前给人看的摘要（二次确认里显示，让用户知道会覆盖成什么样）。 */
 export function summarizeBackup(payload: BackupPayload): BackupSummary {
   const scheduler = payload.scheduler;
+  const customWords = payload.custom && Array.isArray(payload.custom.words) ? payload.custom.words.length : 0;
   return {
     cards: isRecord(scheduler.cards) ? Object.keys(scheduler.cards).length : 0,
     unlearned: Array.isArray(scheduler.unlearned) ? scheduler.unlearned.length : 0,
     mistakes: isRecord(scheduler.mistakes) ? Object.keys(scheduler.mistakes).length : 0,
+    customWords,
   };
 }
 
@@ -215,13 +255,19 @@ export function applyBackup(payload: BackupPayload, storage: BackupStorage): voi
     for (const field of ['name', 'batchSize', 'meaningMode', 'theme', 'skin'] as const) {
       if (incoming[field] !== undefined) nextProfile[field] = incoming[field];
     }
-    const hasCustom = store.custom !== null && store.custom !== undefined;
+    const hasCustom = payload.custom !== null || (store.custom !== null && store.custom !== undefined);
     const incomingStage = incoming.stage;
     if (typeof incomingStage === 'string' && (incomingStage !== 'custom' || hasCustom)) {
       nextProfile.stage = incomingStage;
     }
     merged.profile = nextProfile;
   }
+
+  // 自定义词库的导入语义（写死）：
+  // - 备份有、本机没有 → 写入
+  // - 本机有、备份没有 → 保留本机，不删
+  // - 两边都有 → 用备份覆盖
+  if (payload.custom) merged.custom = payload.custom;
 
   const storeText = JSON.stringify(merged);
   const beforeScheduler = storage.getItem(SCHEDULER_KEY);
