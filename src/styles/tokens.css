@@ -91,6 +91,24 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
 
+  /* 动效 · 作答手感（docs/MOTION_SPEC.md）：三档时长、两条曲线。
+     按下快、松开慢 —— 时间不对称才是手感；同曲线同时长 = 橡皮泥。 */
+  --motion-press: 50ms; /* 档 1：按下 */
+  --motion-release: 180ms; /* 松开 */
+  --motion-ack-known: 180ms; /* 答对上浮（与松开同档） */
+  --motion-feedback: 200ms; /* 档 2：卡片反馈 + 反馈期间的换卡延迟 */
+  --motion-toast-in: 200ms;
+  --motion-toast-out: 150ms;
+  --motion-swap: 350ms; /* 档 3：转场，本轮只定义不接线 */
+  --ease-state: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 幅度：全部皮肤共用同一组数字（这是触感，不是皮肤语言） */
+  --press-scale: 0.97;
+  --press-tint: color-mix(in srgb, var(--surface) 90%, #000);
+  --ack-lift: -2px;
+  --ack-shake: 4px;
+  --toast-shift: 12px;
+
   --dock-height: 76px;
 }
 
@@ -133,5 +151,16 @@
     --fs-meaning: 16px;
     --fs-word: clamp(26px, 2.6vw, 30px);
     --dock-height: 80px;
+  }
+}
+
+/* 减弱动效：位移全部归零，颜色变化瞬切，opacity 淡入淡出保留（MOTION_SPEC §6）。
+   归零放在令牌层 —— 任何漏网的动画跑起来也只是原地变色，不会位移。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+    --ack-lift: 0px;
+    --ack-shake: 0px;
+    --toast-shift: 0px;
   }
 }

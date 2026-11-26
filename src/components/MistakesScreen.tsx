@@ -8,12 +8,14 @@
  * 它**不动排程、不计正确率**（引擎里就是这么写的，页面别再自己算一遍）。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatMonthDay } from '../lib/scheduler';
 import type { CardState, MistakeRow, Scheduler } from '../lib/scheduler';
 import { wordLookup } from '../lib/deck';
 import type { Wordbook } from '../lib/types';
+import { useAnswerFeedback } from '../hooks/useAnswerFeedback';
 import { IconBack, IconCheck, IconClose } from './Icons';
+import { SessionToast } from './SessionToast';
 
 interface MistakesScreenProps {
   engine: Scheduler;
@@ -58,20 +60,12 @@ export function MistakesScreen({
   const [quizWord, setQuizWord] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const timer = useRef<number | null>(null);
+  /** 作答反馈（MOTION_SPEC §3）：与学习流同一套类名与时长，两处手感必须一致。 */
+  const { ack, play: playAck } = useAnswerFeedback();
 
   const flash = useCallback((text: string) => {
     setToast(text);
-    if (timer.current !== null) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setToast(null), 2600);
   }, []);
-
-  useEffect(
-    () => () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-    },
-    [],
-  );
 
   /* Esc 退出单测（不在单测里就退出页面） */
   useEffect(() => {
@@ -97,14 +91,22 @@ export function MistakesScreen({
     if (!quizWord) return;
     const result = run((engineRef) => engineRef.quizMistake(quizWord, known));
     if (!result.ok) {
+      // 不接受（词已不在错词本等）：不播反馈、不延迟，照旧提示后关掉单测
       flash(result.reason ?? '这个词现在不能单测');
-    } else if (known) {
+      setQuizWord(null);
+      setRevealed(false);
+      return;
+    }
+    if (known) {
       flash('答对，已移出错词本；排程不变，到日子还会再复习一次。');
     } else {
       flash('记下了。它还在错词本里，累计错次 +1。');
     }
-    setQuizWord(null);
-    setRevealed(false);
+    /* 反馈跑完才关单测（MOTION_SPEC §3）—— 关早了卡片会带着动画一起消失。 */
+    playAck(known ? 'known' : 'wrong', () => {
+      setQuizWord(null);
+      setRevealed(false);
+    });
   };
 
   const quizDetail = quizWord ? lookup.get(quizWord) : undefined;
@@ -134,15 +136,19 @@ export function MistakesScreen({
 
       <main className="app__main">
         <div className="screen">
-          {toast ? (
-            <p className="session-toast" role="status" aria-live="polite">
-              {toast}
-            </p>
-          ) : null}
+          <SessionToast text={toast} />
 
           {quizWord ? (
             <div className="flash">
-              <article className={revealed ? 'flash-card' : 'flash-card flash-card--masked'}>
+              <article
+                className={[
+                  'flash-card',
+                  revealed ? '' : 'flash-card--masked',
+                  ack === 'known' ? 'is-ack-known' : ack === 'wrong' ? 'is-ack-wrong' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
                 <div className="flash-card__head">
                   <span className="flash-card__word">{quizDetail?.w ?? quizWord}</span>
                   {quizDetail?.ph ? <span className="flash-card__ph">{quizDetail.ph}</span> : null}

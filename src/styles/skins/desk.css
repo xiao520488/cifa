@@ -411,8 +411,8 @@
 [data-skin='desk'] .answer-btn { border-radius: var(--radius-sm); }
 [data-skin='desk'] .answer-btn--fuzzy { background: transparent; border-color: var(--border-strong); }
 [data-skin='desk'] .answer-btn--unknown { background: transparent; border-color: var(--danger); } /* 不认识 = 错词动作，红承语义 */
-[data-skin='desk'] .answer-btn:active { transform: none; }
-[data-skin='desk'] .answer-btn--known:active:not(:disabled) { background: var(--accent-press); transform: translateY(1px); }
+/* 按压交回基线 .answer-btn:active:not(:disabled)（scale + 底色）。
+   本案原来用「不加位移 + 1px 下沉」表达按下去，与 8 皮肤统一的触感冲突，已删（MOTION_SPEC §2）。 */
 /* 列表阶段控制条 = 同一条列底条 */
 [data-skin='desk'] .dock { background: var(--bg); }
 [data-skin='desk'] .dock__btn { border-radius: var(--radius-sm); }
@@ -592,7 +592,9 @@
     border-color: var(--ds-rail-ink); background: var(--ds-rail-edge); color: var(--ds-rail-ink);
   }
   [data-skin='desk'] .topbar--bordered .avatar-btn:hover { transform: none; background: var(--accent-hover); }
-  [data-skin='desk'] .answer-btn--fuzzy:hover, [data-skin='desk'] .answer-btn--unknown:hover { background: var(--row-hover); }
+  /* :not(:active)：这条与基线按压底色同特异性，皮肤 CSS 后加载会盖掉按压底色 */
+  [data-skin='desk'] .answer-btn--fuzzy:hover:not(:active),
+  [data-skin='desk'] .answer-btn--unknown:hover:not(:active) { background: var(--row-hover); }
   [data-skin='desk'] .flash-card__reveal:hover { border-color: var(--text-tertiary); background: var(--row-hover); color: var(--text); }
 }
 

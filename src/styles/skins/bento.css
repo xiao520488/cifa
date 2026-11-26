@@ -310,6 +310,22 @@
   border-inline-start: 3px solid var(--accent); border-radius: var(--radius-lg);
   background: var(--surface); box-shadow: var(--shadow-sm);
 }
+/* 作答反馈（MOTION_SPEC §5）：磁贴「被按下去」——
+   时长与量级同基座上浮，只是把上浮换成 0.5% 的收缩。 */
+[data-skin='bento'] .flash-card.is-ack-known {
+  animation: bt-ack-press var(--motion-ack-known) var(--ease-out);
+}
+@keyframes bt-ack-press {
+  0% {
+    transform: none;
+  }
+  45% {
+    transform: scale(0.995);
+  }
+  100% {
+    transform: none;
+  }
+}
 /* dock / answer-dock / 进度条精修已升级为整屏结构，见 8B；这里只留 flash 卡与小字 */
 [data-skin='bento'] .answer-btn--unknown { color: var(--danger); }  /* 红只给错词 / 危险 */
 [data-skin='bento'] .answer-btn--ghost { color: var(--text-secondary); }

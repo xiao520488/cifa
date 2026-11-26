@@ -304,6 +304,25 @@
 [data-skin='nocturne'] .flash-card__word {
   font-family: var(--nc-latin); font-weight: 500; font-size: clamp(34px, 9vw, 46px); line-height: 1.12;
 }
+/* 作答反馈（MOTION_SPEC §5）：词条「闪一下墨色」——
+   不动卡片（夜读里位移最扎眼），只让词头沉一次 accent；时长同基座 180ms。 */
+[data-skin='nocturne'] .flash-card.is-ack-known {
+  animation: none;
+}
+[data-skin='nocturne'] .flash-card.is-ack-known .flash-card__word {
+  animation: nc-ack-ink var(--motion-ack-known) var(--ease-out);
+}
+@keyframes nc-ack-ink {
+  0% {
+    color: var(--text);
+  }
+  45% {
+    color: var(--accent);
+  }
+  100% {
+    color: var(--text);
+  }
+}
 [data-skin='nocturne'] .flash-card__meanings { padding-left: var(--space-5); }
 /* 即时复习居中版式：撤掉引文缩进（居中层级靠字号，不靠左线） */
 [data-skin='nocturne'] .flash-card--centered .flash-card__head { padding-bottom: 0; border-bottom: 0; }
@@ -346,6 +365,13 @@
 [data-skin='nocturne'] .answer-btn--fuzzy { color: var(--text); }
 [data-skin='nocturne'] .answer-btn--unknown { color: var(--danger); } /* 红只在此处 = 「不认识」错词语义 */
 [data-skin='nocturne'] .answer-btn--ghost { border-top: var(--nc-over-quiet); color: var(--text-tertiary); }
+/* 按压：本案「认识」是无填充排印键，底色若吃全局 accent-press 会变成
+   浅蓝字压中蓝底（实测 1.47:1，字看不见）。填充只给 press 的一瞬，且用自己那对配色。 */
+[data-skin='nocturne'] .answer-btn--known:active:not(:disabled) {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
 [data-skin='nocturne'] .answer-btn:focus-visible { outline: var(--nc-over-key); outline-offset: 3px; }
 
 /* 收尾页：章节起线 + 大字读数 */

@@ -68,7 +68,8 @@ async (page) => {
         const clickFuzzy = state.word === target && fuzzies < 4;
         await page.click(clickFuzzy ? '.answer-dock--immediate .answer-btn--fuzzy' : '.answer-dock--immediate .answer-btn--known');
         if (clickFuzzy) fuzzies += 1;
-        await sleep(140);
+        // 作答反馈延迟 180/200ms 才换词（MOTION_SPEC §3）：等过窗口再读下一张卡
+        await sleep(260);
         const toast = await page.evaluate(() => document.querySelector('.session-toast')?.textContent?.trim() ?? null);
         if (toast) toasts.add(toast);
         continue;

@@ -1623,6 +1623,13 @@ p {
   color: var(--warning);
   padding-left: var(--space-3);
   border-left: 2px solid var(--warning);
+  /* 进入：上移 12px + 淡入；退出只淡出、不位移（MOTION_SPEC §4）。
+     时长与位移都走令牌，减弱动效时位移归零、只留 opacity。 */
+  animation: toast-in var(--motion-toast-in) var(--ease-out) both;
+}
+
+.session-toast.is-leaving {
+  animation: toast-out var(--motion-toast-out) var(--ease-state) both;
 }
 
 /* 复习 / 即时复习的底部操作栏。
@@ -1656,14 +1663,24 @@ p {
   color: var(--text);
   font-size: 15px;
   font-weight: 500;
+  /* 松开 180ms、按下 50ms（MOTION_SPEC §2）：:active 里重设 duration 才是"快下缓起" */
   transition:
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+    transform var(--motion-release) var(--ease-state),
+    background-color var(--motion-release) var(--ease-state),
+    border-color var(--motion-release) var(--ease-state);
 }
 
-.answer-btn:active {
-  transform: scale(0.98);
+/* 按压：全皮肤统一。:not(:disabled) 既排除禁用键，也让特异性压过皮肤里的
+   [data-skin=x] .answer-btn--fuzzy / --unknown 的底色声明（否则 desk 的透明底会盖住反馈）。 */
+.answer-btn:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  background-color: var(--press-tint);
+  transition-duration: var(--motion-press);
+}
+
+.answer-btn--known:active:not(:disabled) {
+  background-color: var(--accent-press);
+  border-color: var(--accent-press);
 }
 
 .answer-btn:focus-visible {
@@ -1819,6 +1836,69 @@ p {
 
 /* ---------- 动效 --------------------------------------------------------- */
 
+/* 作答反馈（MOTION_SPEC §3）。类名由 SessionScreen / MistakesScreen 在作答瞬间挂上，
+   JS 延迟 180 / 200ms 才推进队列 —— 所以动画跑完的那一帧正好是新词出现的那一帧。 */
+.flash-card.is-ack-known {
+  animation: ack-lift var(--motion-ack-known) var(--ease-out);
+}
+
+.flash-card.is-ack-wrong {
+  animation: ack-shake var(--motion-feedback) var(--ease-state);
+}
+
+@keyframes ack-lift {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: translateY(var(--ack-lift));
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes ack-shake {
+  0% {
+    transform: none;
+  }
+  18% {
+    transform: translateX(calc(-1 * var(--ack-shake)));
+  }
+  40% {
+    transform: translateX(var(--ack-shake));
+  }
+  62% {
+    transform: translateX(calc(-0.75 * var(--ack-shake)));
+  }
+  82% {
+    transform: translateX(calc(0.5 * var(--ack-shake)));
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--toast-shift));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -1858,6 +1938,24 @@ p {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* 上面那条会把淡入淡出也一起压掉；toast 按规约只留 opacity，单独放行
+     （类选择器特异性高于 *，两条同为 !important 时类赢）。 */
+  .session-toast {
+    animation-duration: var(--motion-toast-in) !important;
+    transform: none !important;
+  }
+
+  .session-toast.is-leaving {
+    animation-duration: var(--motion-toast-out) !important;
+    transform: none !important;
+  }
+
+  /* JS 本来就不会挂这两个类；这里是兜底，防止将来有人直接写类名绕过 JS */
+  .flash-card.is-ack-known,
+  .flash-card.is-ack-wrong {
+    animation: none !important;
   }
 }
 

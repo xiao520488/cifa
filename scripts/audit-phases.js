@@ -136,7 +136,8 @@ async (page) => {
           const next = [...document.querySelectorAll('button')].find((b) => /下一批|看完收尾/.test(b.textContent) && !b.disabled);
           if (next) next.click();
         });
-        await page.waitForTimeout(200);
+        // 作答反馈延迟 180/200ms 才换卡（MOTION_SPEC §3）：等到新卡出现再点下一次
+        await page.waitForTimeout(260);
         if (await has('.session-done')) doneOk = true;
       }
       const done = await page.evaluate(PROBE);

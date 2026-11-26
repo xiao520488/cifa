@@ -89,7 +89,8 @@ async (page) => {
   const toastOn = () => page.evaluate(() => document.querySelector('.session-toast') !== null);
   const clickKey = async (kind) => {
     await page.click(`.answer-dock--review .answer-btn--${kind}`);
-    await page.waitForTimeout(120);
+    // 作答反馈会延迟 180/200ms 才换卡（MOTION_SPEC §3），必须等过这个窗口再读词
+    await page.waitForTimeout(260);
   };
   const seen = [];
   const snapshotCard = () => page.evaluate(() => (document.querySelector('.flash-card') || {}).outerHTML || '');

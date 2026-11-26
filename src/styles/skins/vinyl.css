@@ -688,6 +688,12 @@
   color: var(--warning);   /* 5.91 浅 / 深档更亮 */
 }
 [data-skin='vinyl'] .answer-btn--unknown { border-color: var(--danger); color: var(--danger); }
+/* 按压：「认识」是描边唱片（无实底），底色若吃全局 accent-press 会变成绿字压洋红底
+   （实测 1.59:1，字看不见）。按压铺的是它自己的墨，边框保持绿色语义。 */
+[data-skin='vinyl'] .answer-btn--known:active:not(:disabled) {
+  background-color: color-mix(in srgb, currentColor 16%, transparent);
+  border-color: var(--success);
+}
 [data-skin='vinyl'] .answer-btn--ghost { border-color: var(--border); color: var(--text-tertiary); }
 /* 卡面 = 唱封：整块抬起来（底色在真元素上），头行右端那颗呼吸点是唯一动效 */
 [data-skin='vinyl'] .flash { gap: var(--space-4); padding-block: var(--space-5) var(--space-6); }
@@ -716,6 +722,22 @@
   font-family: var(--vy-mono);
   font-size: var(--vy-label);
   letter-spacing: 0.02em;
+}
+/* 作答反馈（MOTION_SPEC §5）：唱封「转一下」——
+   时长与视觉量级跟基座上浮完全一致（180ms / ≈2px），只是把上浮换成 0.6° 倾斜。 */
+[data-skin='vinyl'] .flash-card.is-ack-known {
+  animation: vy-ack-tilt var(--motion-ack-known) var(--ease-out);
+}
+@keyframes vy-ack-tilt {
+  0% {
+    transform: none;
+  }
+  40% {
+    transform: rotate(-0.6deg) translateY(var(--ack-lift));
+  }
+  100% {
+    transform: none;
+  }
 }
 [data-skin='vinyl'] .flash-card__reveal {
   align-self: flex-start;
@@ -1270,7 +1292,9 @@
 /* 触屏无 hover：提盘 / 落盘只在可悬停设备上做，位移 ≤2px；
    按下＝唱片压回架子（translateY + 去厚度边），与首页药丸同一语法。 */
 @media (hover: hover) {
-  [data-skin='vinyl'] .answer-btn:hover,
+  /* :not(:active) 是必须的：这条与基线按压规则同特异性 (0,3,0)，而皮肤 CSS 在 app.css
+     之后加载 —— 不加就会把按压的 scale 盖成 -1px 上浮（MOTION_SPEC §2）。 */
+  [data-skin='vinyl'] .answer-btn:hover:not(:active),
   [data-skin='vinyl'] .dock__nav:hover:not(:disabled),
   [data-skin='vinyl'] .stage-option:hover,
   [data-skin='vinyl'] .segmented__item:hover,
@@ -1284,8 +1308,10 @@
   [data-skin='vinyl'] .cal-figure:hover dd:not(.is-warn),
   [data-skin='vinyl'] .stat__num:hover { border-color: var(--accent); }
 }
-[data-skin='vinyl'] .answer-btn:active,
-[data-skin='vinyl'] .dock__btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+/* 按下时「盘沉下去」只有厚度边塌陷这一下，位移交回基线 scale（MOTION_SPEC §2）：
+   皮肤自己的 translateY(2px) 与基线的 scale 叠起来会变成两种触感，已删。 */
+[data-skin='vinyl'] .answer-btn:active:not(:disabled),
+[data-skin='vinyl'] .dock__btn:active:not(:disabled) { box-shadow: none; }
 /* 按下时揭掉刻纹，让基线那档 --surface-sunken 实底透出来（否则 shorthand 之下的渐变会盖住反馈） */
 [data-skin='vinyl'] .icon-btn:active,
 [data-skin='vinyl'] .answer-btn:active,

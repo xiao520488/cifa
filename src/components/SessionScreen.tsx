@@ -24,8 +24,10 @@ import type { DailyPlan, ImmediateGroup, Rating, Scheduler } from '../lib/schedu
 import { wordLookup } from '../lib/deck';
 import { chunk } from '../lib/words';
 import type { Wordbook } from '../lib/types';
+import { useAnswerFeedback } from '../hooks/useAnswerFeedback';
 import { ControlDock } from './ControlDock';
 import { IconBack, IconCheck, IconClose } from './Icons';
+import { SessionToast } from './SessionToast';
 import { WordRow } from './WordRow';
 
 type Phase = 'review' | 'list' | 'immediate' | 'done';
@@ -154,6 +156,11 @@ export function SessionScreen({
   /** 连点保护：同一张卡只接受一次作答（否则会插两条回看项，违反「最多 3 次」）。 */
   const answering = useRef(-1);
 
+  /* ------------------------------------------------------------ 作答手感 */
+
+  /** 卡片反馈的瞬时状态：挂 180/200ms 的 CSS 动画，同时决定什么时候换卡。 */
+  const { ack, play: playAck, busy: ackBusy } = useAnswerFeedback();
+
   /** 复习清空 → 重拍新词列表（复习闸此刻才真正开），无缝进列表。 */
   const finishReview = useCallback(() => {
     if (engine.today() !== plan.day) {
@@ -172,7 +179,7 @@ export function SessionScreen({
   const submit = useCallback(
     (rating: Rating) => {
       if (!current) return;
-      if (answering.current === index) return;
+      if (answering.current === index || ackBusy.current) return;
       answering.current = index;
       if (engine.today() !== plan.day) {
         onExit();
@@ -188,6 +195,7 @@ export function SessionScreen({
       };
 
       if (!outcome.ok) {
+        // 不接受（今天已答过 / 未到期）：不播反馈、不延迟，照旧提示后前进
         setToast(outcome.reason ?? '这个词现在不能作答');
         step();
         return;
@@ -209,24 +217,40 @@ export function SessionScreen({
         }
         return { ...value, retried: value.retried + 1 };
       });
-      setRevealed(false);
 
-      /* 回队尾：插在「短期 + 长期之后、逾期池之前」；游标已越过回看带时插到游标后一位
-         （否则该词会被静默丢弃，见 REVIEW_REQUEUE_SPEC §5.2 / §8.10）。 */
-      if (rating !== 'known' && current.attempt < 3) {
-        const next = { ...current, attempt: (current.attempt + 1) as 2 | 3 };
-        setReview((prev) => {
-          const items = [...prev.items];
-          items.splice(Math.max(prev.end, index + 1), 0, next);
-          return { items, end: prev.end + 1 };
-        });
-        setIndex((value) => value + 1);
-        return;
-      }
+      /* 推进（含 reveal 复位）要等反馈窗口结束 —— 否则遮罩的释义会在
+         反馈的 180/200ms 里露出来（MOTION_SPEC §3）。 */
+      const moveOn = () => {
+        setRevealed(false);
+        /* 回队尾：插在「短期 + 长期之后、逾期池之前」；游标已越过回看带时插到游标后一位
+           （否则该词会被静默丢弃，见 REVIEW_REQUEUE_SPEC §5.2 / §8.10）。 */
+        if (rating !== 'known' && current.attempt < 3) {
+          const next = { ...current, attempt: (current.attempt + 1) as 2 | 3 };
+          setReview((prev) => {
+            const items = [...prev.items];
+            items.splice(Math.max(prev.end, index + 1), 0, next);
+            return { items, end: prev.end + 1 };
+          });
+          setIndex((value) => value + 1);
+          return;
+        }
+        step();
+      };
 
-      step();
+      ackBusy.current = true;
+      playAck(rating === 'known' ? 'known' : 'wrong', moveOn);
     },
-    [current, engine, finishReview, index, onExit, plan.day, review.items.length, run],
+    [
+      current,
+      engine,
+      finishReview,
+      index,
+      onExit,
+      plan.day,
+      playAck,
+      review.items.length,
+      run,
+    ],
   );
 
   /* ---------------------------------------------------------------- 新词列表 */
@@ -292,6 +316,7 @@ export function SessionScreen({
   const answerImmediateClick = useCallback(
     (known: boolean) => {
       if (!group || !immediateWord) return;
+      if (ackBusy.current) return;
       if (engine.today() !== plan.day) {
         run((target) => target.abandonImmediate());
         onExit();
@@ -311,29 +336,36 @@ export function SessionScreen({
       if (result.crossed) parts.push('本轮不再出现');
       if (!result.finished && result.roundFinished) parts.push(`第 ${result.round} 轮 · 还有 ${result.remaining} 个词`);
       if (parts.length > 0) setToast(parts.join(' · '));
-      if (!result.finished) {
-        setGroup(result.group);
-        return;
-      }
-      /* 整组收口 = 这组词真正「背完」：唯一落库点。硬词以状态机给的 hardWords 为准
-         （只在第 5 轮强制收口时非空），不再用组件内累积的集合——刷新后也不会丢。 */
-      const hardWords = result.hardWords;
-      const { committed, rejected } = run((target) =>
-        target.commitNewWords(result.group.words, plan.day, hardWords),
-      );
-      setCommittedCount((value) => value + committed.length);
-      setCommittedTotal((value) => value + committed.length);
-      setHardTotal((value) => value + hardWords.length);
-      setGroup(null);
-      if (rejected.length > 0) {
-        setToast(`有 ${rejected.length} 个词状态变了没能入库（可能已被清扫），其余都已背完。`);
-      }
-      if (batchIdx + 1 < batchCount) {
-        goBatch(batchIdx + 1);
-        setPhase('list');
-      } else {
-        setPhase('done');
-      }
+
+      /* 反馈跑完才换词 —— 与复习三键同一套（MOTION_SPEC §3）。 */
+      const moveOn = () => {
+        if (!result.finished) {
+          setGroup(result.group);
+          return;
+        }
+        /* 整组收口 = 这组词真正「背完」：唯一落库点。硬词以状态机给的 hardWords 为准
+           （只在第 5 轮强制收口时非空），不再用组件内累积的集合——刷新后也不会丢。 */
+        const hardWords = result.hardWords;
+        const { committed, rejected } = run((target) =>
+          target.commitNewWords(result.group.words, plan.day, hardWords),
+        );
+        setCommittedCount((value) => value + committed.length);
+        setCommittedTotal((value) => value + committed.length);
+        setHardTotal((value) => value + hardWords.length);
+        setGroup(null);
+        if (rejected.length > 0) {
+          setToast(`有 ${rejected.length} 个词状态变了没能入库（可能已被清扫），其余都已背完。`);
+        }
+        if (batchIdx + 1 < batchCount) {
+          goBatch(batchIdx + 1);
+          setPhase('list');
+        } else {
+          setPhase('done');
+        }
+      };
+
+      ackBusy.current = true;
+      playAck(known ? 'known' : 'wrong', moveOn);
     },
     [
       batchCount,
@@ -344,6 +376,7 @@ export function SessionScreen({
       immediateWord,
       onExit,
       plan.day,
+      playAck,
       run,
     ],
   );
@@ -524,22 +557,22 @@ export function SessionScreen({
                   );
                 })}
               </ol>
-              {toast ? (
-                <p className="session-toast" role="status">
-                  {toast}
-                </p>
-              ) : null}
+              <SessionToast text={toast} />
             </div>
           ) : (
             <div className="flash">
               <article
-                className={
+                className={[
+                  'flash-card',
                   phase === 'immediate'
-                    ? 'flash-card flash-card--centered'
+                    ? 'flash-card--centered'
                     : showMeaning
-                      ? 'flash-card'
-                      : 'flash-card flash-card--masked'
-                }
+                      ? ''
+                      : 'flash-card--masked',
+                  ack === 'known' ? 'is-ack-known' : ack === 'wrong' ? 'is-ack-wrong' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
                 <div className="flash-card__head">
                   <span className="flash-card__word">
@@ -572,11 +605,7 @@ export function SessionScreen({
                 ) : null}
               </article>
 
-              {toast ? (
-                <p className="session-toast" role="status">
-                  {toast}
-                </p>
-              ) : null}
+              <SessionToast text={toast} />
             </div>
           )}
         </div>
