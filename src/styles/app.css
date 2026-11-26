@@ -1930,6 +1930,36 @@ p {
   }
 }
 
+/* ---------- v2 · 页面转场（MOTION_SPEC §13.3）------------------------------
+   只动进入屏：四个 tab 屏是条件渲染，换屏时旧屏整棵卸载，所以「退出不动」
+   是结构给的，不需要写任何判断。目标锁在 .app 的**直接子级**上 ——
+   不能插包裹层：desk 用 .app:has(.start) 把 .app 当网格、vinyl 靠
+   「最后一个非滚动子元素」吸底，多一层会同时拆掉这两套语言。
+
+   fill-mode 必须是 backwards 不是 both：both 会把 translateY(0) 永久留在
+   元素上，那仍然是一个 transform，等于永久给 main.app__main 打开
+   containing block（position:fixed 后代、sticky 计算全变）。
+   backwards 只补起始帧，动画结束元素回到「没有 animation」的自然态，
+   350ms 后 computed transform 必须是 none（门禁 G1 就断这一条）。
+
+   8px 缝隙：下移时露出的必须是 .app 自己的底色，否则会闪一条横缝（G1 断言）。 */
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--screen-shift));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app.is-screen-entering > .topbar,
+.app.is-screen-entering > .readouts,
+.app.is-screen-entering > main.app__main {
+  animation: screen-in var(--motion-swap) var(--ease-out) backwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1950,6 +1980,16 @@ p {
   .session-toast.is-leaving {
     animation-duration: var(--motion-toast-out) !important;
     transform: none !important;
+  }
+
+  /* 转场只留 opacity（§13.6）：--screen-shift 已在令牌层归零，位移恒 0；
+     这里只放行时长，否则上面 `*` 会把它压成 0.01ms 的硬切 ——
+     而「只留淡入」正是减弱动效下要的行为。类选择器特异性高于 `*`，
+     两条同为 !important 时这条赢。 */
+  .app.is-screen-entering > .topbar,
+  .app.is-screen-entering > .readouts,
+  .app.is-screen-entering > main.app__main {
+    animation-duration: var(--motion-swap) !important;
   }
 
   /* JS 本来就不会挂这两个类；这里是兜底，防止将来有人直接写类名绕过 JS */

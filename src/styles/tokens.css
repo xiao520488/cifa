@@ -108,6 +108,9 @@
   --ack-lift: -2px;
   --ack-shake: 4px;
   --toast-shift: 12px;
+  /* 转场位移（MOTION_SPEC §13.3）：幅度令牌，不是时长档。8px 与 350ms 一起用，
+     「上移淡入」——大于 12px 像抽屉、小于 4px 看不出来。 */
+  --screen-shift: 8px;
 
   --dock-height: 76px;
 }
@@ -162,5 +165,8 @@
     --ack-lift: 0px;
     --ack-shake: 0px;
     --toast-shift: 0px;
+    /* 转场只留淡入（§13.6）：位移归零后 keyframes 里的 translateY 变成 0，
+       时长另由 app.css 的 override 放行到 350ms。 */
+    --screen-shift: 0px;
   }
 }

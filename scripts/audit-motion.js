@@ -36,6 +36,20 @@ async (page) => {
     const m = tf.match(/matrix\(([^)]+)\)/);
     return m ? Number(m[1].split(',')[4]) : NaN;
   };
+  /** matrix 的第 6 个分量 = translateY */
+  const tyOf = (tf) => {
+    if (!tf || tf === 'none') return 0;
+    const m = tf.match(/matrix\(([^)]+)\)/);
+    return m ? Number(m[1].split(',')[5]) : NaN;
+  };
+  const alphaOf = (color) => {
+    if (!color) return 1;
+    if (color === 'transparent') return 0;
+    const m = color.match(/^rgba?\(([^)]+)\)/);
+    if (!m) return 1;
+    const p = m[1].split(',').map((x) => Number(x.trim()));
+    return p.length > 3 ? p[3] : 1;
+  };
 
   /** 造 3 张今天到期的卡；already=true 时三张都带 lastReviewed=today（作答必被拒 → toast） */
   const seed = async (opts) => {
@@ -154,6 +168,218 @@ async (page) => {
     const up = await btnState(sel);
     return { pressed, up, msDown, trace };
   };
+
+  /* ================= 0. v2 页面转场（docs/MOTION_SPEC.md §13.7 G1）=================
+     只动进入屏：四个屏是条件渲染，换屏 = 旧屏整棵卸载，所以「退出不动」是结构给的。
+     断的是：DOM 里只有一个 .screen、进入屏在跑 screen-in / 0.35s、位移从 8px 收到 0、
+     500ms 后连类带动画一起消失（这样才能证明 fill-mode 写的是 backwards 不是 both）、
+     8px 缝隙露的是 .app 自己的底色（不同色就是一条会闪的横缝）。
+     采样全程在页面内完成（点击 + rAF 采样放在同一次 evaluate），避免 CDP 往返把首帧吃掉。 */
+
+  const gotoHome = async (skin, theme) => {
+    await page.goto(BASE + '/icon.svg', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(
+      ([kp, skinArg, themeArg]) => {
+        const prefs = JSON.parse(localStorage.getItem(kp) || '{}');
+        prefs.profile = Object.assign(
+          { stage: 'cet4', batchSize: 5, theme: 'light', skin: 'paper' },
+          prefs.profile,
+          { skin: skinArg, theme: themeArg },
+        );
+        localStorage.setItem(kp, JSON.stringify(prefs));
+      },
+      [KEY_PREFS, skin, theme],
+    );
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.start', { timeout: 8000 });
+    await page.waitForTimeout(120);
+  };
+
+  /** 点一个导航键，并从同一帧开始录 500ms。kind: 'cal' | 'me' | 'mistakes' | 'back' */
+  const goTo = (kind) =>
+    page.evaluate(
+      (k) =>
+        new Promise((resolve) => {
+          document.querySelectorAll('.app > .topbar, .app > main.app__main').forEach((el) => {
+            el.dataset.old = '1';
+          });
+          const pick = () => {
+            if (k === 'cal') return document.querySelector('.icon-btn[aria-label="打开学习日历"]');
+            if (k === 'me') return document.querySelector('.avatar-btn[aria-label="打开我的"]');
+            if (k === 'mistakes') {
+              const row = [...document.querySelectorAll('.setting-row')].find((r) =>
+                r.textContent.includes('错词本'),
+              );
+              return row ? row.querySelector('button') : null;
+            }
+            return document.querySelector(
+              '.icon-btn[aria-label="返回"], .icon-btn[aria-label="返回背单词"]',
+            );
+          };
+          const btn = pick();
+          if (!btn) {
+            resolve({ error: 'nav-not-found:' + k });
+            return;
+          }
+          btn.click();
+          const t0 = performance.now();
+          const out = [];
+          const cs = (s) => {
+            const el = document.querySelector('.app > ' + s);
+            return el ? getComputedStyle(el) : null;
+          };
+          const tick = () => {
+            const tb = cs('.topbar');
+            const mn = cs('main.app__main');
+            const rd = cs('.readouts');
+            out.push({
+              at: Math.round(performance.now() - t0),
+              nScreen: document.querySelectorAll('.screen').length,
+              tbAnim: tb ? tb.animationName : null,
+              tbDur: tb ? tb.animationDuration : null,
+              tbTf: tb ? tb.transform : null,
+              tbOp: tb ? Number(tb.opacity) : null,
+              mnOp: mn ? Number(mn.opacity) : null,
+              rdAnim: rd ? rd.animationName : null,
+              oldLeft: document.querySelectorAll('[data-old]').length,
+            });
+            if (performance.now() - t0 < 500) requestAnimationFrame(tick);
+            else resolve(out);
+          };
+          tick();
+        }),
+      kind,
+    );
+
+  const judgeEnter = (label, frames, opts) => {
+    const reduced = !!(opts && opts.reduced);
+    if (!frames || frames.error) {
+      fail(`${label}：找不到入口（${frames && frames.error}）`);
+      return null;
+    }
+    /* 点击是程序化的（不受信事件），React 会把这次更新排到微任务，DOM 可能晚一帧才提交。
+       所以「提交前」的帧（旧节点还在）不能拿来判动画 —— 从「旧节点已消失」的第一帧开始算。
+       反过来说，如果一直没消失，说明旧屏真的没被卸载，下面照样会红。 */
+    const live = frames.filter((f) => f.oldLeft === 0);
+    if (live.length === 0) {
+      fail(`${label}：旧屏节点一直没被卸载（还有退出动画在跑）`, frames[frames.length - 1]);
+      return null;
+    }
+    const first = live[0];
+    const last = live[live.length - 1];
+    const tys = live.map((f) => tyOf(f.tbTf));
+    const ops = live.map((f) => f.tbOp);
+    const maxTy = Math.max(...tys.map((v) => Math.abs(v)));
+
+    if (live.some((f) => f.nScreen !== 1)) {
+      fail(`${label}：换屏瞬间 DOM 里不止一个 .screen`, live.map((f) => f.nScreen));
+    }
+    if (first.tbAnim !== 'screen-in') fail(`${label}：进入屏没在跑 screen-in`, first.tbAnim);
+    if (first.tbDur !== '0.35s') fail(`${label}：转场不是 350ms`, first.tbDur);
+    if (!ops.some((o) => o !== null && o < 0.9)) {
+      fail(`${label}：没采到淡入过程（首帧 opacity 就已经是 1？）`, ops.slice(0, 4));
+    }
+    if (reduced && maxTy > 0.6) fail(`${label}：减弱动效下仍有位移`, maxTy);
+    if (!reduced && !(maxTy > 2)) fail(`${label}：没有位移（--screen-shift 没接上？）`, maxTy);
+    const maxIdx = tys.findIndex((v) => Math.abs(v) === maxTy);
+    if (!reduced && !(tys[maxIdx] > tys[tys.length - 1] + 0.5)) {
+      fail(`${label}：位移没有随时间收敛`, tys.slice(0, 6));
+    }
+    if (last.tbTf !== 'none') {
+      fail(`${label}：500ms 后 transform 还不是 none（fill-mode 写成 both 了？）`, last.tbTf);
+    }
+    return {
+      maxTy: Math.round(maxTy * 100) / 100,
+      preCommit: frames.length - live.length,
+      firstAt: first.at,
+      lastAt: last.at,
+      n: live.length,
+    };
+  };
+
+  const gapColor = () =>
+    page.evaluate(() => {
+      const app = document.querySelector('.app');
+      const tb = document.querySelector('.app > .topbar');
+      return {
+        app: getComputedStyle(app).backgroundColor,
+        topbar: tb ? getComputedStyle(tb).backgroundColor : null,
+      };
+    });
+
+  await gotoHome('paper', 'light');
+  const enterRows = [];
+  enterRows.push({ to: 'calendar', ...judgeEnter('study→日历', await goTo('cal')) });
+  enterRows.push({ to: 'me', ...judgeEnter('日历→我的', await goTo('me')) });
+  enterRows.push({ to: 'mistakes', ...judgeEnter('我的→错词本', await goTo('mistakes')) });
+  const backFrames = await goTo('back');
+  enterRows.push({ to: 'study', ...judgeEnter('错词本→学习', backFrames) });
+  if (!backFrames.some((f) => f.rdAnim === 'screen-in')) {
+    fail('回到首页时 .readouts 没有参与转场', backFrames.map((f) => f.rdAnim).slice(0, 4));
+  }
+
+  /* 自证伪：把 --screen-shift 临时归零，同一个探针必须测到位移变 0 —— 红不了就是探针坏了 */
+  await page.evaluate(() => document.documentElement.style.setProperty('--screen-shift', '0px'));
+  const zeroFrames = await goTo('cal');
+  const zeroTy = Math.max(...zeroFrames.map((f) => Math.abs(tyOf(f.tbTf))));
+  await page.evaluate(() => document.documentElement.style.removeProperty('--screen-shift'));
+  if (zeroTy > 0.6) {
+    fail('自证伪失败：--screen-shift 归零后仍测到位移（探针读错了属性？）', zeroTy);
+  }
+  const restoreFrames = await goTo('back');
+  const restoreTy = Math.max(...restoreFrames.map((f) => Math.abs(tyOf(f.tbTf))));
+  if (!(restoreTy > 2)) fail('自证伪失败：移除归零后位移没回来', restoreTy);
+
+  /* 减弱动效：只留 opacity，位移恒 0；时长仍必须 350ms（不能被全局 * 压成 0.01ms 硬切） */
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await gotoHome('paper', 'light');
+  const reduceFrames = await goTo('cal');
+  const reduceJudge = judgeEnter('减弱动效 → 日历', reduceFrames, { reduced: true });
+  const reduceLive = reduceFrames.filter((f) => f.oldLeft === 0);
+  /* 只判「动画在跑的那些帧」：380ms 摘类之后的帧本来就没有 animation，时长是全局 `*` 的
+     0.01ms，那是正确状态，不是缺陷（拿它当失败就是探针给自己造假阳性）。 */
+  const reduceAnimated = reduceLive.filter((f) => f.tbAnim === 'screen-in');
+  if (reduceAnimated.length === 0) fail('减弱动效下没跑 screen-in（淡入被整段杀掉了）', reduceLive[0]);
+  const reduceDurSet = [...new Set(reduceAnimated.map((f) => f.tbDur))];
+  if (reduceDurSet.length !== 1 || reduceDurSet[0] !== '0.35s') {
+    fail('减弱动效下转场被压成硬切（动画帧的时长不是 0.35s）', { durs: reduceDurSet });
+  }
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  notes.screenEnter = { rows: enterRows, selfFalsify: { zeroTy, restoreTy }, reduce: reduceJudge };
+
+  /* 8 皮肤 × 明暗：动画在跑、结束态干净、8px 缝隙露的是屏自己的底色 */
+  const enterSkinRows = [];
+  for (const skin of [
+    'paper',
+    'foundry',
+    'instrument',
+    'broadsheet',
+    'bento',
+    'nocturne',
+    'vinyl',
+    'desk',
+  ]) {
+    for (const theme of ['light', 'dark']) {
+      await gotoHome(skin, theme);
+      const gap = await gapColor();
+      const j = judgeEnter(`[${skin}/${theme}] study→日历`, await goTo('cal'));
+      const tbAlpha = alphaOf(gap.topbar);
+      const gapOk = gap.topbar === gap.app || tbAlpha === 0;
+      if (!gapOk) {
+        fail(`[${skin}/${theme}] 8px 缝隙露出的不是屏自己的底色（会闪横缝）`, gap);
+      }
+      enterSkinRows.push({
+        skin,
+        theme,
+        gap,
+        gapOk,
+        semi: tbAlpha > 0 && tbAlpha < 1,
+        ...(j || {}),
+      });
+    }
+  }
+  notes.enterSkins = enterSkinRows;
 
   /* ---------------- 1. 8 套皮肤：按压统一 + 答对变体 ---------------- */
 

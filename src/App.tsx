@@ -7,7 +7,7 @@
  * 首页所有数字都读调度引擎，和结算 JSON 说同一件事。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarScreen } from './components/CalendarScreen';
 import { ImportSheet } from './components/ImportSheet';
 import { MistakesScreen } from './components/MistakesScreen';
@@ -106,6 +106,34 @@ export default function App() {
     document.documentElement.dataset.skin = store.profile.skin;
   }, [store.profile.skin]);
 
+  /**
+   * v2 页面转场（docs/MOTION_SPEC.md §13.3）：`screen` 变化时给 .app 挂一次性类，
+   * 让新屏的 topbar / 读数带 / 主区跑 `screen-in`（淡入 + 上移 8px，350ms）。
+   *
+   * 三条不能改的细节：
+   * 1. 必须是 useLayoutEffect —— useEffect 在 paint 之后才跑，用户会先看到一帧终态
+   *    再跳回 8px，比不做动画还难看；
+   * 2. 首帧不挂：冷启动不该先演一遍转场（与「切主题首轮不触发」同一条原则）；
+   * 3. 380ms 后摘类（350 + 30 缓冲）—— 否则在转场窗口内点「开始背单词」，
+   *    学习流首屏会继承一次淡入。`session` 变化本身不挂这个类（§13.3 明确不做）。
+   */
+  const appRef = useRef<HTMLDivElement | null>(null);
+  /* 上一次播过转场的屏。初值就是初始屏 → 首帧不动画；同时天然吃掉 StrictMode
+     开发模式下「挂载时 effect 跑两遍」的第二次调用（否则冷启动会演一遍转场）。 */
+  const lastAnimated = useRef<Screen>('study');
+  useLayoutEffect(() => {
+    const el = appRef.current;
+    if (!el) return;
+    if (lastAnimated.current === screen) return;
+    lastAnimated.current = screen;
+    el.classList.add('is-screen-entering');
+    const timer = window.setTimeout(() => el.classList.remove('is-screen-entering'), 380);
+    return () => {
+      window.clearTimeout(timer);
+      el.classList.remove('is-screen-entering');
+    };
+  }, [screen]);
+
   const toggleMeaning = useCallback(() => {
     setStore((prev) => ({
       ...prev,
@@ -202,7 +230,7 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className="app" ref={appRef}>
       {session ? (
         <SessionScreen
           engine={scheduler.engine}
