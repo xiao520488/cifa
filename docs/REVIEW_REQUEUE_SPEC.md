@@ -231,7 +231,7 @@ advance():
 | 8.7 | **归档词** | 不在复习队列里，不受影响。 |
 | 8.8 | **插入时正好是队列最后一项** | 先插入再判结束，否则会提前收尾。 |
 | 8.9 | **同一个词被插入两次** | 物理不可能：插入项 `attempt` 递增，原项已消费；同词同时只有一项（I1）。 |
-| 8.10 | **游标已进入逾期池后才答错逾期词** | 回看带在其身后 → 插到 `index + 1`（马上再问），否则该词被静默丢弃（违反 §0 验收 ①）。 |
+| 8.10 | **游标已进入逾期池后才答错逾期词** | 回看带在其身后 → 插到 `index + 1`（马上再问），否则该词被静默丢弃（违反 §0 验收 ①）。**行为说明：逾期词第一次答错后，下一个还是它。** 用户会觉得「我刚点不认识怎么又是它」——这是逾期段特有的，短期/长期段不会这样（那里的回看排在逾期池之前，中间隔着别的词）。不补这句，以后有人看到会当成 bug。 |
 
 ---
 
@@ -277,7 +277,7 @@ w3r2 点「认识」        → 出队，会话结束
 | 排程（首次不认识） | `cards[w1] = { interval:1, due:+1, lapses:1, lastRating:'unknown', reps:1, inMistakes:true }` |
 | 排程（首次模糊） | `cards[w2] = { interval:2, due:+2, lapses:0, lastRating:'fuzzy' }`（6 档模糊回退到 2） |
 | 准确率 | `days[today].accCount === 3`、`accScore === 0 + 0.5 + w3 首次得分` |
-| 零写入 | `dueSnapshot.length === 3`；`doneToday.length === 3`；`retried === 4`（w1r2 / w2r2 / w2r3 / w3r2） |
+| 零写入 | `dueSnapshot.length === 2`、`doneToday.length === 2`（**逾期词不进到期快照**，也不进 doneToday——完成率分母只认 `due === today` 的短期批次）、`retried === 4`（w1r2 / w2r2 / w2r3 / w3r2） |
 | 错题本 | `mistakes[w1].count === 1`（在）；`mistakes[w2]` 不存在（模糊不进）；`mistakes[w3]` 存在 |
 | 收尾 | 队列走空后进入总结页，`认识 + 模糊 + 不认识` 只等于 3 |
 
@@ -288,6 +288,7 @@ w3r2 点「认识」        → 出队，会话结束
 - 正确口径：**跑前备份两个键的原始字节 → 跑完断言 → 逐字节写回 → 校验还原后 SHA256 == 跑前 SHA256**。
 - 报告：`docs/evidence/review-requeue-2026-11-26.json`，含 `beforeSha / afterRunSha / restoredSha` 三个值 + 全部断言明细。
 - 跑完删 `__bak_* / __p_*`。
+- ⚠️ **注入数据前必须删掉当天的 `days[today]`**：runner 的 warm-up 已经给「今天」拍过到期快照（`snapshotDone: true` + 空 `dueSnapshot`），不删的话注入的卡永远进不了 `dueSnapshot`，完成率分母恒为 0，E2E 看起来像「快照没生效」（本次实现时踩过）。
 - 脚本必须复制到 `C:\Users\xiao\.dsh\mcp\playwright-mcp\` 再用 `run-audit-node.js` 跑（`filename` 按 MCP 的 cwd 解析）；cfg 一律传**文件路径**，不要内联 JSON（PowerShell 会吃引号）。
 
 ### 9.4 量具自证伪
