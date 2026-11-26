@@ -151,6 +151,8 @@ export function SessionScreen({
 
   const current = phase === 'review' ? review.items[index] : undefined;
   const detail = current ? lookup.get(current.word) : undefined;
+  /** 连点保护：同一张卡只接受一次作答（否则会插两条回看项，违反「最多 3 次」）。 */
+  const answering = useRef(-1);
 
   /** 复习清空 → 重拍新词列表（复习闸此刻才真正开），无缝进列表。 */
   const finishReview = useCallback(() => {
@@ -170,6 +172,8 @@ export function SessionScreen({
   const submit = useCallback(
     (rating: Rating) => {
       if (!current) return;
+      if (answering.current === index) return;
+      answering.current = index;
       if (engine.today() !== plan.day) {
         onExit();
         return;
