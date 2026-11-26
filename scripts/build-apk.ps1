@@ -1,8 +1,11 @@
-# 把 dist/ 打进一个可侧载的 APK（不依赖 Gradle / Android Studio）
+﻿# 把 dist/ 打进一个可侧载的 APK（不依赖 Gradle / Android Studio）
 # 用法: pwsh -File D:\AndroidBuild\build.ps1
 $ErrorActionPreference = 'Stop'
 
 $Work = 'D:\AndroidBuild'
+# 原生源码的唯一定义处是仓库里的 android/（能 diff、能回退）；
+# D:\AndroidBuild\{src,res,AndroidManifest.xml} 只是每次构建前的拷贝，别直接改。
+$RepoSrc = 'D:\背单词\android'
 $JdkHome = Join-Path $Work 'jdk'
 $Sdk = Join-Path $Work 'sdk'
 $bt = Join-Path $Sdk 'build-tools\34.0.0'
@@ -22,8 +25,20 @@ foreach ($p in $java, $javac, $androidJar, $d8Jar, $signerJar) {
 
 Set-Location $Work
 
-# 1) 编译 Java → class
-Write-Host '== 1/6 javac =='
+# 1) 同步原生源码：仓库 android/ → 构建工作区
+Write-Host '== 1/7 同步原生源码 =='
+if (Test-Path $RepoSrc) {
+    Remove-Item (Join-Path $Work 'src') -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $Work 'res') -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item (Join-Path $RepoSrc 'src') (Join-Path $Work 'src') -Recurse -Force
+    Copy-Item (Join-Path $RepoSrc 'res') (Join-Path $Work 'res') -Recurse -Force
+    Copy-Item (Join-Path $RepoSrc 'AndroidManifest.xml') (Join-Path $Work 'AndroidManifest.xml') -Force
+} else {
+    Write-Warning "未找到 $RepoSrc，沿用 $Work 里现有的原生源码"
+}
+
+# 2) 编译 Java → class
+Write-Host '== 2/7 javac =='
 $classes = Join-Path $Work 'classes'
 Remove-Item $classes -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $classes | Out-Null
@@ -32,7 +47,7 @@ $sources = (Get-ChildItem (Join-Path $Work 'src') -Recurse -Filter *.java).FullN
 if ($LASTEXITCODE -ne 0) { throw 'javac 失败' }
 
 # 2) class → dex
-Write-Host '== 2/6 d8 =='
+Write-Host '== 3/7 d8 =='
 $dexDir = Join-Path $Work 'dex'
 Remove-Item $dexDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $dexDir | Out-Null
@@ -41,28 +56,28 @@ $classFiles = (Get-ChildItem $classes -Recurse -Filter *.class).FullName
 if ($LASTEXITCODE -ne 0) { throw 'd8 失败' }
 
 # 3) 打包资源 + assets（生成未签名 APK）
-Write-Host '== 3/6 aapt package =='
+Write-Host '== 4/7 aapt package =='
 $base = Join-Path $Work 'base.apk'
 Remove-Item $base -Force -ErrorAction SilentlyContinue
 & (Join-Path $bt 'aapt.exe') package -f -M AndroidManifest.xml -S res -A assets -I $androidJar -F $base --min-sdk-version 24 --target-sdk-version 34
 if ($LASTEXITCODE -ne 0) { throw 'aapt package 失败' }
 
 # 4) 把 classes.dex 塞进 APK 根目录
-Write-Host '== 4/6 aapt add classes.dex =='
+Write-Host '== 5/7 aapt add classes.dex =='
 Push-Location $dexDir
 & (Join-Path $bt 'aapt.exe') add $base 'classes.dex'
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw 'aapt add 失败' }
 Pop-Location
 
 # 5) 对齐
-Write-Host '== 5/6 zipalign =='
+Write-Host '== 6/7 zipalign =='
 $aligned = Join-Path $Work 'aligned.apk'
 Remove-Item $aligned -Force -ErrorAction SilentlyContinue
 & (Join-Path $bt 'zipalign.exe') -f 4 $base $aligned
 if ($LASTEXITCODE -ne 0) { throw 'zipalign 失败' }
 
 # 6) 签名（首次自动生成 keystore，之后复用 —— 丢了就无法给同一包名发新版）
-Write-Host '== 6/6 签名 =='
+Write-Host '== 7/7 签名 =='
 if (-not (Test-Path $ks)) {
     & $keytool -genkeypair -keystore $ks -alias cijian -keyalg RSA -keysize 2048 -validity 10000 `
         -storepass $ksPass -keypass $ksPass `
