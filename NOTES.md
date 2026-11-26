@@ -1,5 +1,15 @@
 # NOTES
 
+## 2026-11-26 · 远端备份打通（GitHub，走 SSH 不走 HTTPS）
+
+- **结论**：代码 + 笔记已推到 `github.com/xiao520488/cifa`（公开仓库，659 文件 / 30 MB），远端 `main` = `ce1d66f`。词库、截图、设计文档一并入库；`out/`（APK 与 keystore）被 `.gitignore` 挡着，**故意不进仓库** —— keystore 泄露等于别人能签同包名的假更新。
+- **为什么用 SSH**：本机到 github.com 的 HTTPS 时通时不通 —— `curl https://github.com` 拿到 200 但 12 秒只收 320 KB 就超时，`git ls-remote` 直接 `Recv failure: Connection was reset`。而 `~/.ssh` 里的 `id_ed25519` 早已被 GitHub 认得（`ssh -T` 回 `Hi xiao520488!`），换 `git@github.com:xiao520488/cifa.git` 一次就推成功。**在这个网络里别再试 HTTPS 推送**，只会卡在认证或重置。
+- **坑 · 怎么判断 push 到底成没成**：`git push` 的进展走 stderr，PowerShell 会把整个命令判成 `exit code 1`，看着像失败。真凭据是 `* [new branch] main -> main`，以及事后 `git ls-remote --heads origin` / GitHub API 的 commit sha 与本地 `HEAD` 一致。
+- **坑 · 仓库是公开的**：`NOTES.md` / 95 KB 的 `DESIGN_REVIEW.md` / `docs/research2/` 竞品调研 / 65 张截图全部可见。要私有：仓库页 → Settings → 拉到底 Danger Zone → Change visibility → Make private（已推历史一起变私有，不必重推）。用户当时未表态，默认按公开留着。
+- **敏感信息扫过一遍**：无 token、无手机号、无第三方密码。唯一一条是 `scripts/build-apk.ps1` 里的 keystore 口令 `cijian2026` —— 脱离 keystore 文件签不出任何东西，可以不管。提交记录会暴露作者邮箱 `671010009@qq.com`（git 默认行为，介意就在 GitHub 开邮箱隐私）。
+- **备份现状**：代码/笔记 = 本机 + GitHub 异地双份；`cijian.keystore` 用户 2026-11-26 自行备份完成（**口头确认，未看到产物，属用户自证**）。
+- **下一步**：`TODO.md` 第 17 项「导出 / 导入进度」仍是最大风险项（卸载/换机 = 学习记录清零），用户已明确「先记不做」。
+
 ## 2026-11-25 · 安卓 APK 打包链路打通（真机已验收）+ 部署配置就绪
 
 - **交付**：`out/cijian-1.0.apk`（1.06 MB，包名 `com.cijian.app`，minSdk 24 / target 34，v2+v3 签名），**用户真机打开正常**。网页、词库、字体全在包内，断网可用，不需要任何网址和账号。
