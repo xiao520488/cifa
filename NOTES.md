@@ -1,6 +1,6 @@
 # NOTES
 
-## 2026-11-27 · 第 9 套皮肤「晴空 BREEZE」+ 新装默认（`breeze.css`，未提交）
+## 2026-11-27 · 第 9 套皮肤「晴空 BREEZE」+ 新装默认 · APK 1.4.3 / versionCode 8
 
 - **交付**：`src/styles/skins/breeze.css`（809 行 / 107 条规则 / 0 处 `!important`，每条选择器都带 `[data-skin='breeze']`；`tokens.css` 一个字节没改）。白卡 20r + 弥散阴影 + 亮蓝 `#2563EB`（白字 **5.17:1**；百词斩那个 `#2F6BFF` 白字只有 4.2:1，压深一档才过 AA）。学习卡：词头 `clamp(38px,11vw,54px)/700` Space Grotesk 居中、音标浅灰药丸、**一个释义一张白卡**（16px/1.75/`#334155`）。
 - **最大的坑：新皮肤要登记 5 处，第 5 处会静默失败**。`types.ts` 联合类型 / `skins.ts` 元数据 / `main.tsx` 样式表 import / **`storage.ts:61` 的 `SKINS` 白名单** / `index.html` 首帧。漏 `storage.ts` 的症状是「CSS 全对、页面一直是 paper」——`loadStore()` 把不认识的 skin 静默回退，一声不响（第一版截图 accent 还是朱砂红才发现）。
@@ -9,7 +9,10 @@
 - **审计侧两处修正（都不是产品代码，但不改就是假绿/假红）**：① `.skin-card:nth-child(2)` 换成 `[aria-pressed="false"]`——皮肤顺序一变，点到「已选中」那张等于没换皮肤 = 没有过渡 = 假失败；② `judgeThemeSwitch` 里 `seen[0].bgAnim` 改成空数组给 `null`——当时这条 fail 被 TypeError 吞掉，整轮审计当场崩，其它 7 组的结论全丢。
 - **舍掉的**：`.topbar__meta` 继续隐藏（一打开就把品牌「词笺」挤成两行，实测 390）；`.start__spec` 四行小表不开（与 `.start__meta` 重复报数）。
 - **截图**：`out/breeze-home-{light,dark}-{390,1440}.png`、`out/breeze-card-{light,dark}-390.png`、`out/breeze-card-masked-light-390.png`、`out/breeze-list-light-390.png`、`out/breeze-sheet-light-390.png`。
-- **未验 / 已知取舍**：APK 未重打包（versionCode 仍 7，manifest 没动）；iOS Safari 未测；首页上下留白各 ~140px 是 `.start__body{margin-block:auto}` 的既有骨架，想更紧凑必须动 DOM（本轮红线）。
+- **提交与推送**：`edc7532 feat(skin): 晴空 BREEZE 皮肤` → `d7a4756 chore(default): 新装默认 BREEZE` → `chore(release): 1.4.3（versionCode 8）`，`main` 已推到 `git@github.com:xiao520488/cifa.git`，工作树干净。两个 commit 是**分开落**的：`storage.ts` / `skins.ts` 同时被两边改，做法是先把默认相关改动**手写回退**→提交 feat→再重新落默认，不是 `git add -p`。
+- **APK 1.4.3**：`out/cijian-1.4.3.apk`（1.07 MB，versionCode **8** / 1.4.3，证书 `bee17fe6…6984` 与 1.0–1.4.2 同一把，可覆盖安装、进度不丢）。静态核验：**28 条目**、**21 个 dist 文件逐个 SHA256 全等（0 不一致）**、包内 CSS 有 **114** 处 `data-skin=breeze` 且含 `Space Grotesk`、`index.html` 带 `KNOWN_SKINS` 首帧脚本、v2+v3 签名通过、`aapt` → 8 / 1.4.3 / label 词笺 / minSdk 24 / target 34。**真机安装与手感未验。**
+- **打包链路复用**：先 `Remove-Item D:\AndroidBuild\assets -Recurse` 再拷 `dist`（否则嵌成 `assets\dist\`，老坑）；`powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\背单词\scripts\build-apk.ps1`；产物固定叫 `D:\AndroidBuild\cijian-1.0.apk`，改名拷进 `out/`。
+- **未验 / 已知取舍**：真机未装；iOS Safari 未测；首页上下留白各 ~140px 是 `.start__body{margin-block:auto}` 的既有骨架，想更紧凑必须动 DOM（本轮红线）。
 
 ## 2026-11-26 · 1.4.2：即时复习默认遮罩 + 点按揭示（`3b8eeeb`）· APK versionCode 7
 
