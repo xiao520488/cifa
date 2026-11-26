@@ -22,6 +22,7 @@ import { useScheduler } from './hooks/useScheduler';
 import { preloadBook } from './lib/books';
 import { deckWords } from './lib/deck';
 import { startThemeTransition } from './lib/motion';
+import { syncNativeChrome } from './lib/native';
 import { emptyStageProgress, loadStore, saveStore } from './lib/storage';
 import type { LevelKey, Profile, Store, Word } from './lib/types';
 import { persistentReadoutsFor, skinMeta } from './lib/skins';
@@ -101,9 +102,11 @@ export default function App() {
         store.profile.theme === 'dark' || (store.profile.theme === 'system' && media.matches);
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
       const meta = skinMeta(store.profile.skin);
-      document
-        .querySelector('meta[name="theme-color"]')
-        ?.setAttribute('content', dark ? meta.darkBg : meta.swatch.bg);
+      const bg = dark ? meta.darkBg : meta.swatch.bg;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+      /* 同一条颜色也交给安卓壳：WebView 不认 theme-color meta，状态栏只能原生设色
+         （src/lib/native.ts 里有完整原因）。浏览器里是空操作。 */
+      syncNativeChrome(bg);
     };
 
     const key = `${store.profile.theme}/${store.profile.skin}`;

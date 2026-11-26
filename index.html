@@ -19,6 +19,14 @@
             theme === 'dark' ||
             (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          // WebView 不认下面那条 theme-color meta，状态栏只能走原生桥（见 src/lib/native.ts）。
+          // 这里先按「已知主题 + 兜底底色」设一次，App 挂载后再按皮肤校正；
+          // 图标明暗由原生按底色亮度自己算，不在这里判断。
+          try {
+            if (window.cijianChrome && window.cijianChrome.setStatusBar) {
+              window.cijianChrome.setStatusBar(dark ? '#12110E' : '#F6F3EC');
+            }
+          } catch (e) {}
         } catch (e) {
           document.documentElement.dataset.theme = 'light';
         }

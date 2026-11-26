@@ -2,10 +2,14 @@ package com.cijian.app;
 
 import android.app.Activity;
 import android.content.res.AssetManager;
+import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsetsController;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -34,7 +38,10 @@ public class MainActivity extends Activity {
 
     private static final String HOST = "appassets.local";
     private static final String ORIGIN = "https://" + HOST + "/";
-    private static final int BG = 0xFFF6F3EC; // 与 manifest 的 background_color 一致
+    private static final String BRIDGE = "cijianChrome";
+    /* 浅色 / 深色的兜底底色（与 paper 皮肤一致），只在首帧还不知道真实主题时用 */
+    private static final int BG_LIGHT = 0xFFF6F3EC;
+    private static final int BG_DARK = 0xFF12110E;
 
     private WebView web;
 
@@ -43,11 +50,16 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         Window window = getWindow();
-        window.setStatusBarColor(BG);
-        window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+
+        /* 首帧的状态栏颜色只能猜：App 的主题（跟随系统 / 手动浅色 / 手动深色）存在
+           WebView 的 localStorage 里，原生读不到。这里先跟系统的深色模式走一步，
+           页面脚本一跑起来就会用真实主题校正（见 ChromeBridge.setStatusBar）。 */
+        boolean systemDark = (getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        applyStatusBar(systemDark ? BG_DARK : BG_LIGHT, systemDark);
 
         web = new WebView(this);
-        web.setBackgroundColor(BG);
+        web.setBackgroundColor(systemDark ? BG_DARK : BG_LIGHT);
 
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -65,6 +77,10 @@ public class MainActivity extends Activity {
             settings.setAlgorithmicDarkeningAllowed(false);
         }
 
+        /* 网页 → 原生：把当前主题的页面底色送进状态栏（WebView 不认 theme-color meta，
+           那条 meta 只对 Chrome / PWA 生效）。接口对象在页面脚本执行前就已注入。 */
+        web.addJavascriptInterface(new ChromeBridge(this), BRIDGE);
+
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -76,6 +92,62 @@ public class MainActivity extends Activity {
 
         setContentView(web);
         web.loadUrl(ORIGIN);
+    }
+
+    /** JS 桥：网页调用 `window.cijianChrome.setStatusBar('#RRGGBB')`。 */
+    public static final class ChromeBridge {
+        private final MainActivity activity;
+
+        ChromeBridge(MainActivity activity) {
+            this.activity = activity;
+        }
+
+        @JavascriptInterface
+        public void setStatusBar(String hex) {
+            activity.onChromeColor(hex);
+        }
+    }
+
+    /** 颜色可能不规范；解析失败就当没收到，保留上一帧的颜色。 */
+    void onChromeColor(String hex) {
+        final int color;
+        try {
+            color = Color.parseColor(hex);
+        } catch (RuntimeException e) {
+            return;
+        }
+        /* 图标明暗按**底色亮度**算，不看「主题叫浅色还是深色」：instrument 皮肤本来就是深的
+           （浅色主题下也是 #0B0D0F），只看主题名会把深色图标压在近黑状态栏上。 */
+        final boolean darkBg = Color.luminance(color) < 0.5f;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                applyStatusBar(color, darkBg);
+            }
+        });
+    }
+
+    /**
+     * 状态栏底色 + 图标明暗。API 30 起用 WindowInsetsController，之前用
+     * SYSTEM_UI_FLAG_LIGHT_STATUS_BAR（minSdk 24，两条路都要留）。
+     * API 30 的调用封在单独方法里：旧系统加载类时不会去解析不存在的方法。
+     */
+    private void applyStatusBar(int color, boolean dark) {
+        Window window = getWindow();
+        window.setStatusBarColor(color);
+        if (Build.VERSION.SDK_INT >= 30) {
+            applyStatusBarIcons30(window, dark);
+            return;
+        }
+        window.getDecorView().setSystemUiVisibility(
+                dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+    }
+
+    private static void applyStatusBarIcons30(Window window, boolean dark) {
+        WindowInsetsController controller = window.getInsetsController();
+        if (controller == null) return;
+        int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS;
+        controller.setSystemBarsAppearance(dark ? 0 : mask, mask);
     }
 
     /** 把 URL 路径映射成 assets 里的文件。 */
