@@ -6,7 +6,8 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `out/cijian-1.4.1.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode **6**，修 1.4 启动即崩；含状态栏跟随主题 / 禁止缩放） |
+| `out/cijian-1.4.2.apk` | **1.06 MB，已签名，直接装**（2026-11-26，versionCode **7**，即时复习默认隐藏中文 + 复习/即时两侧点按任意处揭示中文） |
+| `out/cijian-1.4.1.apk` | 上一版（versionCode **6**，修 1.4 启动即崩；含状态栏跟随主题 / 禁止缩放） |
 | `out/cijian-1.4.apk` | **启动即崩，别装**（versionCode 5）：API 30+ 在 `setContentView` 之前调 `getInsetsController()` → DecorView 为 null → NPE。原因与堆栈见下面「启动崩溃」一节 |
 | `out/cijian-1.3.apk` | 旧包（versionCode 4，动效第二轮：页面转场 / 主题过渡 / 读数数字滚动） |
 | `out/cijian-1.2.apk` | 更旧（versionCode 3，作答手感：按压 / 答后卡片反馈 / toast） |
@@ -18,12 +19,12 @@
 
 包名 `com.cijian.app`，应用名「词笺」，minSdk 24（Android 7.0+），targetSdk 34。
 
-**装新版请直接覆盖安装，不要先卸载。** 1.0 – 1.4.1 用的是同一把证书（SHA-256 `bee17fe6…6984`），
+**装新版请直接覆盖安装，不要先卸载。** 1.0 – 1.4.2 用的是同一把证书（SHA-256 `bee17fe6…6984`），
 覆盖安装时系统会把它当成同一个 App 的升级，**WebView 里的学习进度原样保留**；卸载才会清零。
 
 ## 装到手机
 
-1. 把 `cijian-1.4.1.apk` 传到手机：数据线拷贝 / 微信「文件传输助手」发给自己的手机 / QQ 我的设备。
+1. 把 `cijian-1.4.2.apk` 传到手机：数据线拷贝 / 微信「文件传输助手」发给自己的手机 / QQ 我的设备。
 2. 手机上点开这个文件。
 3. 若提示「禁止安装未知来源应用」→ 点「设置」→ 允许这个来源（文件管理器或微信）→ 返回继续安装。
 4. 小米 / 华为等可能弹「安全检测」「风险应用」提示 —— 选「仍要安装」。
@@ -37,7 +38,11 @@ cd D:\背单词
 node node_modules\vite\bin\vite.js build
 
 # 2. 把新产物铺进安卓工程的 assets
+#    ⚠️ 必须先删旧目录再拷：assets/ 已存在时 Copy-Item 会把 dist **嵌成 assets\dist\**
+#       （旧文件还留着，实测从 21 个变 42 个，打出来的包里带着上一版的全套资源）
+Remove-Item D:\AndroidBuild\assets -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item D:\背单词\dist D:\AndroidBuild\assets -Recurse -Force
+#    自检：assets\index.html 存在、assets\dist 不存在、文件数 = 21
 
 # 3. 打包（会自动签名）
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\背单词\scripts\build-apk.ps1
@@ -145,3 +150,9 @@ Caused by: java.lang.NullPointerException: Attempt to invoke virtual method
   `sdkVersion 24`、`targetSdk 34`、`label 词笺`。
 - ⏳ **未验证（本机无设备）**：1.4 的两个修复在真机上的效果——深色主题下状态栏是否跟 App 同色、双指是否真的捏不动。
   静态证据只证明「代码进包了」，不证明「手感对了」。
+- ✅ 已验证（2026-11-26，1.4.2 / versionCode 7，静态核验）：APK 内 **28 个条目**、`dist/` 的 **21 个文件逐个 SHA256
+  与包内一致（0 不一致）**；`assets/index.html` 引用的 `index-DvRGl_OO.js` / `index-DnChTkuY.css` 都在包内；
+  包内 JS 里查到 `pointerId` / `isPrimary` / `pointercancel` / `clientX`（本轮的指针揭示代码，说明不是旧 dist）；
+  `apksigner verify -v` → v1 false / **v2 true / v3 true**、证书 `bee17fe6…6984`（与 1.0–1.4.1 同一把）；
+  `aapt dump badging` → `versionCode='7' versionName='1.4.2'`、`sdkVersion 24`、`targetSdk 34`、`label 词笺`。
+- ⏳ 未验证：1.4.2 的真机安装与点按揭示手感（等用户上手；只改了 Web 层，原生 `classes.dex` 与 1.4.1 同源）。

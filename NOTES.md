@@ -1,5 +1,16 @@
 # NOTES
 
+## 2026-11-26 · 1.4.2：即时复习默认遮罩 + 点按揭示（`3b8eeeb`）· APK versionCode 7
+
+- **Bug 根因不是状态初值**：`revealed` 本来就是 `false`；是 `54b61e3`（24 日即时复习居中版式）写了 `phase === 'immediate'` 旁路让释义恒显，而 `showMeaning` 只认 review。改成统一按 `revealed` 判断，即时卡未揭示时也挂 `flash-card--masked`（居中版式不动）。
+- **点按揭示（复习 + 即时共用）**：`pointerdown/up` 绑在 `<main class="app__main">`——topbar / 进度条 / 底部 dock 都是它的**兄弟节点**，天然命中不到；位移 >10px 当滑动不揭示；header 与两个 answer-dock 再补 `stopPropagation` 兜底；只揭示不隐藏（幂等）。
+- **切词复位**：`useEffect([phase, index, immediateWord])` 当唯一兜底，复习换卡 / 回队尾分支 / 即时换词 / 相位切换全覆盖；原 `step()` / `moveOn()` 里的显式复位保留。
+- **已知缺口（记录在案，暂不修）**：即时复习无「轻点看中文」提示 = **没有可聚焦按钮，屏幕阅读器读不到释义**（以前常显所以能读）。要修就塞一个 visually-hidden 揭示按钮。
+- **APK 1.4.2**：`out/cijian-1.4.2.apk`（1.06 MB，versionCode **7** / 1.4.2，证书 `bee17fe6…6984` 与 1.0–1.4.1 同一把，可覆盖安装）。静态核验：**28 条目**、**21 个 dist 文件逐个 SHA256 全等（0 不一致）**、`index.html` 引用的 `index-DvRGl_OO.js` / `index-DnChTkuY.css` 在包内、包内 JS 里查到 `pointerId/isPrimary/pointercancel/clientX`（证明不是旧 dist）、`apksigner` v2+v3 通过、`aapt` → versionCode 7 / 1.4.2 / label 词笺。**真机安装与手感未验。**
+- **打包坑（新，已写进 `docs/ANDROID_APK.md` 步骤 2）**：`Copy-Item dist D:\AndroidBuild\assets -Recurse -Force` 在 `assets/` 已存在时会把 dist **嵌成 `assets\dist\`**，旧资源一起留在原地（实测 21 → 42 个文件，包里带上一版全套）。先 `Remove-Item assets -Recurse` 再拷；自检三件：`assets\index.html` 在、`assets\dist` 不在、文件数 **21**。
+- **顺带**：`dist/` 每次 build 都会更新，`out/` 被 gitignore（APK / keystore 不进仓库）；`android/AndroidManifest.xml` 里 versionCode 现在 **7**，下次发版改这一处（+1）即可。
+- **下一步**：手机覆盖安装 1.4.2，用几天；本轮交互调整到此结束，代码暂停。
+
 ## 2026-11-26 · 1.4 启动即崩：API 30+ 在 setContentView 之前调 getInsetsController
 
 - **现象**：1.4（versionCode 5）装到 Mate 30（TAS-AL00 / Android 12 / API 31）立刻「屡次停止运行」。1.3 正常，所以是 3c19ce7 那段状态栏代码引入。
