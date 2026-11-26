@@ -241,7 +241,6 @@ export function SessionScreen({
   /* ---------------------------------------------------------------- 即时复习 */
 
   const [group, setGroup] = useState<ImmediateGroup | null>(null);
-  const [hardSet, setHardSet] = useState<Set<string>>(() => new Set());
   const immediateWord = group && group.queue.length > 0 ? group.queue[0] : null;
   const immediateDetail = immediateWord ? lookup.get(immediateWord) : undefined;
   const answerImmediateClick = useCallback(
@@ -259,16 +258,20 @@ export function SessionScreen({
         setPhase('done');
         return;
       }
-      if (result.hard) {
-        setHardSet((value) => new Set(value).add(immediateWord));
-      }
+      /* 一次作答可能同时发生三件事，合成一条 toast（复用 .session-toast，不新增样式）：
+         记账 / 跨轮 / 本轮清空。谁都不发生就不动原来的提示。 */
+      const parts: string[] = [];
+      if (result.thresholdCrossed) parts.push('已记入错词本');
+      if (result.crossed) parts.push('本轮不再出现');
+      if (!result.finished && result.roundFinished) parts.push(`第 ${result.round} 轮 · 还有 ${result.remaining} 个词`);
+      if (parts.length > 0) setToast(parts.join(' · '));
       if (!result.finished) {
         setGroup(result.group);
         return;
       }
-      /* 组清空 = 这组词真正「背完」：唯一落库点。 */
-      const hardWords = [...hardSet];
-      if (result.hard && !hardWords.includes(immediateWord)) hardWords.push(immediateWord);
+      /* 整组收口 = 这组词真正「背完」：唯一落库点。硬词以状态机给的 hardWords 为准
+         （只在第 5 轮强制收口时非空），不再用组件内累积的集合——刷新后也不会丢。 */
+      const hardWords = result.hardWords;
       const { committed, rejected } = run((target) =>
         target.commitNewWords(result.group.words, plan.day, hardWords),
       );
@@ -276,7 +279,6 @@ export function SessionScreen({
       setCommittedTotal((value) => value + committed.length);
       setHardTotal((value) => value + hardWords.length);
       setGroup(null);
-      setHardSet(new Set());
       if (rejected.length > 0) {
         setToast(`有 ${rejected.length} 个词状态变了没能入库（可能已被清扫），其余都已背完。`);
       }
@@ -293,7 +295,6 @@ export function SessionScreen({
       engine,
       goBatch,
       group,
-      hardSet,
       immediateWord,
       onExit,
       plan.day,
@@ -437,7 +438,7 @@ export function SessionScreen({
               ) : null}
               <p className="session-done__note">
                 {hardTotal > 0
-                  ? '即时复习转了三遍还模糊的词已标成硬词；复习里不认识的词回到明天的 1 天批次，硬词和错词置顶。明天见。'
+                  ? '即时复习转满 5 轮仍没点「认识」的词已标成硬词；复习里不认识的词回到明天的 1 天批次，硬词和错词置顶。明天见。'
                   : '不认识的词会回到明天的 1 天批次，并进错词本。明天见。'}
               </p>
               <div className="session-done__actions">
@@ -566,7 +567,8 @@ export function SessionScreen({
           nextLabel={isLastBatch ? '看完收尾' : '下一批'}
         />
       ) : phase === 'immediate' ? (
-        /* 即时复习两键：认识 / 模糊。逻辑不变——点「模糊」回队尾循环，3 次标硬词放过。
+        /* 即时复习两键：认识 / 模糊。点「模糊」→ 本轮内再出现一次；本轮第 2 次仍模糊 → 进下一轮；
+           本会话累计模糊 3 次进错词本但仍要考到点「认识」；最多 5 轮，第 5 轮强制收口并标硬词。
            与复习三键（answer-dock--review）用修饰类隔离，样式与测试互不污染。 */
         <div className="answer-dock answer-dock--immediate">
           <button

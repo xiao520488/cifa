@@ -10,6 +10,7 @@ import {
   IDLE_DAY_NOTE,
   MAX_LIMIT_ZERO_NOTE,
   addDays,
+  answerImmediate,
   calendarDayLoad,
   calendarReviewNote,
   computeRecentAccuracy,
@@ -21,6 +22,7 @@ import {
   explainMaxLimitChange,
   idleDayNote,
   loadScheduler,
+  makeGroup,
   newWordHeadline,
   nextWeekday,
   sanitizeScheduler,
@@ -33,6 +35,7 @@ import {
 import type {
   AdaptInput,
   CalendarDay,
+  ImmediateGroup,
   LongBatch,
   SchedulerState,
   StudyDay,
@@ -275,7 +278,7 @@ const words10 = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf'
 
 // ---------------------------------------------------------------- 四、引擎：即时复习
 
-// T11 即时复习 3 次上限
+// T11 即时复习轮次：模糊一次回队尾、第二次跨轮、第 2 轮只考它
 {
   const s = schedulerOn('2026-11-24', 20, words10);
   for (const word of words10) s.learnNewWord(word);
@@ -285,24 +288,30 @@ const words10 = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf'
   eq('T11 组大小 = 整批 10', group?.words.length, 10);
 
   const first = words10[0];
-  s.answerImmediate(first, false);
-  s.answerImmediate(first, false);
-  const third = s.answerImmediate(first, false);
-  check('T11 第 3 次不认识 → hardWord', third?.hard === true);
-  check('T11 卡上打 hard 标记', s.state.cards[first].hard === true);
-  check('T11 没满 3 次不出队（队列仍含该词）', third?.group.queue.includes(first) === false);
+  const once = s.answerImmediate(first, false);
+  eq('T11 第一次模糊：回本轮队尾', once!.group.queue[once!.group.queue.length - 1], first);
+  eq('T11 第一次模糊不记账', s.state.mistakes[first], undefined);
+  const twice = s.answerImmediate(first, false);
+  check('T11 第二次模糊：跨轮', twice!.crossed === true);
+  eq('T11 跨轮后不在本轮队列', twice!.group.queue.includes(first), false);
+  eq('T11 跨轮后进 crossRound', twice!.group.crossRound.join(','), first);
+  eq('T11 不在队列里的词答不了', s.answerImmediate(first, false), null);
 
-  while (s.state.immediate.active) {
-    const queue = s.state.immediate.active.queue;
-    s.answerImmediate(queue[0], true);
+  while (s.state.immediate.active && s.state.immediate.active.round === 1) {
+    s.answerImmediate(s.state.immediate.active.queue[0], true);
   }
+  eq('T11 第 2 轮只考模糊过的词', s.state.immediate.active?.queue.join(','), first);
+  s.answerImmediate(first, true);
+  eq('T11 答认识后收口', s.state.immediate.active, null);
+
   eq('T11 即时复习不进正式正确率', s.state.days['2026-11-24'].accCount, 0);
   eq('T11 组统计 cards=10', s.state.immediate.stats.cards, 10);
-  check('T11 平均循环 0.3 次', Math.abs((s.state.immediate.lastAvgLoops ?? 0) - 0.3) < 1e-9, s.state.immediate);
+  eq('T11 累计模糊 2 次', s.state.immediate.stats.loops, 2);
+  check('T11 平均模糊 0.2 次', Math.abs((s.state.immediate.lastAvgLoops ?? 0) - 0.2) < 1e-9, s.state.immediate);
 
   const tomorrow = moveTo(s, '2026-11-25').plan('2026-11-25');
   const batch = tomorrow.shortTermBatches.find((item) => item.daysAgo === 1);
-  check('T11 3 次不认识的词进明天 1 天批次', batch !== undefined && batch.words.includes(first));
+  check('T11 每个词都进明天 1 天批次', batch !== undefined && batch.words.includes(first));
 }
 
 // T16 跳过即时复习 → 次日 1 天批次优先
@@ -946,24 +955,41 @@ const words10 = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf'
   eq('老字段 inMistakes 同步', d2.state.cards.m1.inMistakes, true);
 }
 
-// 10.2 即时复习循环 3 次仍不认识（hardWord）也要进错词本，且不丢词
+// 10.2 即时复习累计模糊 3 次：进错词本，但仍不出队（进本子 ≠ 出队）
 {
   const s = schedulerOn('2026-11-24', 20, words10);
-  for (const word of words10) s.learnNewWord(word);
-  const group = s.startImmediate();
-  const target = group!.queue[0];
-  s.answerImmediate(target, false);
-  s.answerImmediate(target, false);
-  const last = s.answerImmediate(target, false);
+  s.plan(); // 建立当天记录（App 挂载时本来就会拍一次）
+  const group = s.startImmediateWith(words10)!;
+  const target = group.queue[0];
 
-  eq('第 3 次标成硬词', last?.hard, true);
+  s.answerImmediate(target, false); // 第 1 次：本轮回队尾
+  s.answerImmediate(target, false); // 第 2 次：本轮跨轮
+  while (s.state.immediate.active && s.state.immediate.active.round === 1) {
+    s.answerImmediate(s.state.immediate.active.queue[0], true);
+  }
+  const third = s.answerImmediate(target, false); // 第 3 次：记账
+  eq('第 3 次跨过阈值', third?.thresholdCrossed, true);
+  eq('第 3 次一次记满 3', third?.mistakeIncrement, 3);
+  eq('第 3 次不出队（回队尾）', third?.group.queue.includes(target), true);
   const row = s.mistakes().find((item) => item.word === target);
-  check('硬词进错词本', row !== undefined, s.mistakes());
+  check('模糊 3 次进错词本', row !== undefined, s.mistakes());
   eq('来源是即时复习', row?.source, 'immediate');
-  eq('连错 3 次都算进累计次数', row?.count, 3);
-  eq('失误当天不是正式复习，不计正确率', s.state.days['2026-11-24'].accCount, 0);
-  eq('卡片仍在明天的 1 天批次（不丢词）', s.state.cards[target].due, '2026-11-25');
-  eq('硬词标记保住（明天置顶）', s.state.cards[target].hard, true);
+  eq('累计次数 = 3', row?.count, 3);
+  eq('即时复习不计正确率', s.state.days['2026-11-24'].accCount, 0);
+
+  const fourth = s.answerImmediate(target, false); // 第 4 次：每次 +1
+  eq('第 4 次累计 4', fourth?.group.fuzzyCount[target], 4);
+  eq('第 4 次账本 +1', s.mistakes().find((item) => item.word === target)?.count, 4);
+
+  // 点到「认识」才收口；卡按 1 天批次入库
+  const done = s.answerImmediate(target, true);
+  eq('答认识才收口', done?.finished, true);
+  const commit = s.commitNewWords(done!.group.words, '2026-11-24', done!.hardWords);
+  check('全部入库', commit.committed.includes(target));
+  eq('卡在明天 1 天批次（不丢词）', s.state.cards[target].due, '2026-11-25');
+  eq('hard 不再由「模糊 3 次」设置', s.state.cards[target].hard, false);
+  eq('inMistakes 镜像到卡上（账本唯一来源）', s.state.cards[target].inMistakes, true);
+  eq('即时复习不写 lastRating', s.state.cards[target].lastRating, null);
 }
 
 // 10.3 错词本单测：答错累计、答对移出，都不动排程、不计正确率
@@ -1149,21 +1175,24 @@ const nineteen = Array.from({ length: 19 }, (_, index) => `t${index}`);
   eq('未入库词不占 pendingWords', s.state.immediate.pendingCount, 1); // 只有旧 API 塞的 a
 }
 
-// 11.2 两键循环 + 3 次上限：hard 判定（词未入库也照常记错词账本）
+// 11.2 两键循环：模糊一次回队尾、第二次跨轮、下一轮只考它
 {
   const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
-  const group = s.startImmediateWith(['a', 'b', 'c']);
+  s.startImmediateWith(['a', 'b', 'c']);
   s.answerImmediate('a', true);
-  s.answerImmediate('b', false); // 第 1 次错：回队尾
+  s.answerImmediate('b', false); // 第 1 次模糊：回队尾
   eq('错词回队尾', s.state.immediate.active!.queue.join(','), 'c,b');
-  s.answerImmediate('b', false); // 第 2 次错：再回队尾
-  const third = s.answerImmediate('b', false); // 第 3 次：hard 放过
-  check('第 3 次标 hard', third!.hard === true);
-  eq('hard 词出队', third!.group.queue.join(','), 'c');
-  eq('没建卡也能进错词本（3 次都计）', s.state.mistakes.b.count, 3);
+  const second = s.answerImmediate('b', false); // 第 2 次模糊：跨轮
+  check('第 2 次模糊 → 跨轮', second!.crossed === true);
+  eq('本轮队列只剩 c', second!.group.queue.join(','), 'c');
+  eq('待跨轮里有 b', second!.group.crossRound.join(','), 'b');
   eq('此时还没有任何卡', Object.keys(s.state.cards).length, 0);
   const last = s.answerImmediate('c', true);
-  check('最后一个答对 → 组清空', last!.finished === true);
+  eq('本轮清空 → 进第 2 轮', last!.group.round, 2);
+  eq('第 2 轮只考 b', last!.group.queue.join(','), 'b');
+  check('本轮清空但整组未收口', last!.roundFinished === true && last!.finished === false);
+  const done = s.answerImmediate('b', true);
+  check('最后一个答对 → 收口', done!.finished === true);
 }
 
 // 11.3 commitNewWords：唯一落库点；非法词进 rejected，不整组失败
@@ -1208,14 +1237,21 @@ const nineteen = Array.from({ length: 19 }, (_, index) => `t${index}`);
   const g1 = s.startImmediateWith(list.slice(0, 10))!;
   eq('第一组恰好 10 个', g1.words.length, 10);
   for (const word of list.slice(0, 9)) s.answerImmediate(word, true);
-  const hardWord = list[9];
-  s.answerImmediate(hardWord, false);
-  s.answerImmediate(hardWord, false);
-  const third = s.answerImmediate(hardWord, false);
-  check('硬词第 3 次放过并清空组', third!.hard === true && third!.finished === true);
-  const r1 = s.commitNewWords(third!.group.words, '2026-11-24', [hardWord]);
+  const fuzzyWord = list[9];
+  s.answerImmediate(fuzzyWord, false); // 本轮第 1 次
+  const second = s.answerImmediate(fuzzyWord, false); // 本轮第 2 次 → 跨轮
+  check('第 2 次模糊 → 跨轮并进第 2 轮', second!.crossed === true && second!.group.round === 2);
+  eq('自动进第 2 轮', second!.group.round, 2);
+  eq('第 2 轮只有它', second!.group.queue.join(','), fuzzyWord);
+  const third = s.answerImmediate(fuzzyWord, false); // 第 3 次 → 记账，回队尾
+  eq('第 3 次记满 3 次', third!.mistakeIncrement, 3);
+  eq('第 3 次后仍在队列（进本子 ≠ 出队）', third!.group.queue.includes(fuzzyWord), true);
+  const done1 = s.answerImmediate(fuzzyWord, true);
+  check('答认识后收口', done1!.finished === true);
+  const r1 = s.commitNewWords(done1!.group.words, '2026-11-24', done1!.hardWords);
   eq('第一组入库 10 个', r1.committed.length, 10);
-  check('硬词有卡且有 hard 标记', s.state.cards[hardWord].hard === true);
+  check('模糊过但不硬：hard=false', s.state.cards[fuzzyWord].hard === false);
+  check('inMistakes 镜像到卡上', s.state.cards[fuzzyWord].inMistakes === true);
   const g2 = s.startImmediateWith(list.slice(10))!;
   eq('尾巴 9 个也开组', g2.words.length, 9);
   let lastResult: ReturnType<typeof s.answerImmediate> = null;
@@ -1258,7 +1294,7 @@ const nineteen = Array.from({ length: 19 }, (_, index) => `t${index}`);
   s.plan();
   s.learnNewWord('a');
   s.learnNewWord('b');
-  s.answerImmediate('b', false); // 制造错词记录需要 hard 路径，直接手动学两个再答一次即时
+  s.answerImmediate('b', false); // 旧 API 学两个词；此时没有开组，这次作答应当空转（返回 null）
   s.setUserDailyGoal(12);
   s.setMaxLimit(30);
   s.resetLearning();
@@ -1377,6 +1413,288 @@ function slot(day: CalendarDay, key: string) {
   eq('长期批次带节点短标', [slot(full, 'long-30d')?.label, slot(full, 'long-30d')?.value, slot(full, 'long-30d')?.tone], ['长期 30 天', '12', 'quiet']);
   eq('奖励角标紧跟新词槽', calendarDayLoad(full).map((item) => item.key).join(','), 'review,new,bonus,long-30d');
   eq('零新词也占位', [slot(loadDay({ day: '2026-11-30', newWordPlan: 0 }), 'new')?.value, slot(loadDay({ day: '2026-11-30', newWordPlan: 0 }), 'new')?.tone], ['—', 'quiet']);
+}
+
+// ---------------------------------------------------------------- §13 即时复习轮次模型（2026-11-26）
+
+/**
+ * §2.4 不变量检查器。`appearances` 的键是 `词@轮次`，用于证明「每轮每词最多出现 2 次」。
+ * 返回违规描述，空数组 = 全对。
+ */
+function invariantViolations(
+  group: ImmediateGroup,
+  mistakes: Record<string, { count: number }>,
+  appearances: Map<string, number>,
+): string[] {
+  const bad: string[] = [];
+  for (const word of group.queue) if (group.crossRound.includes(word)) bad.push(`queue∩crossRound:${word}`);
+  for (const word of group.fuzzyThisRound) if (!group.queue.includes(word)) bad.push(`fuzzyThisRound⊄queue:${word}`);
+  for (const [key, times] of appearances) if (times > 2) bad.push(`单轮出现>2:${key}`);
+  for (const [word, count] of Object.entries(group.fuzzyCount)) {
+    if (count >= 3 && !mistakes[word]) bad.push(`模糊≥3 无账本:${word}`);
+  }
+  return bad;
+}
+
+// 13.1 首轮模糊一次 → 回队尾，本轮内再出现一次
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
+  s.startImmediateWith(['a', 'b', 'c']);
+  const r = s.answerImmediate('a', false)!;
+  eq('13.1 模糊一次仍在本轮队列', r.group.queue, ['b', 'c', 'a']);
+  eq('13.1 标记进 fuzzyThisRound', r.group.fuzzyThisRound, ['a']);
+  eq('13.1 累计 1 次', r.group.fuzzyCount.a, 1);
+  eq('13.1 本轮还剩 3 个', r.remaining, 3);
+}
+
+// 13.2 本轮第 2 次模糊 → 不回队尾、进 crossRound
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
+  s.startImmediateWith(['a', 'b', 'c']);
+  s.answerImmediate('a', false);
+  const r = s.answerImmediate('a', false)!;
+  check('13.2 第二次模糊标记 crossed', r.crossed === true && r.thresholdCrossed === false);
+  eq('13.2 不回队尾（本轮只剩 b,c）', r.group.queue, ['b', 'c']);
+  eq('13.2 进 crossRound', r.group.crossRound, ['a']);
+  eq('13.2 累计 2 次但不记账', [r.group.fuzzyCount.a, s.state.mistakes.a], [2, undefined]);
+}
+
+// 13.3 本轮无模糊 → 自然收口
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c']);
+  s.startImmediateWith(['a', 'b', 'c']);
+  s.answerImmediate('a', true);
+  s.answerImmediate('b', true);
+  const last = s.answerImmediate('c', true)!;
+  eq('13.3 自然收口', last.finished, true);
+  eq('13.3 没有硬词', last.hardWords, []);
+  eq('13.3 组统计 groups=1（按会话不按轮）', s.state.immediate.stats.groups, 1);
+}
+
+// 13.4 跨轮：round=2、queue === 上轮 crossRound（保序）、fuzzyThisRound 清空
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c', 'd']);
+  s.startImmediateWith(['a', 'b', 'c', 'd']);
+  s.answerImmediate('b', false);
+  s.answerImmediate('b', false); // b 先跨轮
+  s.answerImmediate('a', false);
+  s.answerImmediate('a', false); // a 后跨轮
+  s.answerImmediate('c', true);
+  const r = s.answerImmediate('d', true)!;
+  eq('13.4 进第 2 轮', r.group.round, 2);
+  eq('13.4 第 2 轮队列按首次跨轮顺序', r.group.queue, ['b', 'a']);
+  eq('13.4 fuzzyThisRound 清空', r.group.fuzzyThisRound, []);
+  eq('13.4 crossRound 清空', r.group.crossRound, []);
+  check('13.4 本轮清空未收口', r.roundFinished === true && r.finished === false);
+}
+
+// 13.5 累计 1、2 次模糊 → 账本无条目、thresholdCrossed=false
+{
+  const s = schedulerOn('2026-11-24', 20, ['a']);
+  s.startImmediateWith(['a']);
+  const first = s.answerImmediate('a', false)!;
+  const second = s.answerImmediate('a', false)!;
+  eq('13.5 第 1、2 次都不记账', [first.mistakeIncrement, second.mistakeIncrement], [0, 0]);
+  eq('13.5 第 1、2 次都不跨阈值', [first.thresholdCrossed, second.thresholdCrossed], [false, false]);
+  eq('13.5 账本仍为空', s.state.mistakes, {});
+}
+
+// 13.6a 第 3 次模糊发生在「本轮第 1 次」→ 回队尾，queue 含 w、crossRound 不含
+{
+  const s = schedulerOn('2026-11-24', 20, ['w']);
+  s.startImmediateWith(['w']);
+  s.answerImmediate('w', false); // 轮 1 第 1 次
+  s.answerImmediate('w', false); // 轮 1 第 2 次 → 跨轮 → 轮 2
+  const third = s.answerImmediate('w', false)!; // 轮 2 第 1 次 = 累计第 3 次
+  eq('13.6a 前置：本轮第 1 次模糊', third.thresholdCrossed, true);
+  eq('13.6a 一次记满 3', third.mistakeIncrement, 3);
+  eq('13.6a 回队尾（queue 含 w）', third.group.queue.includes('w'), true);
+  eq('13.6a 不在 crossRound', third.group.crossRound.includes('w'), false);
+  eq('13.6a 账本 count=3', s.state.mistakes.w?.count, 3);
+  eq('13.6a 来源是即时复习', s.state.mistakes.w?.source, 'immediate');
+}
+
+// 13.6b 第 3 次模糊发生在「本轮第 2 次」→ 进 crossRound，queue 不含 w
+//       注意：正常流程不可达——词能进下一轮说明上一轮已模糊两次（累计 ≥2），
+//       第 3 次必然落在某轮的「第 1 次」上。这里直接构造状态，测纯函数分支。
+{
+  const group = makeGroup(['w', 'v'], '2026-11-24');
+  group.round = 2;
+  group.queue = ['w', 'v']; // 留一个 v 在本轮，避免跨轮后立刻开下一轮
+  group.fuzzyThisRound = ['w'];
+  group.fuzzyCount = { w: 2 };
+  const r = answerImmediate(group, 'w', false)!;
+  eq('13.6b 前置：本轮第 2 次模糊', r.thresholdCrossed, true);
+  eq('13.6b 一次记满 3', r.mistakeIncrement, 3);
+  eq('13.6b 不留在本轮队列', r.group.queue.includes('w'), false);
+  eq('13.6b 进 crossRound', r.group.crossRound.includes('w'), true);
+  check('13.6b 本轮未清空（还有 v）', r.roundFinished === false && r.group.round === 2);
+}
+
+// 13.7 第 4、5… 次模糊：每次 +1，不再重复记 3
+{
+  const s = schedulerOn('2026-11-24', 20, ['w']);
+  s.startImmediateWith(['w']);
+  for (let i = 0; i < 3; i += 1) s.answerImmediate('w', false);
+  eq('13.7 第 3 次后账本 3', s.state.mistakes.w?.count, 3);
+  const fourth = s.answerImmediate('w', false)!;
+  eq('13.7 第 4 次增量是 1', fourth.mistakeIncrement, 1);
+  eq('13.7 第 4 次后账本 4', s.state.mistakes.w?.count, 4);
+  eq('13.7 累计模糊次数 4', fourth.group.fuzzyCount.w, 4);
+}
+
+// 13.8 即时复习点「认识」只出队，不清错词本账本
+{
+  const s = schedulerOn('2026-11-24', 20, ['w']);
+  s.startImmediateWith(['w']);
+  for (let i = 0; i < 3; i += 1) s.answerImmediate('w', false);
+  const done = s.answerImmediate('w', true)!;
+  eq('13.8 认识后出队重开下一轮或收口', done.group.queue.includes('w'), false);
+  eq('13.8 账本仍留着', s.state.mistakes.w?.count, 3);
+}
+
+// 13.9 5 轮硬上限：每轮都模糊 → 第 5 轮强制收口，残留词进 hardWords
+{
+  const s = schedulerOn('2026-11-24', 20, ['w']);
+  s.startImmediateWith(['w']);
+  let last = s.answerImmediate('w', false)!;
+  let clicks = 1;
+  while (!last.finished && clicks < 20) {
+    last = s.answerImmediate('w', false)!;
+    clicks += 1;
+  }
+  eq('13.9 每轮两次 → 10 次后强制收口', [clicks, last.finished], [10, true]);
+  eq('13.9 停在第 5 轮', last.group.round, 5);
+  eq('13.9 残留词进 hardWords', last.hardWords, ['w']);
+  eq('13.9 累计模糊 10 次', last.group.fuzzyCount.w, 10);
+  eq('13.9 账本累计 10 次', s.state.mistakes.w?.count, 10);
+  eq('13.9 收口后 active 清空', s.state.immediate.active, null);
+}
+
+// 13.10 入库：hard 按 hardWords、inMistakes 按账本镜像、lastRating 不变
+{
+  const s = schedulerOn('2026-11-24', 20, ['w', 'x']);
+  s.plan();
+  s.startImmediateWith(['w', 'x']);
+  let last = s.answerImmediate('w', false)!;
+  s.answerImmediate('x', true);
+  let clicks = 1;
+  while (!last.finished && clicks < 20) {
+    last = s.answerImmediate(s.state.immediate.active!.queue[0], false)!;
+    clicks += 1;
+  }
+  const words = last.group.words;
+  const r = s.commitNewWords(words, '2026-11-24', last.hardWords);
+  eq('13.10 两个词都入库', r.committed.slice().sort(), ['w', 'x']);
+  eq('13.10 硬词打 hard', s.state.cards.w.hard, true);
+  eq('13.10 硬词 inMistakes 镜像为真（bug 1）', s.state.cards.w.inMistakes, true);
+  eq('13.10 没模糊的词不硬', [s.state.cards.x.hard, s.state.cards.x.inMistakes], [false, false]);
+  eq('13.10 即时复习不写 lastRating', [s.state.cards.w.lastRating, s.state.cards.x.lastRating], [null, null]);
+  eq('13.10 即时复习不加 lapse', [s.state.cards.w.lapses, s.state.cards.x.lapses], [0, 0]);
+}
+
+// 13.11 旧数据兼容：v1 旧组（无 schema）整组丢弃，词回未学池，丢弃数进 skipped
+{
+  const raw = {
+    v: 1,
+    unlearned: ['a', 'b', 'c'],
+    cards: {},
+    days: {},
+    immediate: {
+      pendingWords: [],
+      pendingCount: 0,
+      active: { words: ['a', 'b'], queue: ['b'], loopCount: { b: 2 }, startedOn: '2026-11-24' },
+      stats: { groups: 1, cards: 2, loops: 2, skipped: 0 },
+      lastAvgLoops: 0.5,
+    },
+  };
+  const state = sanitizeScheduler(raw);
+  eq('13.11 旧组被丢弃', state.immediate.active, null);
+  eq('13.11 丢弃词数记进 skipped', state.immediate.stats.skipped, 2);
+  eq('13.11 词仍在未学池（零数据损失）', state.unlearned.slice().sort(), ['a', 'b', 'c']);
+}
+
+// 13.12 跨学习日作废：不继承轮次与模糊计数
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b']);
+  s.startImmediateWith(['a', 'b']);
+  s.answerImmediate('a', false);
+  const d2 = moveTo(s, '2026-11-25');
+  const expired = d2.expireStaleImmediate('2026-11-25');
+  eq('13.12 旧组被丢弃', expired.slice().sort(), ['a', 'b']);
+  const g = d2.startImmediateWith(['a', 'b'])!;
+  eq('13.12 新组从第 1 轮开始', g.round, 1);
+  eq('13.12 新组模糊计数为空', g.fuzzyCount, {});
+}
+
+// 13.13 统计口径：loops = Σ fuzzyCount，groups 不按轮重复计数
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b']);
+  s.plan();
+  s.startImmediateWith(['a', 'b']);
+  s.answerImmediate('a', false); // 1
+  s.answerImmediate('a', false); // 2 → 跨轮
+  s.answerImmediate('b', true);
+  s.answerImmediate('a', false); // 3 → 记账
+  s.answerImmediate('a', true); // 收口
+  eq('13.13 loops = 累计模糊次数', s.state.immediate.stats.loops, 3);
+  eq('13.13 groups 只记 1 次', s.state.immediate.stats.groups, 1);
+  eq('13.13 平均模糊次数', s.state.immediate.lastAvgLoops, 1.5);
+}
+
+// 13.14 第 3 次只记一次 3：3 → 4 的增量必须是 1
+{
+  const s = schedulerOn('2026-11-24', 20, ['w']);
+  s.startImmediateWith(['w']);
+  const steps = [0, 1, 2, 3].map(() => s.answerImmediate('w', false)!);
+  eq('13.14 增量序列', steps.map((r) => r.mistakeIncrement), [0, 0, 3, 1]);
+  eq('13.14 账本 count 连续', s.state.mistakes.w?.count, 4);
+}
+
+// 13.15 长期档模糊：不进错词本；不认识才进
+{
+  const base = createCard('L', '2026-01-01');
+  const long = { ...base, phase: 'long' as const, interval: 1 as const, due: null, longInterval: 30 as const, longAnchor: '2026-10-27' as const };
+  const fuzzy = applyLongReview(long, 'fuzzy', '2026-11-26');
+  eq('13.15 长期档模糊保留原 flag', fuzzy.inMistakes, false);
+  eq('13.15 长期档模糊不加 lapse', fuzzy.lapses, 0);
+  const unknown = applyLongReview(long, 'unknown', '2026-11-26');
+  eq('13.15 长期档不认识加 lapse', unknown.lapses, 1);
+
+  const st = emptyState(20);
+  st.cards.L = long;
+  const s = new Scheduler(st, { now: () => at('2026-11-26') });
+  s.submitReview('L', 'fuzzy');
+  eq('13.15 账本不记模糊', s.state.mistakes, {});
+  eq('13.15 卡 flag 不被翻真', s.state.cards.L.inMistakes, false);
+}
+
+// 13.16 不变量 1–8：走一条混合链路，每步都查
+{
+  const s = schedulerOn('2026-11-24', 20, ['a', 'b', 'c', 'd']);
+  s.plan();
+  s.startImmediateWith(['a', 'b', 'c', 'd']);
+  const appearances = new Map<string, number>();
+  const violations: string[] = [];
+  const script: Array<[string, boolean]> = [
+    ['a', false], ['b', true], ['c', false], ['d', true],
+    ['a', false], ['c', false], ['c', true], ['c', true],
+    ['a', true], ['b', true],
+  ];
+  for (const [word, known] of script) {
+    const before = s.state.immediate.active;
+    if (!before) break;
+    const key = `${word}@${before.round}`;
+    appearances.set(key, (appearances.get(key) ?? 0) + 1);
+    const r = s.answerImmediate(word, known);
+    if (!r) continue;
+    violations.push(...invariantViolations(r.group, s.state.mistakes, appearances));
+  }
+  eq('13.16 不变量全过', violations, []);
+  const active = s.state.immediate.active;
+  if (active) {
+    eq('13.16 收口前 queue/crossRound 只在其中一处', active.queue.some((w) => active.crossRound.includes(w)), false);
+  }
 }
 
 // ---------------------------------------------------------------- 汇总

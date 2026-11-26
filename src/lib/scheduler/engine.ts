@@ -17,7 +17,7 @@ import {
   IMMEDIATE_TRIGGER,
   answerImmediate as applyImmediateAnswer,
   averageLoops,
-  groupLoops,
+  groupFuzzyTotal,
   makeGroup,
 } from './immediate.ts';
 import {
@@ -393,7 +393,10 @@ export class Scheduler {
     }
 
     this.s.unlearned.splice(index, 1);
-    this.s.cards[word] = createCard(word, day, this.s.relearned[word] === true);
+    const created = createCard(word, day, this.s.relearned[word] === true);
+    // 与 commitNewWords 同一口径：账本里已有这个词，就把 inMistakes 镜像到卡上
+    if (this.s.mistakes[word]) created.inMistakes = true;
+    this.s.cards[word] = created;
     if (!record.newLearned.includes(word)) record.newLearned.push(word);
 
     const immediate = this.s.immediate;
@@ -429,23 +432,32 @@ export class Scheduler {
     return group;
   }
 
-  answerImmediate(word: string, known: boolean): ReturnType<typeof applyImmediateAnswer> | null {
+  answerImmediate(word: string, known: boolean): ReturnType<typeof applyImmediateAnswer> {
     const immediate = this.s.immediate;
     if (!immediate.active) return null;
 
     const result = applyImmediateAnswer(immediate.active, word, known);
+    if (!result) return null; // 不在本轮队列里（已跨轮 / 不是队头）：没什么可答
     immediate.active = result.group;
 
-    if (result.hard) {
-      const card = this.s.cards[word];
-      if (card) card.hard = true;
-      // 循环 3 次仍不认识 = 硬词：既置顶明天 1 天批次，也进错词本（3 次都计进累计次数）
-      this.recordMistake(word, this.today(), 'immediate', result.loops);
+    // 累计模糊满 3 次才进错词本：第 3 次一次记满，之后每次 +1。
+    // 注意「进错词本 ≠ 出队」——词仍在本轮 queue 或 crossRound 里，直到点「认识」。
+    if (result.mistakeIncrement > 0) {
+      this.recordMistake(word, this.today(), 'immediate', result.mistakeIncrement);
+    }
+
+    // 强制收口产生的硬词：卡片已经存在（旧 pendingWords 路径）就顺手标上。
+    // 统一学习流里卡片要到 commitNewWords 才建，hardWords 那时才落到卡上。
+    if (result.hardWords.length > 0) {
+      for (const hardWord of result.hardWords) {
+        const card = this.s.cards[hardWord];
+        if (card) card.hard = true;
+      }
     }
 
     if (result.finished) {
       const group = result.group;
-      const loops = groupLoops(group);
+      const loops = groupFuzzyTotal(group);
       immediate.stats.groups += 1;
       immediate.stats.cards += group.words.length;
       immediate.stats.loops += loops;
@@ -557,6 +569,8 @@ export class Scheduler {
       this.s.unlearned.splice(index, 1);
       const card = createCard(word, day, this.s.relearned[word] === true);
       if (hard.has(word)) card.hard = true;
+      // 账本是唯一来源：这个词之前如果已经错过（含「模糊 3 次」记的账），建卡时补上镜像
+      if (this.s.mistakes[word]) card.inMistakes = true;
       this.s.cards[word] = card;
       if (!record.newLearned.includes(word)) record.newLearned.push(word);
       committed.push(word);

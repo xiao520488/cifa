@@ -1,7 +1,7 @@
 /**
  * 错词本：有数据就必须有入口。
  *
- * 数据来自 `engine.mistakes()` —— 正式复习点「不认识」、即时复习循环 3 次仍不认识、
+ * 数据来自 `engine.mistakes()` —— 正式复习点「不认识」、即时复习里累计模糊 3 次、
  * 归档抽查答错，都会进这本账；每条带累计次数与最后一次答错日期。
  *
  * 「单测」只回答「现在还记得吗」：答对移出错词本，答错留在这里并 +1。
@@ -177,7 +177,7 @@ export function MistakesScreen({
             <section className="mistakes-empty" aria-label="错词本为空">
               <p className="mistakes-empty__title">错词本是空的</p>
               <p className="mistakes-empty__text">
-                复习时点「不认识」、即时复习里同一个词连问 3 次仍不认识，都会记到这里。
+                复习时点「不认识」、即时复习里累计模糊 3 次，都会记到这里。
                 每个词会留下累计答错次数和最后一次答错的日期，方便你集中清一遍。
               </p>
               <button type="button" className="btn btn--primary btn--block" onClick={onBack}>

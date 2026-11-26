@@ -105,10 +105,29 @@ export interface MistakeRow extends MistakeEntry {
   relearning: boolean;
 }
 
+/**
+ * 一次即时复习会话（v2 轮次模型，2026-11-26 用户拍板，见 `docs/IMMEDIATE_ROUNDS_SPEC.md`）。
+ *
+ * - `schema: 2` 是新模型的标记；没有这个标记的组是 v1 旧组，载入时整组丢弃（零数据损失）。
+ * - 会话内 1..5 轮：第 1 轮过全组，之后每轮只过上一轮「模糊两次」的词。
+ * - `fuzzyCount` 是**会话作用域**的累计模糊次数，会话结束即丢，不写卡片。
+ */
 export interface ImmediateGroup {
+  schema: 2;
+  /** 全组词（入库用，整组不变） */
   words: string[];
+  /** 当前轮次 1..5 */
+  round: number;
+  /** 本轮待答队列（队头即当前题） */
   queue: string[];
-  loopCount: Record<string, number>;
+  /** 本轮已模糊过一次的词（本轮内还会再出现一次） */
+  fuzzyThisRound: string[];
+  /** 本轮第 2 次仍模糊 → 等下一轮（保序） */
+  crossRound: string[];
+  /** 本会话累计模糊次数（跨轮累加，跨会话不累计） */
+  fuzzyCount: Record<string, number>;
+  /** 收口时仍未点「认识」的词（只由强制收口产生） */
+  hardWords: string[];
   startedOn: StudyDay;
 }
 

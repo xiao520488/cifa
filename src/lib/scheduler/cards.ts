@@ -74,7 +74,9 @@ export function applyShortReview(card: CardState, rating: Rating, day: StudyDay)
   return { ...base, interval: 1, due: addDays(day, 1), lapses: card.lapses + 1, inMistakes: true };
 }
 
-/** 长期批次（30/90/180/360）的作答。答对进下一节点，360 答对归档；模糊/不认识打回短期 1 天。 */
+/** 长期批次（30/90/180/360）的作答。答对进下一节点，360 答对归档；模糊/不认识打回短期 1 天。
+ *  「模糊」是比「不认识」轻的评价（间隔缩短），与短期档一致**不进错词本**；
+ *  只有「不认识」由 engine 记账本（`inMistakes` 是账本的镜像，这里不再强制翻真）。 */
 export function applyLongReview(card: CardState, rating: Rating, day: StudyDay): CardState {
   const base = touch(card, rating, day);
   const current = card.longInterval ?? 30;
@@ -93,7 +95,6 @@ export function applyLongReview(card: CardState, rating: Rating, day: StudyDay):
     longInterval: null,
     longAnchor: null,
     lapses: rating === 'unknown' ? card.lapses + 1 : card.lapses,
-    inMistakes: true,
   };
 }
 

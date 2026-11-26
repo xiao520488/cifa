@@ -7,6 +7,7 @@
 
 import { emptyState } from './engine.ts';
 import { INCREASE_STEP } from './adaptation.ts';
+import { IMMEDIATE_MAX_ROUNDS } from './immediate.ts';
 import { isValidStudyDay } from './studyDay.ts';
 import type {
   Action,
@@ -150,22 +151,66 @@ function readDay(day: string, raw: unknown): DayRecord | null {
   };
 }
 
-function readGroup(raw: unknown): ImmediateGroup | null {
-  if (!isRecord(raw)) return null;
+/**
+ * 读即时复习组（schema 2，轮次模型；规约 `docs/IMMEDIATE_ROUNDS_SPEC.md`）。
+ *
+ * 丢弃口径（D3-B）：v1 旧组（没有 `schema`）与不可达的异常组一律丢弃，
+ * 返回被丢弃的词数，由调用方累加进 `stats.skipped`。
+ * 丢弃是零数据损失的：统一学习流里列表阶段不建卡、不 commit，词仍在未学池。
+ */
+function readGroup(raw: unknown): { group: ImmediateGroup | null; dropped: number } {
+  if (!isRecord(raw)) return { group: null, dropped: 0 };
+
+  // v1 旧组：不迁移、不猜字段含义，整组丢弃
+  if (raw.schema !== 2) return { group: null, dropped: wordList(raw.words).length };
+
   const words = wordList(raw.words);
-  if (words.length === 0) return null;
-  const loopCount: Record<string, number> = {};
-  if (isRecord(raw.loopCount)) {
-    for (const [word, value] of Object.entries(raw.loopCount)) {
-      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) loopCount[word] = Math.trunc(value);
+  if (words.length === 0) return { group: null, dropped: 0 };
+  const inside = (word: string) => words.includes(word);
+
+  const queue = wordList(raw.queue).filter(inside);
+  let fuzzyThisRound = wordList(raw.fuzzyThisRound).filter(inside);
+  let crossRound = wordList(raw.crossRound).filter(inside);
+  const hardWords = wordList(raw.hardWords).filter(inside);
+  const fuzzyCount: Record<string, number> = {};
+  if (isRecord(raw.fuzzyCount)) {
+    for (const [word, value] of Object.entries(raw.fuzzyCount)) {
+      if (!inside(word) || typeof value !== 'number' || !Number.isFinite(value) || value < 0) continue;
+      fuzzyCount[word] = Math.min(99, Math.trunc(value));
     }
   }
-  const queue = wordList(raw.queue).filter((word) => words.includes(word));
+  let round = int(raw.round, 1, 1, IMMEDIATE_MAX_ROUNDS);
+  let nextQueue = queue;
+
+  if (nextQueue.length === 0 && crossRound.length > 0) {
+    if (round < IMMEDIATE_MAX_ROUNDS) {
+      // 正常态：这一轮已清空、下一轮还没开（写到一半），把待跨轮词并进下一轮
+      round += 1;
+      nextQueue = crossRound;
+      crossRound = [];
+      fuzzyThisRound = [];
+    } else {
+      // 边缘态：第 5 轮已清空却仍有待跨轮词。正常流程不可达——强制收口由
+      // answerImmediate 原子完成，清洗器不承担收口职责，这里只做丢弃。
+      return { group: null, dropped: crossRound.length };
+    }
+  }
+
+  if (nextQueue.length === 0) return { group: null, dropped: 0 }; // 已收口
+
   return {
-    words,
-    queue: queue.length > 0 ? queue : [...words],
-    loopCount,
-    startedOn: isValidStudyDay(raw.startedOn) ? raw.startedOn : '',
+    group: {
+      schema: 2,
+      words,
+      round,
+      queue: nextQueue,
+      fuzzyThisRound: fuzzyThisRound.filter((word) => nextQueue.includes(word)),
+      crossRound,
+      fuzzyCount,
+      hardWords,
+      startedOn: isValidStudyDay(raw.startedOn) ? raw.startedOn : '',
+    },
+    dropped: 0,
   };
 }
 
@@ -322,6 +367,8 @@ export function sanitizeScheduler(raw: unknown): SchedulerState {
   const pendingWords = wordList(immediateRaw.pendingWords).filter((word) => cards[word]);
   const statsRaw = isRecord(immediateRaw.stats) ? immediateRaw.stats : {};
   const lastAvgLoops = immediateRaw.lastAvgLoops;
+  // 被丢弃的组（v1 旧组 / 不可达边缘态）按「跳过」计数，与 skipImmediate 同一口径
+  const activeRead = readGroup(immediateRaw.active);
   const order: NewWordOrder = raw.newWordOrder === 'freq' ? 'freq' : 'list';
 
   return {
@@ -342,12 +389,12 @@ export function sanitizeScheduler(raw: unknown): SchedulerState {
     immediate: {
       pendingCount: pendingWords.length,
       pendingWords,
-      active: readGroup(immediateRaw.active),
+      active: activeRead.group,
       stats: {
         groups: int(statsRaw.groups, 0, 0, 100000),
         cards: int(statsRaw.cards, 0, 0, 100000),
         loops: int(statsRaw.loops, 0, 0, 1000000),
-        skipped: int(statsRaw.skipped, 0, 0, 100000),
+        skipped: int(statsRaw.skipped, 0, 0, 100000) + activeRead.dropped,
       },
       lastAvgLoops: typeof lastAvgLoops === 'number' && Number.isFinite(lastAvgLoops) ? lastAvgLoops : null,
     },
