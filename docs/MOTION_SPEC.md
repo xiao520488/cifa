@@ -485,6 +485,11 @@ html.is-theme-switching *::after {
 
 ### 13.7 门禁：`audit-motion.js` 三组新断言（各自单跑，不混进旧组）
 
+**跑法（v12 复盘后改）**：八组（`G1 G2 G3 press shake toast reduce contrast`）都支持单组跑 ——
+cfg 里写 `{"__audit_only":"G3"}`，逗号分隔可列多组；**认不出的组名当场报错**（不许「一个组都没跑 → 零失败 → 绿灯」，
+已知坏样例：`scripts/cfg-motion-badgroup.json`）。实测全量 66.6s → 单组 G3 14.8s。
+**子集跑不是发布门**：commit 前必须全量一次，`fails: []`。
+
 **G1 转场只动进入屏**
 1. 依次 study → cal → me → mistakes → study；每次切换后 60ms 采样：`.screen` 节点数 === 1；`topbar` / `app__main` 的 `animation-name === 'screen-in'`、`animation-duration === '0.35s'`。
 2. 旧屏：切换前给旧节点打 `data-old`；切换后 `isConnected === false` 且 `getAnimations().length === 0`（证明没有退出动画在跑）。

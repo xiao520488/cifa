@@ -1,5 +1,13 @@
 # NOTES
 
+## 2026-11-26 · 三条工程纪律落地（单组开关 / 状态钩子 / 时间盒）
+
+- **为什么**：上一轮一个单行 bug 花掉 40 分钟，根因是「把验证当售后」「量具不自证伪」「没有时间盒」。三条已写进 `~/.dsh/AGENTS.md`「动效 / 跨挂载状态：三条硬约束」，**下次动手前强制执行**（不是建议）。
+- **单组开关**：`scripts/audit-motion.js` 认 cfg `{"__audit_only":"G3"}`，逗号可列多组；**写错组名当场报错**——已知坏样例 `scripts/cfg-motion-badgroup.json`（`G3,G9` → exit 1，报「不认识的组名」）。实测全量 **66.6s → 单组 G3 14.8s**（11.7s 是 G3 自己的等待：学一批 + 冷启动 + 减弱动效）。**子集跑不是发布门**，commit 前仍要全量一次（本轮全量 `fails: []`）。
+- **状态钩子**：`src/components/RollingNumber.tsx` 末尾 dev-only `window.__motionState()` / `window.__motionReset()`（生产构建被摇掉：tsc 0 / build 通过）。`scripts/probe-motion.js` 是 20 秒模板：3 秒打出 `entries(from/to/current/subs/raf)` + `lastShown` + 宿主盒宽。实测：冷启动 `current===to && raf=false`；日历屏 16 个 key；回首页无残留 rAF；`lastShown` 在 dev 的 StrictMode 下天然非空（值等于 current，无害，别拿它当断言）。
+- **探针踩到的坑（下次省时间）**：① 首页主按钮是 `.start__actions .btn--primary` / `role=button` 名「开始背单词」，**没有 `.start__cta`**；② 点它先落在**一批预览** `.dock`（上一批/下一批），要再点 `.dock .dock__nav--primary` 才进即时复习；③ 只有造过今日 due 卡才会出现 `.answer-dock--review`，否则是学习态。所以探针只验「状态可读 + 冷启动不滚」，真实滚动仍归 G3。
+- **读法**：`git diff -w` 看 audit-motion 的真实改动（+52 行）；不带 `-w` 是 994 行，因为 8 个组体整体缩进了一级。
+
 ## 2026-11-26 · 移动端两处修复：状态栏跟随主题 / 禁止双指缩放（`04665f4` + `3c19ce7` + `f7bf3cf`），APK 1.4
 
 - **最该记住的一条**：**WebView 不认 `<meta name="theme-color">`**。App.tsx 一直在按主题改这条 meta，看着对、在 APK 里完全无效——系统状态栏只有原生 `Window.setStatusBarColor()` 说了算。上一版 MainActivity 直接写死 `0xFFF6F3EC` + 永远 `LIGHT_STATUS_BAR`，所以深色主题下顶部是一条白胶带（真机截图 16:40）。修法是加 JS 桥 `cijianChrome.setStatusBar('#RRGGBB')`，`src/lib/native.ts` 里包一层，浏览器中桥不存在＝空操作。
