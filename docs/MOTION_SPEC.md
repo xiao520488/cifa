@@ -505,7 +505,8 @@ html.is-theme-switching *::after {
 1. 隔离 context 造 1 张今日卡 → 首页读「已学」→ 进 session 答完 → 回首页；回首页 30ms 采样：文本 ≠ 新值；125ms：介于旧值与新值之间；300ms：等于新值。
    **125ms 时刻，首页三处「已学」宿主（`.readout__v`、`.start__meta b`、`.start__spec` 第 4 行）的文本必须逐字相等** —— 这是 D7-A「同屏同源全滚」唯一的硬证据，任一不等即 FAIL（不允许出现「已学 020 / 已学 021」）。
 2. 布局：0 / 60 / 125 / 190 / 250ms 五个采样点，`.num-roll`、其父宿主、`.readouts`（或 `.start__spec`）的 `getBoundingClientRect()` 宽高逐点相同；`.app__main` 的 `scrollHeight` 不变。
-3. 390 档 × 8 皮肤 × 明暗：`.readouts` 的 `scrollWidth === clientWidth`（4 位预留不许把带子挤溢出）。
+   **只量可见宿主**：paper / foundry / broadsheet / nocturne / desk 的**首页读数带本身是 `display:none`**（宽 0），拿它量「撑不撑布局」只会得到假失败 —— 这是探针自己的洞，不是产品问题。
+3. 390 档 × 8 皮肤 × 明暗：`.readouts` 的 `scrollWidth === clientWidth`（4 位预留不许把带子挤溢出）。带子被皮肤隐藏时 `sw === cw === 0`，按通过处理（没有可溢出的宽度）。
 4. 首次渲染：冷启动首屏 30ms 文本已等于终值。
 5. reduced-motion：同一流程，回首页首帧即终值。
 6. **自证伪**：三组各带一个必须红的样例（G1 把 `--screen-shift` 临时改 0 → 位移断言必须失败；G2 用旧 class 名强制加类 → 类消失断言必须失败；G3 把 `digits` 设 1 → 宽度断言必须失败）。沿用 §8 第 10 条：红不了的探针等于没有探针。

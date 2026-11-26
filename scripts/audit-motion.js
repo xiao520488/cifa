@@ -647,6 +647,283 @@ async (page) => {
     allAll,
   };
 
+  /* ================= 0c. v2 读数数字滚动（docs/MOTION_SPEC.md §13.7 G3）=====
+     真流程：0 张卡 → 首页「已学 0」→ 学一批（列表 → 即时复习全「认识」→ 总结页）
+     → 点「回到首页」→ 采样「已学」从 0 滚到 5。
+     为什么非得真学：learnedCount = 短期 + 长期 + 归档，只有真入库才会变；改设置只动「批数」。
+     断的是：30ms 时还没到终值、**125ms 时三处「已学」逐字相等**（D7-A 唯一硬证据）、
+     300ms 后到终值；全程宿主盒宽高逐帧不变（幽灵占位在工作）、scrollHeight 不变；
+     390 × 8 皮肤 × 明暗的读数带不溢出；冷启动首帧不滚；减弱动效直接给终值。 */
+
+  const learnedTexts = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('[data-num-key="home.learned"]')].map((el) =>
+        el.textContent.trim(),
+      ),
+    );
+
+  await gotoHome('paper', 'light');
+  const beforeLearn = await learnedTexts();
+  if (beforeLearn.length < 3) {
+    fail('首页「已学」宿主不足 3 处（读数带 / start__meta / start__spec）', beforeLearn);
+  }
+  const startState = await page.evaluate(() => {
+    const b = document.querySelector('.start__actions .btn--primary');
+    return {
+      exists: Boolean(b),
+      disabled: b ? b.disabled : null,
+      text: b ? b.textContent.trim() : null,
+      meta: document.querySelector('.start__meta')?.textContent?.trim() ?? null,
+      spec: document.querySelector('.start__spec')?.textContent?.replace(/\s+/g, ' ').trim() ?? null,
+    };
+  });
+  if (!startState.exists || startState.disabled) {
+    fail('首页「开始背单词」不可点（今天没可学的？），数字滚动没法验', startState);
+  }
+
+  /**
+   * 学一批就停：列表 → 点主键进即时复习 → 全部「认识」→ 回到列表。
+   * 只学一批（不点「下一批」）：否则会一路学完今天的 20 个，第二趟（减弱动效）就没词可学了
+   * —— 第一次跑就是死在这里（allowedNew 0 → 开始按钮禁用 → 等 .dock 超时）。
+   */
+  const learnOneBatch = async (waitMs) => {
+    await page.click('.start__actions .btn--primary');
+    await page.waitForSelector('.dock, .answer-dock--immediate', { timeout: 15000 });
+    let answered = 0;
+    for (let i = 0; i < 30; i += 1) {
+      const st = await page.evaluate(() => ({
+        immediate: Boolean(document.querySelector('.answer-dock--immediate')),
+        dock: Boolean(document.querySelector('.dock')),
+        done: Boolean(document.querySelector('.session-done')),
+      }));
+      if (st.immediate) {
+        await page.click('.answer-dock--immediate .answer-btn--known');
+        answered += 1;
+        await page.waitForTimeout(waitMs); // 反馈窗口（§3）：不等会读到上一张卡
+        continue;
+      }
+      if (st.dock && answered > 0) return { answered, ok: true }; // 一批已入库，停在列表
+      if (st.dock) {
+        await page.click('.dock .dock__nav--primary');
+        await page.waitForTimeout(240);
+        continue;
+      }
+      if (st.done) return { answered, ok: true };
+      break;
+    }
+    return { answered, ok: false };
+  };
+
+  /** 从列表页退出到首页，并从点击那一帧开始采样（首帧必须在页面内取，CDP 往返会把 30ms 吃掉） */
+  const exitAndSample = (windowMs) =>
+    page.evaluate(
+      (limit) =>
+        new Promise((resolve) => {
+          /* 两条出口：学习中途 → 顶栏「退出本次学习」；已经走到总结页 → 「回到首页」。
+             第二趟（减弱动效）常常把当天额度学完，直接落在总结页 —— 只认顶栏按钮会报 no-exit-button。 */
+          const btn =
+            document.querySelector('.icon-btn[aria-label="退出本次学习"]') ||
+            [...document.querySelectorAll('.session-done__actions button')].find((b) =>
+              b.textContent.includes('回到首页'),
+            );
+          if (!btn) {
+            resolve({ error: 'no-exit-button' });
+            return;
+          }
+          btn.click();
+          const t0 = performance.now();
+          const out = [];
+          const rect = (el) => {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return [
+              Math.round(r.width * 10) / 10,
+              Math.round(r.height * 10) / 10,
+              Math.round(r.top * 10) / 10,
+            ];
+          };
+          const tick = () => {
+            const q = (s) => document.querySelector(s);
+            const roles = [...document.querySelectorAll('[data-num-key="home.learned"]')];
+            out.push({
+              at: Math.round(performance.now() - t0),
+              learned: roles.map((el) => el.textContent.trim()),
+              rollRects: roles.map(rect),
+              readouts: rect(q('.readouts')),
+              spec: rect(q('.start__spec')),
+              scrollH: q('.app__main') ? q('.app__main').scrollHeight : null,
+              sw: q('.readouts') ? [q('.readouts').scrollWidth, q('.readouts').clientWidth] : null,
+            });
+            if (performance.now() - t0 < limit) requestAnimationFrame(tick);
+            else resolve(out);
+          };
+          tick();
+        }),
+      windowMs,
+    );
+
+  const learnedBatch = await learnOneBatch(260);
+  if (!learnedBatch.ok || learnedBatch.answered === 0) {
+    fail('学一批的流程没走通（数字滚动的前置条件）', learnedBatch);
+  }
+
+  const roll = await exitAndSample(330);
+
+  const stripZeros = (s) => String(s).replace(/^0+(?=\d)/, '');
+  const rollJudge = (() => {
+    if (!roll || roll.error) {
+      fail(`数字滚动：找不到「回到首页」按钮（${roll && roll.error}）`);
+      return null;
+    }
+    const last = roll[roll.length - 1];
+    const finalLearned = last.learned;
+    const finalDigits = finalLearned.map(stripZeros);
+
+    // 起点已经在动（说明不是「直接终值」）
+    const early = roll.find((f) => f.at >= 16 && f.at <= 60) || roll[0];
+    const earlyDigits = early.learned.map(stripZeros);
+    if (earlyDigits.join('|') === finalDigits.join('|')) {
+      fail('数字滚动：30–60ms 就已经是终值（没有滚动过程）', { early, final: finalDigits });
+    }
+    // 125ms：三处必须逐字相等（补零去掉后）
+    const mid = roll.find((f) => f.at >= 110 && f.at <= 150);
+    if (!mid) fail('数字滚动：没采到 125ms 附近的帧');
+    else {
+      const midDigits = mid.learned.map(stripZeros);
+      const uniq = [...new Set(midDigits)];
+      if (uniq.length !== 1) {
+        fail('125ms 三处「已学」文本不一致（同屏两个值）', { at: mid.at, texts: mid.learned });
+      }
+    }
+    // 300ms 后：全部等于终值，且三处一致
+    const late = roll[roll.length - 1];
+    if (new Set(late.learned.map(stripZeros)).size !== 1) {
+      fail('落定后三处「已学」仍不一致', late.learned);
+    }
+    if (stripZeros(late.learned[0]) !== String(Number(stripZeros(late.learned[0])))) {
+      fail('落定值不是纯数字', late.learned[0]);
+    }
+
+    // 布局：**可见**宿主的盒宽高 + scrollHeight 全程不变
+    // （paper 的首页读数带本身是 display:none，宽 0 —— 拿它算「撑不撑」只会得到假失败）
+    const visibleRects = (f) => (f.rollRects || []).filter((r) => r && r[0] > 0);
+    const keyOf = (f) => JSON.stringify([visibleRects(f), f.spec, f.scrollH]);
+    const base = roll.find((f) => visibleRects(f).length > 0) || roll[0];
+    const firstKey = keyOf(base);
+    const drift = roll.filter((f) => visibleRects(f).length > 0 && keyOf(f) !== firstKey);
+    if (drift.length) {
+      fail('数字滚动撑动了布局（宿主盒或 scrollHeight 变了）', {
+        at: drift[0].at,
+        base: JSON.parse(firstKey),
+        now: [visibleRects(drift[0]), drift[0].spec, drift[0].scrollH],
+      });
+    }
+    // 读数带不许溢出（幽灵位是 4 位预留）
+    const overflow = roll.filter((f) => f.sw && f.sw[0] > f.sw[1]);
+    if (overflow.length) fail('读数带横向溢出（预留位数把带子撑爆了）', overflow[0].sw);
+
+    return {
+      before: beforeLearn,
+      final: late.learned,
+      early: early.learned,
+      mid: mid ? mid.learned : null,
+      frames: roll.length,
+      boxesStable: drift.length === 0,
+    };
+  })();
+
+  /* 冷启动首帧不滚：全新加载 → 30ms 时已是终值 */
+  await gotoHome('paper', 'light');
+  const coldStart = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const t0 = performance.now();
+        const tick = () => {
+          if (performance.now() - t0 >= 30) {
+            resolve(
+              [...document.querySelectorAll('[data-num-key="home.learned"]')].map((el) =>
+                el.textContent.trim(),
+              ),
+            );
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }),
+  );
+  if (new Set(coldStart.map(stripZeros)).size !== 1) {
+    fail('冷启动首帧就出现多个不同的「已学」', coldStart);
+  }
+
+  /* 自证伪：把幽灵占位改成 1 个 0，同一台尺子必须量到宽度变化（量不到就是尺子坏了） */
+  const ghostProbe = await page.evaluate(() => {
+    const el = document.querySelector('.start__meta [data-num-key="home.learned"]');
+    if (!el) return { error: 'no-roll' };
+    const w0 = el.getBoundingClientRect().width;
+    el.dataset.ghost = '0';
+    const w1 = el.getBoundingClientRect().width;
+    el.dataset.ghost = '0000';
+    const w2 = el.getBoundingClientRect().width;
+    return { w0: Math.round(w0 * 10) / 10, w1: Math.round(w1 * 10) / 10, w2: Math.round(w2 * 10) / 10 };
+  });
+  if (!(ghostProbe.error === undefined && ghostProbe.w1 < ghostProbe.w0 && ghostProbe.w2 === ghostProbe.w0)) {
+    fail('自证伪失败：改幽灵位数后盒宽没变（「不撑布局」这条量不出来）', ghostProbe);
+  }
+
+  /* 减弱动效：同一流程回首页，首帧即终值。
+     先清掉调度状态再重来 —— 上一步已经把今天的额度学完（allowedNew 0 → 开始按钮禁用），
+     不清就点不进学习流（第一次跑就是死在这儿）。 */
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await gotoHome('paper', 'light');
+  const reduceBatch = await learnOneBatch(120);
+  if (!reduceBatch.ok || reduceBatch.answered === 0) {
+    fail('减弱动效流程：学一批没走通', reduceBatch);
+  }
+  const reduceRoll = await exitAndSample(80);
+  if (Array.isArray(reduceRoll)) {
+    const first = reduceRoll.find((f) => f.at >= 16) || reduceRoll[0];
+    const after = reduceRoll[reduceRoll.length - 1];
+    if (first.learned.map(stripZeros).join('|') !== after.learned.map(stripZeros).join('|')) {
+      fail('减弱动效下仍在滚动（应当首帧即终值）', { first: first.learned, after: after.learned });
+    }
+  } else {
+    fail(`减弱动效下数字滚动取样失败（${reduceRoll && reduceRoll.error}）`);
+  }
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  /* 390 × 8 皮肤 × 明暗：读数带不许因为 4 位预留而溢出 */
+  const bandRows = [];
+  for (const skin of [
+    'paper',
+    'foundry',
+    'instrument',
+    'broadsheet',
+    'bento',
+    'nocturne',
+    'vinyl',
+    'desk',
+  ]) {
+    for (const theme of ['light', 'dark']) {
+      await gotoHome(skin, theme);
+      const r = await page.evaluate(() => {
+        const band = document.querySelector('.readouts');
+        if (!band) return null;
+        return {
+          sw: band.scrollWidth,
+          cw: band.clientWidth,
+          rv: [...band.querySelectorAll('.readout__v')].map((el) =>
+            Math.round(el.getBoundingClientRect().width * 10) / 10,
+          ),
+        };
+      });
+      bandRows.push({ skin, theme, ...(r || {}) });
+      if (!r) fail(`[${skin}/${theme}] 首页没有读数带`);
+      else if (r.sw > r.cw) fail(`[${skin}/${theme}] 读数带横向溢出`, r);
+    }
+  }
+  notes.numberRoll = { judge: rollJudge, coldStart, ghostProbe, bandRows };
+
   /* ---------------- 1. 8 套皮肤：按压统一 + 答对变体 ---------------- */
 
   // cfg 里可以只跑某几套皮肤（改一套皮肤的 CSS 时省一轮全矩阵）：
