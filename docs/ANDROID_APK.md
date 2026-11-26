@@ -89,4 +89,4 @@ Copy-Item D:\AndroidBuild\cijian-1.0.apk D:\背单词\out\ -Force
   （0 不一致），`assets/index.html` 引用的新哈希资源（`index-KglkUNTR.js` / `index-DuMee3km.css`）都在包内；
   `apksigner verify` → v2 + v3 通过、签名证书 SHA-256 = `bee17fe6…6984`（与 1.0 同一把，可覆盖安装）；
   `aapt dump badging` → `versionCode='2' versionName='1.1'`、`sdkVersion 24`、`targetSdk 34`、`label 词笺`。
-  **未做**：本轮没有再上真机（等你装）。
+- ✅ 已验证（2026-11-26）：**1.1 真机覆盖安装成功、打开正常**（用户本人确认；未卸载，学习进度保留）。

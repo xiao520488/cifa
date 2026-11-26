@@ -1,12 +1,14 @@
 # NOTES
 
-## 2026-11-26 · APK 1.1 重打（含轮次模型 + 备份 + 回队尾）——直接可装
+## 2026-11-26 · APK 1.1 重打 + **真机已验证**（含轮次模型 + 备份 + 回队尾）——可装可用
 
 - **产物**：`out/cijian-1.1.apk`（1.06 MB，versionCode **2** / versionName 1.1），同目录 `cijian-1.0.apk` 是旧包（11-25，versionCode 1），别装错。**覆盖安装即可，进度不丢**——1.0/1.1 签名证书 SHA-256 都是 `bee17fe6…6984`。
+- **真机结论（2026-11-26，用户本人确认）**：1.1 **覆盖安装成功、打开正常**；没卸载，学习进度还在。这是「能装可用」这一层的最终验收，之后的问题只能是体验问题，不再是打包问题。
 - **这一版比 1.0 多什么**：即时复习轮次模型（`215db47`）、进度导出/导入（`379c7f6`+`7406518`）、正式复习回队尾（`bfd8ca7`+`df04e24`）。
-- **怎么验的（实物，不是感觉）**：APK 28 个条目、`dist/` 21 个文件**逐个 SHA256 与包内相同（0 不一致）**；`assets/index.html` 引用的新哈希 `index-KglkUNTR.js` / `index-DuMee3km.css` 都在包内；`apksigner verify` v2+v3 通过；`aapt dump badging` → versionCode 2 / versionName 1.1 / minSdk 24 / targetSdk 34 / label「词笺」。**未上真机**（等你装）。
+- **怎么验的（实物，不是感觉）**：APK 28 个条目、`dist/` 21 个文件**逐个 SHA256 与包内相同（0 不一致）**；`assets/index.html` 引用的新哈希 `index-KglkUNTR.js` / `index-DuMee3km.css` 都在包内；`apksigner verify` v2+v3 通过；`aapt dump badging` → versionCode 2 / versionName 1.1 / minSdk 24 / targetSdk 34 / label「词笺」；真机覆盖安装正常（上一条）。
 - **坑（新）**：`aapt.exe` 不认中文路径 —— 直接 dump `D:\背单词\out\*.apk` 报 `Illegal byte sequence`，要先复制到 ASCII 临时路径。`apksigner` / `zipalign` 不受影响。
 - **下次发版**：`versionCode` 再 +1（现在 2）、`versionName` 随你、复用 `out/cijian.keystore`；流程见 `docs/ANDROID_APK.md`（已更新 1.1 的事实与上面这条坑）。
+- **下一步（唯一）**：手机上每天 20 个，背一周。回来只报三件事——**哪天最想放弃 / 哪一步最烦 / 哪个数字看不懂**。代码不再动。
 
 ## 2026-11-26 · 正式复习回队尾（`bfd8ca7` + `df04e24` + `3549535`）——引擎零改动
 
