@@ -13,7 +13,14 @@
  * 跨学习日硬守卫：任何动作前发现学习日翻转，直接退出回首页。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import {
   formatMonthDay,
   IMMEDIATE_TRIGGER,
@@ -114,6 +121,13 @@ interface Tally {
 }
 
 const EMPTY_TALLY: Tally = { known: 0, fuzzy: 0, unknown: 0, retried: 0 };
+
+/** 点按揭示的位移阈值（px）：超过就当成滑动 —— 复习卡整屏可滚，手指一滑不该揭开中文。 */
+const TAP_SLOP = 10;
+
+/** 兜底：顶栏与底部按钮区在 DOM 上是 main 的兄弟节点，本来就命中不到；
+    万一日后把它们包进可点区域，这层 stopPropagation 仍然挡住误触。 */
+const stopPointer = (event: ReactPointerEvent<HTMLElement>) => event.stopPropagation();
 
 export function SessionScreen({
   engine,
@@ -418,10 +432,39 @@ export function SessionScreen({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [batchIdx, goBatch, handleNext, onToggleMeaning, phase]);
 
+  /* ---------------------------------------------------------------- 揭示中文 */
+
+  /** 切词必复位：揭示只属于当前这一张卡（复习换卡 / 即时换词 / 相位切换都算）。
+      复习相的 step / moveOn 各自已经复位，这里是唯一兜底，漏一处也不会把上一张的揭示带过来。 */
+  useEffect(() => {
+    setRevealed(false);
+  }, [phase, index, immediateWord]);
+
+  /** 只有这两相有单卡、才有「遮住的中文」可揭示。 */
+  const revealable = phase === 'review' || phase === 'immediate';
+  const pressRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+
+  /** 按下记坐标，抬起时位移 ≤ TAP_SLOP 才算「点了一下」；只揭示不隐藏（幂等）。 */
+  const onStagePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!revealable || revealed || !event.isPrimary) return;
+    pressRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+  };
+
+  const onStagePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    const press = pressRef.current;
+    pressRef.current = null;
+    if (!press || press.pointerId !== event.pointerId || !revealable || revealed) return;
+    if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > TAP_SLOP) return;
+    setRevealed(true);
+  };
+
+  const clearPress = () => {
+    pressRef.current = null;
+  };
+
   /* ---------------------------------------------------------------- 视图 */
 
   const cardWord = phase === 'review' ? detail : immediateDetail;
-  const showMeaning = phase === 'review' && revealed;
   const progress =
     phase === 'review'
       ? { done: index, total: review.items.length, label: '今日复习' }
@@ -443,7 +486,7 @@ export function SessionScreen({
 
   return (
     <>
-      <header className="topbar topbar--bordered">
+      <header className="topbar topbar--bordered" onPointerDown={stopPointer} onPointerUp={stopPointer}>
         <button
           type="button"
           className="icon-btn"
@@ -492,7 +535,14 @@ export function SessionScreen({
         </div>
       ) : null}
 
-      <main className="app__main" ref={scrollRef}>
+      <main
+        className="app__main"
+        ref={scrollRef}
+        onPointerDown={onStagePointerDown}
+        onPointerUp={onStagePointerUp}
+        onPointerCancel={clearPress}
+        onPointerLeave={clearPress}
+      >
         <div className="screen">
           {phase === 'done' ? (
             <div className="session-done">
@@ -564,11 +614,8 @@ export function SessionScreen({
               <article
                 className={[
                   'flash-card',
-                  phase === 'immediate'
-                    ? 'flash-card--centered'
-                    : showMeaning
-                      ? ''
-                      : 'flash-card--masked',
+                  phase === 'immediate' ? 'flash-card--centered' : '',
+                  revealed ? '' : 'flash-card--masked',
                   ack === 'known' ? 'is-ack-known' : ack === 'wrong' ? 'is-ack-wrong' : '',
                 ]
                   .filter(Boolean)
@@ -588,8 +635,8 @@ export function SessionScreen({
                         className={senseIndex === 0 ? 'meaning meaning--main' : 'meaning meaning--extra'}
                       >
                         <span
-                          className={phase === 'immediate' || showMeaning ? undefined : 'masked'}
-                          aria-hidden={phase === 'immediate' || showMeaning ? undefined : true}
+                          className={revealed ? undefined : 'masked'}
+                          aria-hidden={revealed || undefined}
                         >
                           {meaning}
                         </span>
@@ -612,7 +659,11 @@ export function SessionScreen({
       </main>
 
       {phase === 'review' ? (
-        <div className="answer-dock answer-dock--review">
+        <div
+          className="answer-dock answer-dock--review"
+          onPointerDown={stopPointer}
+          onPointerUp={stopPointer}
+        >
           <button type="button" className="answer-btn answer-btn--unknown" onClick={() => submit('unknown')}>
             <IconClose size={18} />
             <span>{RATING_LABEL.unknown}</span>
@@ -644,7 +695,11 @@ export function SessionScreen({
         /* 即时复习两键：认识 / 模糊。点「模糊」→ 本轮内再出现一次；本轮第 2 次仍模糊 → 进下一轮；
            本会话累计模糊 3 次进错词本但仍要考到点「认识」；最多 5 轮，第 5 轮强制收口并标硬词。
            与复习三键（answer-dock--review）用修饰类隔离，样式与测试互不污染。 */
-        <div className="answer-dock answer-dock--immediate">
+        <div
+          className="answer-dock answer-dock--immediate"
+          onPointerDown={stopPointer}
+          onPointerUp={stopPointer}
+        >
           <button
             type="button"
             className="answer-btn answer-btn--fuzzy"
