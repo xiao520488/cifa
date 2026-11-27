@@ -1,6 +1,13 @@
 # NOTES
 
-## 2026-11-27 · UI v2 第二阶段：真月历 + 点选联动（**未提交前端改动前必读**）
+## 2026-11-27 · 1.5.0 出包 + 真机验收（月历性能过关）
+
+- **结论：真机上翻月 / 点未来日 / 点历史日全部跟手，没有卡顿**，42 格全量推算在 5000 词库下不需要缓存，性能这条不用再动。版本 `9217c6b`（versionCode 9 / 1.5.0），产物 `out/cijian-1.5.0.apk`（1.07 MB，SHA256 `ECB1766E…406C2`）。
+- **本机没有 `pwsh`**（只有 Windows PowerShell 5.1），且 `ExecutionPolicy` 禁脚本：出包必须用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\AndroidBuild\build.ps1`，直接 `& build.ps1` 会报「禁止运行脚本」。
+- 出包链路：`vite build` → `robocopy dist D:\AndroidBuild\assets /MIR`（返回码 3 = 复制+清理，属正常）→ 跑 `scripts/build-apk.ps1`（仓库里那份是唯一真源，每次先 `Copy-Item` 到 `D:\AndroidBuild\build.ps1`）。版本号只写在 `android/AndroidManifest.xml`，源码里没有第二处。
+- 核包方法：`aapt list` 比 `assets/assets/index-*.js` 的哈希名是否等于本地 `dist/` 的新产物；`aapt dump badging` 回读 versionCode/versionName。
+
+## 2026-11-27 · UI v2 第二阶段：真月历 + 点选联动（已提交 fcf362e）
 
 - **交付**：数据页换成月历（7 列、周一起头、可翻月、有「今天」回跳）+ 点任意一天在下方出详情面板。老的三块（接下来 7 天 / 长期复习 / `cal-foot`）全删，`CalendarScreen` 从 234 行降到 ~110 行。新增 `lib/calendarState.ts`（月份运算 / 42 格 / `cellState`）、`MonthGrid.tsx`、`DayDetail.tsx`。
 - **引擎只加不改**：`plan.ts` 拆出 `buildOneDay(state, day, today)`，新增 `buildCalendarRange({start,end,today})`（区间上限 62 天防误用），`buildCalendar` 改成循环调它——输出与旧版逐字段一致，靠 `test:scheduler` 全绿兜底。`engine.calendarRange()` 是新薄壳，**不调 `ensureDay`**。
