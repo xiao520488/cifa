@@ -1,5 +1,16 @@
 # NOTES
 
+## 2026-11-27 · 会话收尾：日历三个阶段全部完成（HEAD f71c750，工作树干净）
+
+- **这一轮交付**：① 数据页换真月历（fcf362e）② 复习批次做成可折叠卡片 + 具体词表（ebf290c）③ 点日期自动滚面板 + 释义只取主释义（f71c750）。全部已推 origin/main。
+- **门禁一键复现**（全在 `D:\背单词` 下跑，dev server 需在 5173 起着）：
+  `node node_modules\typescript\bin\tsc --noEmit` · `node --experimental-strip-types scripts\test-scheduler.ts` · `node node_modules\vite\bin\vite.js build` ·
+  `cd C:\Users\xiao\.dsh\mcp\playwright-mcp; node run-audit-node.js D:\背单词\scripts\audit-month.js D:\背单词\scripts\cfg-month.json`（18 组）·
+  同法跑 `audit-screens.js + cfg-v2-tabs.json`（54 组）、`scan-tiny.js`（9 皮肤 × 5 页）。
+- **包**：`out/cijian-1.5.0.apk`（versionCode 9）、`out/cijian-1.5.1.apk`（10，最新）。出包见下一条的 PowerShell 注意事项。
+- **还留着没做的**（都不是 bug，是范围外）：月历手势翻月（只有 ‹ ›，避免和 Tab 栏手势打架）；`absent` 没有单独的视觉态（和「无记录」都显示灰格）；老 CSS 死代码待清（`.cal-days` / `.cal-day*` / `.profile*` / `.start__foot` / `.cal-hero__actions`，以及 `CALENDAR_FORECAST_EXPLAIN_*` 等已不被 UI 用的文案常量）；broadsheet 首页仍有 37px 的遗留滚动（第一阶段遗留）。
+- **下一步建议**（若要继续做）：先清死代码（纯删，风险低、能缩小后续改动面），再动手势翻月；`absent` 若要区分，得先让 `CalendarDay` 暴露该字段。
+
 ## 2026-11-27 · 1.5.1：点日期自动滚面板 + 释义只取 m[0]（用户拍板的两点）
 
 - **自动滚**：`CalendarScreen` 里加 `wantsScroll` ref + `pickDay()`——只有「点日期」才滚，翻月/首次进入不滚（否则会把人从月历上拽走）。判据是「整块面板是否完全在 `.app__main` 里」：完全可见就不动；不可见才滚到面板顶部（留 8px）。面板比一屏高时永远不算完全可见，但滚到顶后重算位置不变 → **幂等，不会连续点日期时抖**。`prefers-reduced-motion: reduce` 时 `behavior: 'auto'` 直接就位。
