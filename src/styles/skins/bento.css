@@ -808,3 +808,32 @@
   [data-skin='bento'] .dialog,
   [data-skin='bento'] .scrim { animation: none; }
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段）
+ * 磁贴语言：7 列写死，只把格子做成小瓷砖；格内 padding 必须收窄（390 下 ~49px 宽）。
+ */
+[data-skin='bento'] .month__title { font-weight: 600; font-size: 24px; }
+[data-skin='bento'] .month__nav { border-radius: var(--bt-tile-r); background: var(--surface); }
+[data-skin='bento'] .month__grid { gap: 3px; }
+[data-skin='bento'] .cell {
+  min-height: 44px; padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--bt-tile-r);
+  background: var(--surface);
+}
+[data-skin='bento'] .cell__n { width: 26px; height: 26px; font-size: 13px; }
+[data-skin='bento'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
+[data-skin='bento'] .cell[data-state='future'] .cell__n,
+[data-skin='bento'] .cell[data-state='empty'] .cell__n { color: var(--text-tertiary); }
+[data-skin='bento'] .cell[aria-selected='true'] { background: var(--accent-weak); }
+[data-skin='bento'] .cell__dot { bottom: 3px; }
+[data-skin='bento'] .cal-detail { border-top-color: var(--border); }
+
+/* 详情面板的读数：磁贴（与月历小瓷砖同一档） */
+[data-skin='bento'] .detail-figure {
+  padding: 10px var(--space-3) 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--bt-tile-r);
+  background: var(--surface);
+}
+[data-skin='bento'] .detail-figure dd { font-size: 20px; }

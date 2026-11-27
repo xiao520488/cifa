@@ -1442,3 +1442,8 @@
 [data-skin='instrument'] .answer-btn {
   font-size: 15px;
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段） */
+[data-skin='instrument'] .cell__n { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.02em; }
+[data-skin='instrument'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
+[data-skin='instrument'] .month__grid { gap: 1px; }

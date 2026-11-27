@@ -1359,6 +1359,302 @@ p {
   margin-top: var(--space-4);
 }
 
+/* ---------------------------------------------------------------- 月历（v2）
+ * 7 列写死在基线：皮肤只准改 `.cell` 的外观，不许碰这里的 grid-template-columns。
+ * 390 下格宽 ~49px、360 下 ~45px，所以格内只有日号 + 状态点，数字全进详情面板。
+ */
+.month {
+  padding-top: var(--space-2);
+}
+
+.month__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.month__title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-right: auto;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.month__year {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.month__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.month__nav:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.month__nav:active {
+  transform: translateY(1px);
+}
+
+.month__nav:focus-visible,
+.month__today:focus-visible,
+.cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.month__today {
+  height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.month__today:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.month__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-top: var(--space-4);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.month__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin-top: var(--space-1);
+}
+
+.cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.cell__n {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.cell__dot {
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+
+/* 完成 = 实心圆（图 1 的点亮）；只看到期复习，不看新词 */
+.cell[data-state='done'] .cell__n {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.cell[data-state='done'] .cell__dot {
+  background: var(--accent);
+}
+
+.cell[data-state='partial'] .cell__n {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.cell[data-state='partial'] .cell__dot {
+  background: var(--accent);
+}
+
+.cell[data-state='miss'] .cell__n {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.cell[data-state='miss'] .cell__dot {
+  background: var(--warning);
+}
+
+.cell[data-state='future'] .cell__n,
+.cell[data-state='empty'] .cell__n {
+  color: var(--text-tertiary);
+}
+
+.cell[data-state='today'] .cell__n {
+  border: 1.5px solid var(--accent);
+  font-weight: 600;
+}
+
+.cell[aria-current='date'] {
+  border-color: var(--accent);
+}
+
+.cell[aria-selected='true'] {
+  background: var(--accent-weak);
+}
+
+.cell[data-out='1'] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.cell:hover:not([data-out='1']) {
+  background: var(--surface-sunken);
+}
+
+/* 详情面板：复用 .cal-figures / .cal-batch 的排版语言 */
+.cal-detail {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.cal-detail__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cal-detail__date {
+  font-family: var(--font-serif);
+  font-size: var(--fs-h1);
+  line-height: 1.2;
+}
+
+.cal-detail__weekday {
+  margin-left: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.cal-detail__tag {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.cal-detail__tag.is-done {
+  border-color: var(--accent);
+  /* 11px 小字用 accent-hover：bento 这类皮肤的 accent 只够铺面，当字只有 4.37:1 */
+  color: var(--accent-hover);
+}
+
+.cal-detail__tag.is-miss {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.cal-detail__tag.is-quiet {
+  color: var(--text-tertiary);
+}
+
+.cal-detail__hint,
+.cal-detail__note {
+  margin-top: var(--space-3);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* 详情面板的四个读数用**自己的**类名：不复用 `.cal-figures`
+ * ——那套在 vinyl 是横向唱片轨、在 bento 是四格拼贴，套进详情会被挤到裁切。 */
+.detail-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.detail-figure dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.detail-figure dd {
+  margin-top: var(--space-1);
+  font-family: var(--font-serif);
+  font-size: var(--fs-h2);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.detail-figure dd.is-warn {
+  color: var(--warning);
+}
+
+@media (min-width: 768px) {
+  .detail-figures {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.cal-detail__sub {
+  margin-top: var(--space-4);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.cal-detail__batches {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
 .cal-section {
   padding-top: var(--space-6);
 }

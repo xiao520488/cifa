@@ -40,6 +40,8 @@ import type {
   SchedulerState,
   StudyDay,
 } from '../src/lib/scheduler/index.ts';
+import { addMonths, cellState, monthGrid, monthLabel, monthOf } from '../src/lib/calendarState.ts';
+import { buildCalendarRange } from '../src/lib/scheduler/index.ts';
 
 let failures = 0;
 
@@ -1839,6 +1841,83 @@ function withoutRetried(record: unknown): unknown {
   const card = snap(s.state.cards.wl);
   s.answer('wl', 'fuzzy');
   eq('14.12 回看不动长期字段', snap(s.state.cards.wl), card);
+}
+
+// ---------------------------------------------------------------- 15. 月历（v2 第二阶段）
+
+{
+  // 15.1 过去日只读快照：11-20 学了 2 个新词，11-24 回看仍是 2
+  const base = schedulerOn('2026-11-20', 20, ['a', 'b', 'c']);
+  base.plan();
+  base.learnNewWord('a');
+  base.learnNewWord('b');
+  const s = moveTo(base, '2026-11-24');
+  const range = s.calendarRange('2026-11-20', '2026-11-24', '2026-11-24');
+  eq('15.1 区间天数 = 5', range.length, 5);
+  const past = range[0];
+  eq('15.1 过去日标记', [past.isPast, past.isToday, past.estimated], [true, false, false]);
+  eq('15.1 过去日已学 = 2', past.newWordDone, 2);
+  eq('15.1 过去日可学回填已学', past.newWordAllowed, 2);
+  eq('15.1 过去日没有闸门', past.newWordBlocked, null);
+  eq('15.1 到期分母认快照', past.dueTotal, s.state.days['2026-11-20']?.dueSnapshot.length ?? 0);
+  eq('15.1 逾期不为负', past.overdue >= 0, true);
+
+  // 15.2 今天拿到真实闸门，未来日只报计划值
+  const today = range[4];
+  eq('15.2 今天标记', [today.isToday, today.estimated], [true, false]);
+  const future = s.calendarRange('2026-11-25', '2026-11-30', '2026-11-24');
+  check(
+    '15.2 未来日不报「实际可学」',
+    future.every((d) => d.estimated && d.newWordBlocked === null && d.newWordAllowed === d.newWordPlan),
+  );
+  check(
+    '15.2 未来日没有完成数',
+    future.every((d) => d.newWordDone === 0 && d.doneTotal === 0),
+  );
+
+  // 15.3 区间上限 62 天（防止误用拖死主线程）
+  eq('15.3 超长区间截断到 62', s.calendarRange('2026-01-01', '2026-12-31', '2026-11-24').length, 62);
+
+  // 15.4 月历排布：2026-11 从周一开始、42 格、当月 30 天
+  const grid = monthGrid('2026-11-24');
+  eq('15.4 格子数是 7 的倍数', grid.cells.length % 7, 0);
+  eq('15.4 十一月排 6 行', grid.cells.length, 42);
+  eq('15.4 首格是周一', new Date(`${grid.start}T00:00:00`).getDay(), 1);
+  eq('15.4 当月格数 = 30', grid.cells.filter((c) => c.inMonth).length, 30);
+  eq('15.4 首个当月格是 1 号', grid.cells.find((c) => c.inMonth)?.day, '2026-11-01');
+  eq('15.4 补位格不可点', grid.cells[0].inMonth, false);
+  eq('15.4 月份标题', monthLabel('2026-11-24'), { name: '十一月', year: '2026' });
+  eq('15.4 monthOf', monthOf('2026-11-24'), '2026-11-01');
+  eq('15.4 1/31 加一月夹到 2/28', addMonths('2026-01-31', 1), '2026-02-28');
+}
+
+{
+  // 15.5 完成态判定：只看到期复习，不看新词
+  const day = (over: Partial<CalendarDay>): CalendarDay => ({
+    day: '2026-11-20',
+    weekdayLabel: '周五',
+    shortTermBatches: [],
+    longTermBatches: [],
+    newWordPlan: 20,
+    newWordAllowed: 20,
+    newWordBlocked: null,
+    newWordDone: 0,
+    newWordGoal: 20,
+    dueTotal: 0,
+    doneTotal: 0,
+    overdue: 0,
+    isToday: false,
+    isPast: true,
+    estimated: false,
+    ...over,
+  });
+  eq('15.5 到期全做完 → done', cellState(day({ dueTotal: 5, doneTotal: 5 })), 'done');
+  eq('15.5 新词没学完也算 done', cellState(day({ dueTotal: 5, doneTotal: 5, newWordDone: 0 })), 'done');
+  eq('15.5 做了一半 → partial', cellState(day({ dueTotal: 5, doneTotal: 2 })), 'partial');
+  eq('15.5 一个没做 → miss', cellState(day({ dueTotal: 5, doneTotal: 0 })), 'miss');
+  eq('15.5 没到期没学词 → empty', cellState(day({ dueTotal: 0, newWordDone: 0 })), 'empty');
+  eq('15.5 未来日 → future', cellState(day({ estimated: true, isPast: false })), 'future');
+  eq('15.5 今天优先', cellState(day({ isToday: true, dueTotal: 0, doneTotal: 0 })), 'today');
 }
 
 // ---------------------------------------------------------------- 汇总

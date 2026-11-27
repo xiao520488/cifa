@@ -663,3 +663,13 @@
     padding-left: var(--space-3);
   }
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段）
+ * 方格纸：格子自带网格线，完成日填 accent。
+ */
+[data-skin='desk'] .month__grid { gap: 0; box-shadow: inset 0 0 0 1px var(--border); }
+[data-skin='desk'] .cell { border-radius: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 44px; }
+[data-skin='desk'] .cell:nth-child(7n) { border-right: 0; }
+[data-skin='desk'] .cell__n { width: 26px; height: 26px; font-size: 13px; }
+[data-skin='desk'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
+[data-skin='desk'] .cell__dot { display: none; }

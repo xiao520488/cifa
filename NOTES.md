@@ -1,6 +1,17 @@
 # NOTES
 
-## 2026-11-27 · UI v2 第一阶段：底部三 Tab + 三页清理（**未提交**，等真日历那一轮一起落）
+## 2026-11-27 · UI v2 第二阶段：真月历 + 点选联动（**未提交前端改动前必读**）
+
+- **交付**：数据页换成月历（7 列、周一起头、可翻月、有「今天」回跳）+ 点任意一天在下方出详情面板。老的三块（接下来 7 天 / 长期复习 / `cal-foot`）全删，`CalendarScreen` 从 234 行降到 ~110 行。新增 `lib/calendarState.ts`（月份运算 / 42 格 / `cellState`）、`MonthGrid.tsx`、`DayDetail.tsx`。
+- **引擎只加不改**：`plan.ts` 拆出 `buildOneDay(state, day, today)`，新增 `buildCalendarRange({start,end,today})`（区间上限 62 天防误用），`buildCalendar` 改成循环调它——输出与旧版逐字段一致，靠 `test:scheduler` 全绿兜底。`engine.calendarRange()` 是新薄壳，**不调 `ensureDay`**。
+- **三类日期的口径**：历史日读 `DayRecord` 快照（`planSnapshot` / `dueSnapshot` / `newLearned`）且 `newWordAllowed` 回填成已学；今天走 `plan()`（含闸门与 `warning`）；未来日 `estimated=true`、只报 `plannedNewWordLimit` + `shortBatches` 的「已排定」量、`newWordBlocked` 恒 null。**未来日的复习量不是最终值**，文案必须写「已排定 / 做完前面才会追加」。
+- **顺手修的既有 bug**：`dueTotal = due || sum(short)` 会让「快照拍过、当天到期为 0」的历史日回落到实时重算，把至今仍逾期的卡算回那一天。现在 `snapshotDone` 时直接用 `dueSnapshot.length`；`overdue` 也夹了 `Math.max(0, …)`。
+- **皮肤结论：能纯 CSS 兼容，但详情面板不能用 `.cal-figures`**。那套类名在 vinyl 是横向唱片轨（4 个盘会被裁到屏外）、在 bento 是四格拼贴（到期复习挤成窄条）——所以详情读数另起 `.detail-figures` / `.detail-figure`，皮肤只加边框/底色/字号。9 套里 vinyl（圆盘 + `inset` 刻纹）、bento（小瓷砖 + padding 收紧）、broadsheet（方角细线 + 黑块反白）各写 6–10 行，其余零覆盖。
+- **三个踩过的坑（都会复发）**：① **PowerShell 5.1 的 `Set-Content`/`Add-Content` 默认 ANSI**——用它改 `.ts` 会把中文写成乱码（本次差点毁了 `calendarState.ts`，只能整份重写）；改源码一律用 write/edit 工具。② `Out-File -Encoding utf8` 带 BOM，`run-audit-node.js` 的 `JSON.parse` 直接报 `Unexpected token '\ufeff'`；cfg 文件也必须用 write 工具写。③ 审计读不到 `radial-gradient` 的底色，vinyl 的完成态必须用实心 `background` + `box-shadow` 刻纹，否则被判成 1.09:1。
+- **门禁（原始 JSON 在 `out/`）**：`tsc` 0；`test:scheduler` 全部通过（新增 15.1–15.5：过去日冻结 / 未来日不报实际 / 区间截断 62 / 11 月 42 格首格周一 / 完成态七种）；`vite build` 0；`audit-month` 9 皮肤 × 2 明暗 = **18 组 failCount 0**（7 列、格高 ≥44、点击后详情日期一致、翻月回跳、详情不被 Tab 栏压住、对比度 4.59–18.47）；`audit-screens` **54 组 fail 0**；`scan-tiny` **0 条**。
+- **已知限制（本阶段不修）**：详情面板没有「看这一天学过的词」折叠列表（要 `CalendarDay` 带词表，得动类型，留到第三阶段）；无手势翻月（只有 ‹ ›，避免和 Tab 栏手势打架）；`absent` 与「无记录」都显示成灰格（`CalendarDay` 没暴露 absent）；**性能未在真实 5000 词库压过**——隔离 context 里 `cards=0`，42 格全推算的代价需要在真机上量一次；broadsheet 首页 37px 的遗留仍在。
+
+## 2026-11-27 · UI v2 第一阶段：底部三 Tab + 三页清理（已提交 2c6b4d8）
 
 - **交付**：新增 `src/components/TabBar.tsx`（`<nav aria-label="主导航">` + 三个 `[data-tab]` 按钮 + `aria-current="page"`）；`App.tsx` **没加第二个状态**，Tab 高亮由既有 `screen` 派生（`TAB_OF` 映射），错词本用 `mistakesFrom` 记来源、返回回来源屏。Tab 栏是 `.app` 最后一个非滚动子元素 → 天然贴底，**不写 fixed**；**Session 期间不渲染**（作答 Dock 已占底部）。
 - **删掉的**：首页顶栏三键（日历/外观/「词」）与 `.start__foot`；数据页 `.cal-hero__actions`（开始背单词）+ 顶栏三键；设置页 `section.profile`（头像 + 昵称输入），换成 `.me-head`（阶段名 + 已学 n / 总数），标题「我的」→「设置」。外观与阶段切换本来就在设置页，**没新造入口**。

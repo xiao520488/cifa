@@ -22,6 +22,7 @@ import {
 } from './immediate.ts';
 import {
   buildCalendar,
+  buildCalendarRange,
   buildCalendarView,
   buildDailyPlan,
   computeWordBudget,
@@ -330,6 +331,16 @@ export class Scheduler {
   calendarView(days = 8, today: StudyDay = this.today()): CalendarView {
     this.ensureDay(today);
     return buildCalendarView(this.s, { today, days });
+  }
+
+  /**
+   * 月历用：任意区间（含首尾）。
+   *
+   * 与 `calendar()` 的唯一区别是不从今天起算——过去日读快照，今天/未来照旧推算。
+   * 不调 `ensureDay`：那是「今天」的初始化，给别的日期铺路用的，区间里已经包含今天时由 `plan()` 负责。
+   */
+  calendarRange(start: StudyDay, end: StudyDay, today: StudyDay = this.today()): CalendarDay[] {
+    return buildCalendarRange(this.s, { start, end, today });
   }
 
   /** 当天还能学几个新词：计划值 → 池余量 → 复习闸 → 逾期闸（与 plan()/日历同源）。 */

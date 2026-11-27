@@ -1269,3 +1269,23 @@
 [data-skin='broadsheet'] .skin-card__tag {
   font-size: 13px;
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段）
+ * 报纸语言：方角、无底色、只用细线分栏；完成日 = 黑块反白（头条那种重量）。
+ */
+[data-skin='broadsheet'] .month { border-top: 1px solid var(--border-strong); padding-top: var(--space-3); }
+[data-skin='broadsheet'] .month__title { font-family: var(--font-serif); font-size: 30px; }
+[data-skin='broadsheet'] .month__nav { border-radius: 0; }
+[data-skin='broadsheet'] .month__grid { gap: 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+[data-skin='broadsheet'] .cell { border-radius: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 44px; }
+[data-skin='broadsheet'] .cell__n { width: 28px; height: 28px; border-radius: 0; font-size: 14px; }
+[data-skin='broadsheet'] .cell[data-state='done'] .cell__n { background: var(--text); color: var(--surface); }
+[data-skin='broadsheet'] .cell[data-state='partial'] .cell__n { border-color: var(--text); color: var(--text); }
+[data-skin='broadsheet'] .cell[aria-selected='true'] { background: var(--surface-sunken); }
+[data-skin='broadsheet'] .cell[aria-current='date'] { border-color: var(--text); border-width: 2px; }
+[data-skin='broadsheet'] .cell__dot { display: none; }
+[data-skin='broadsheet'] .cal-detail { border-top: 2px solid var(--text); }
+
+/* 详情面板的读数：报纸的细线分栏 */
+[data-skin='broadsheet'] .detail-figures { border-top: 1px solid var(--border-strong); padding-top: var(--space-3); }
+[data-skin='broadsheet'] .detail-figure dd { font-size: 22px; }

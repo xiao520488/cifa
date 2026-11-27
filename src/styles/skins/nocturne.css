@@ -680,3 +680,12 @@
   [data-skin='nocturne'] .dialog { animation: none; }
   [data-skin='nocturne'] .study-progress__bar { transition: none; }
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段）
+ * 夜曲：暗底发光点；完成日 = 实心 accent + 微弱光晕。
+ */
+[data-skin='nocturne'] .month__nav { background: var(--surface-raised); }
+[data-skin='nocturne'] .cell[data-state='done'] .cell__n { box-shadow: 0 0 12px -2px var(--accent); }
+[data-skin='nocturne'] .cell[data-state='today'] .cell__n { border-color: var(--accent); box-shadow: 0 0 10px -3px var(--accent); }
+[data-skin='nocturne'] .cell[aria-selected='true'] { background: var(--accent-weak); }
+[data-skin='nocturne'] .cal-detail { border-top-color: var(--border-strong); }

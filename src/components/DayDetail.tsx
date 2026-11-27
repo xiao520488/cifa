@@ -1,0 +1,135 @@
+/**
+ * 某一天的详情面板（只读）。
+ *
+ * 数字全部来自传进来的 `CalendarDay`，不再查库、不再重算——月历格和这里是同一份数据，
+ * 所以不会出现「格子上写着 18、点开变 17」。
+ *
+ * 三种日期的文案差异是刻意的（见 `docs/UI_V2_PHASE2.md` §3）：
+ * 历史日说「学到多少」，今天说「现在能做多少 + 为什么少」，未来日说「已排定多少 + 还会追加」。
+ */
+
+import { explainCalendarNewWords, formatMonthDay, planSummary, weekdayLabel } from '../lib/scheduler';
+import type { CalendarDay, DailyPlan } from '../lib/scheduler';
+import { cellState } from '../lib/calendarState';
+
+interface DayDetailProps {
+  day: CalendarDay;
+  /** 今天才算的逾期口径与总结句 */
+  plan: DailyPlan;
+  streak: number;
+}
+
+const STATE_TEXT: Record<string, string> = {
+  done: '已完成',
+  partial: '做了一部分',
+  miss: '没做完',
+  empty: '没有记录',
+  future: '还没到',
+  today: '今天',
+};
+
+export function DayDetail({ day, plan, streak }: DayDetailProps) {
+  const state = cellState(day);
+  const isToday = day.isToday;
+
+  // 四个读数：新词 / 到期复习 / 逾期 / 这天状态
+  const newWordValue = day.estimated
+    ? `${day.newWordPlan} 预估`
+    : day.isPast
+      ? `${day.newWordDone}/${day.newWordPlan}`
+      : `${day.newWordPlan}`;
+  // 只有「计划 ≠ 现在可学」才需要那行小字；相等时再写一遍就是噪音（今天那栏已经说了）
+  const newWordHint =
+    isToday && (day.newWordAllowed !== day.newWordPlan || day.newWordBlocked !== null)
+      ? `现在可学 ${day.newWordAllowed}`
+      : null;
+
+  const reviewValue = day.estimated ? `${day.dueTotal} 已排定` : `${day.doneTotal}/${day.dueTotal}`;
+  const overdueValue = isToday
+    ? String(plan.totals.overdue)
+    : day.isPast
+      ? String(day.overdue)
+      : '—';
+
+  return (
+    <section className="cal-detail" aria-live="polite" aria-label="这一天的详情">
+      <header className="cal-detail__head">
+        <h2 className="cal-detail__date">
+          {formatMonthDay(day.day)}
+          <span className="cal-detail__weekday">{weekdayLabel(day.day)}</span>
+        </h2>
+        {/* 状态只放在第 4 个读数里，标题旁不再重复一遍「已完成」 */}
+        {isToday ? <span className="cal-detail__tag is-done">今天</span> : null}
+        {day.estimated ? <span className="cal-detail__tag is-quiet">预估</span> : null}
+      </header>
+
+      <dl className="detail-figures">
+        <div className="detail-figure">
+          <dt>新词</dt>
+          <dd>{newWordValue}</dd>
+        </div>
+        <div className="detail-figure">
+          <dt>到期复习</dt>
+          <dd>{reviewValue}</dd>
+        </div>
+        <div className="detail-figure">
+          <dt>逾期</dt>
+          <dd className={overdueValue !== '0' && overdueValue !== '—' ? 'is-warn' : undefined}>{overdueValue}</dd>
+        </div>
+        <div className="detail-figure">
+          <dt>{isToday ? '连续优秀' : '状态'}</dt>
+          <dd>{isToday ? `${streak} 天` : STATE_TEXT[state]}</dd>
+        </div>
+      </dl>
+
+      {newWordHint ? <p className="cal-detail__hint">{newWordHint}</p> : null}
+      {isToday && plan.totals.dueToday > 0 ? <p className="cal-detail__hint">{planSummary(plan)}</p> : null}
+
+      {day.shortTermBatches.length > 0 ? (
+        <>
+          <h3 className="cal-detail__sub">{day.estimated ? '已排定的复习批次' : '复习批次'}</h3>
+          <ul className="cal-detail__batches">
+            {day.shortTermBatches.map((batch) => (
+              <li key={`${day.day}-${batch.sourceDate}-${batch.daysAgo}`} className="cal-batch">
+                <span className="cal-batch__k">{batch.daysAgo} 天前</span>
+                <span className="cal-batch__v">
+                  {formatMonthDay(batch.sourceDate)} 那批 · {batch.wordCount} 词
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="cal-detail__note">
+          {day.estimated
+            ? '这一天还没排上复习：做完前面的复习才会按新的间隔排进来。'
+            : day.isPast
+              ? '那天没有到期复习。'
+              : '今天没有到期复习。'}
+        </p>
+      )}
+
+      {day.longTermBatches.length > 0 ? (
+        <>
+          <h3 className="cal-detail__sub">长期批次</h3>
+          <ul className="cal-detail__batches">
+            {day.longTermBatches.map((batch) => (
+              <li key={`${day.day}-long-${batch.type}`} className="cal-batch">
+                <span className="cal-batch__k">{batch.type.replace('d', ' 天')}</span>
+                <span className="cal-batch__v">{batch.wordCount} 词</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {day.estimated ? null : isToday ? null : <p className="cal-detail__note">{explainCalendarNewWords(day)}</p>}
+      {day.estimated && day.shortTermBatches.length > 0 ? (
+        <p className="cal-detail__note">
+          未来的复习量只算「此刻已排定」的批次：做完前面几天，新的间隔才会把后面的日子排进来。
+        </p>
+      ) : null}
+    </section>
+  );
+}
+

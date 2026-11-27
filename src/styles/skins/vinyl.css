@@ -1369,3 +1369,30 @@
     gap: var(--vy-band-gap-sm);
   }
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段）
+ * 7 列网格由基线写死，这里只改「格子长什么样」。
+ * vinyl 的唱片语言：完成日 = 实心唱片 + 中心孔反白；未完成 = 只有一圈刻纹。
+ */
+[data-skin='vinyl'] .month__title { font-family: var(--font-display, var(--font-serif)); letter-spacing: 0.02em; }
+[data-skin='vinyl'] .month__nav { border-radius: 50%; background: var(--surface-raised); }
+[data-skin='vinyl'] .cell { min-height: 46px; }
+[data-skin='vinyl'] .cell__n {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 13px; letter-spacing: 0.02em;
+}
+[data-skin='vinyl'] .cell[data-state='done'] .cell__n {
+  border-color: var(--accent);
+  /* 实心盘 + 一圈刻纹（不是径向渐变：审计读不到 gradient 的底色，会把白字压白底算成 1.09:1） */
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent-press, var(--accent));
+  color: var(--on-accent);
+  font-weight: 600;
+}
+[data-skin='vinyl'] .cell[data-state='partial'] .cell__n { border-color: var(--accent); color: var(--accent); background: transparent; }
+[data-skin='vinyl'] .cell[data-state='today'] .cell__n { border-color: var(--accent); border-width: 2px; }
+[data-skin='vinyl'] .cell[aria-selected='true'] { background: transparent; }
+[data-skin='vinyl'] .cell[aria-selected='true'] .cell__n { box-shadow: 0 0 0 2px var(--accent-weak); }
+[data-skin='vinyl'] .cell__dot { display: none; }
+[data-skin='vinyl'] .cal-detail { border-top-style: dashed; }

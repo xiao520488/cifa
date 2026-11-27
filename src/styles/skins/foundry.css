@@ -1499,3 +1499,14 @@
   background-color: color-mix(in srgb, var(--accent-hover) 78%, var(--text));
   border-color: color-mix(in srgb, var(--accent-hover) 78%, var(--text));
 }
+
+/* ------------------------------------------------------------ 月历（v2 第二阶段）
+ * 工业：方角粗描边；完成日 accent-hover（12px 文字对比度，同第一阶段结论）。
+ */
+[data-skin='foundry'] .month__grid { gap: 2px; }
+[data-skin='foundry'] .cell { border-radius: 0; border-color: var(--border); min-height: 44px; }
+[data-skin='foundry'] .cell__n { border-radius: 0; font-family: var(--font-mono); font-size: 13px; }
+[data-skin='foundry'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
+[data-skin='foundry'] .cell[data-state='today'] .cell__n { border-color: var(--accent-hover); }
+[data-skin='foundry'] .cell[aria-current='date'] { border-color: var(--accent-hover); }
+[data-skin='foundry'] .cell__dot { display: none; }

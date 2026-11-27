@@ -7,6 +7,7 @@
 
 import {
   addDays,
+  compareDays,
   diffDays,
   formatMonthDay,
   isMonthFirst,
@@ -319,44 +320,77 @@ export interface CalendarOptions {
   days?: number;
 }
 
+/**
+ * 算单独一天。日历（`buildCalendar` / `buildCalendarRange`）与月历共用这一份，
+ * 保证「同一格」在任何入口拿到的数字一模一样。
+ */
+export function buildOneDay(state: SchedulerState, day: StudyDay, today: StudyDay): CalendarDay {
+  const record = state.days[day];
+  const short = shortBatches(state, day);
+  const long = longBatchesFor(state, day);
+  const { due, done } = completionOf(record);
+  // 快照拍过就以快照为准：`due || sum(short)` 会让「当天到期为 0」的历史日回落到实时重算，
+  // 把至今仍逾期的卡片算回那一天（月历一翻上个月立刻显形）。
+  const dueTotal = record?.snapshotDone ? due : due || sum(short);
+  const plan = record ? record.newWordLimit : plannedNewWordLimit(state, day);
+  const budget = computeWordBudget(state, day);
+  const batchesForDay = record?.snapshotDone
+    ? record.planSnapshot
+    : short.map(({ sourceDate, daysAgo, wordCount }) => ({ sourceDate, daysAgo, wordCount }));
+  const isPast = day < today;
+  const isFuture = day > today;
+  return {
+    day,
+    weekdayLabel: weekdayLabel(day),
+    shortTermBatches: batchesForDay,
+    longTermBatches: long,
+    newWordPlan: plan,
+    // 历史日的「现在还能学多少」没有意义（池子早变了）：直接回填当天实际学到的数，
+    // 免得日历出现「计划 20、可学 0、已学 20」这种自相矛盾的三联。
+    // 未来日同理：复习闸算的是「今天的复习做完没有」，套到还没到的日子上永远是 0/到期数，
+    // 于是天天显示「因复习未完成，实际 0」——纯属胡说。未来日只报计划值，不装作知道届时能学多少。
+    newWordAllowed: isPast ? (record ? record.newLearned.length : 0) : isFuture ? plan : budget.allowed,
+    newWordBlocked: isPast || isFuture ? null : budget.blockedBy,
+    newWordDone: record ? record.newLearned.length : 0,
+    newWordGoal: state.userDailyGoal,
+    dueTotal,
+    doneTotal: done,
+    overdue: record ? Math.max(0, dueTotal - done) : 0,
+    isToday: day === today,
+    isPast,
+    estimated: isFuture,
+  };
+}
+
 export function buildCalendar(state: SchedulerState, options: CalendarOptions): CalendarDay[] {
   const days = Math.max(8, Math.trunc(options.days ?? 8));
   const out: CalendarDay[] = [];
   for (let offset = 0; offset < days; offset += 1) {
-    const day = addDays(options.today, offset);
-    const record = state.days[day];
-    const short = shortBatches(state, day);
-    const long = longBatchesFor(state, day);
-    const { due, done } = completionOf(record);
-    const dueTotal = due || sum(short);
-    const plan = record ? record.newWordLimit : plannedNewWordLimit(state, day);
-    const budget = computeWordBudget(state, day);
-    const batchesForDay = record?.snapshotDone
-      ? record.planSnapshot
-      : short.map(({ sourceDate, daysAgo, wordCount }) => ({ sourceDate, daysAgo, wordCount }));
-    const isPast = day < options.today;
-    const isFuture = day > options.today;
-    out.push({
-      day,
-      weekdayLabel: weekdayLabel(day),
-      shortTermBatches: batchesForDay,
-      longTermBatches: long,
-      newWordPlan: plan,
-      // 历史日的「现在还能学多少」没有意义（池子早变了）：直接回填当天实际学到的数，
-      // 免得日历出现「计划 20、可学 0、已学 20」这种自相矛盾的三联。
-      // 未来日同理：复习闸算的是「今天的复习做完没有」，套到还没到的日子上永远是 0/到期数，
-      // 于是天天显示「因复习未完成，实际 0」——纯属胡说。未来日只报计划值，不装作知道届时能学多少。
-      newWordAllowed: isPast ? (record ? record.newLearned.length : 0) : isFuture ? plan : budget.allowed,
-      newWordBlocked: isPast || isFuture ? null : budget.blockedBy,
-      newWordDone: record ? record.newLearned.length : 0,
-      newWordGoal: state.userDailyGoal,
-      dueTotal,
-      doneTotal: done,
-      overdue: record ? dueTotal - done : 0,
-      isToday: day === options.today,
-      isPast,
-      estimated: isFuture,
-    });
+    out.push(buildOneDay(state, addDays(options.today, offset), options.today));
+  }
+  return out;
+}
+
+export interface CalendarRangeOptions {
+  /** 含首尾 */
+  start: StudyDay;
+  end: StudyDay;
+  today: StudyDay;
+}
+
+/**
+ * 任意区间（月历用）。`buildCalendar` 只能从今天往后走，月历要连上个月一起画，
+ * 所以历史日必须靠 `DayRecord` 的快照，未来日照旧推算——两种口径在 `buildOneDay` 里分流。
+ * 区间上限 62 天：一个可见月最多 42 格，再大就是调用方算错了，直接截断防止误用拖死主线程。
+ */
+export function buildCalendarRange(state: SchedulerState, options: CalendarRangeOptions): CalendarDay[] {
+  const out: CalendarDay[] = [];
+  if (compareDays(options.start, options.end) > 0) return out;
+  const limit = Math.min(62, diffDays(options.start, options.end) + 1);
+  let day = options.start;
+  for (let i = 0; i < limit; i += 1) {
+    out.push(buildOneDay(state, day, options.today));
+    day = addDays(day, 1);
   }
   return out;
 }
