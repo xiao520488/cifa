@@ -136,7 +136,7 @@
 [data-skin='nocturne'] .readouts { display: none; }
 
 /* ---------- 5. 首页 .start ---------------------------------------------- */
-[data-skin='nocturne'] .start { min-height: calc(100dvh - 56px); padding-top: var(--space-2); }
+[data-skin='nocturne'] .start { min-height: calc(100dvh - 56px - var(--tabbar-h) - var(--space-6)); padding-top: var(--space-2); }
 /* 钩子：开。通栏刊号行 = sans 品牌小牌 + 1px border-strong 通栏线 + Newsreader 日期 */
 [data-skin='nocturne'] .start__masthead { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0 0; }
 [data-skin='nocturne'] .start__masthead-brand { font-size: 14px; font-weight: 600; letter-spacing: 0.3em; color: var(--text-secondary); white-space: nowrap; }

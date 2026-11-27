@@ -17,6 +17,7 @@ import { buildReadoutItems, Readouts } from './components/Readouts';
 import { SessionScreen } from './components/SessionScreen';
 import { SkinSheet } from './components/SkinSheet';
 import { StudyScreen } from './components/StudyScreen';
+import { TabBar, type TabKey } from './components/TabBar';
 import { TodayCard } from './components/TodayCard';
 import { useScheduler } from './hooks/useScheduler';
 import { preloadBook } from './lib/books';
@@ -31,12 +32,35 @@ import { getBook, levelMeta, showAllMeanings } from './lib/words';
 type Screen = 'study' | 'calendar' | 'me' | 'mistakes';
 type SheetKind = 'import' | 'delete-custom' | 'reset-engine' | 'skin' | null;
 
+/** Tab ↔ 屏的映射只在这里写一次；Tab 高亮永远由 `screen` 派生（单一真源）。 */
+const TAB_OF: Record<Screen, TabKey> = {
+  study: 'words',
+  calendar: 'data',
+  me: 'settings',
+  mistakes: 'words',
+};
+const SCREEN_OF: Record<TabKey, Screen> = {
+  words: 'study',
+  data: 'calendar',
+  settings: 'me',
+};
+
 export default function App() {
   const [store, setStore] = useState<Store>(loadStore);
   const [screen, setScreen] = useState<Screen>('study');
+  /** 错词本没有自己的 Tab：从哪个 Tab 进的，返回就回哪个 */
+  const [mistakesFrom, setMistakesFrom] = useState<Screen>('study');
   /** 唯一学习入口：true = 统一 Session 在场 */
   const [session, setSession] = useState(false);
   const [sheet, setSheet] = useState<SheetKind>(null);
+
+  /** 当前 Tab：错词本沿用来源 Tab 的高亮，切走时回到默认位 */
+  const activeTab: TabKey = screen === 'mistakes' ? TAB_OF[mistakesFrom] : TAB_OF[screen];
+
+  const openMistakes = (from: Screen) => {
+    setMistakesFrom(from);
+    setScreen('mistakes');
+  };
 
   useEffect(() => {
     saveStore(store);
@@ -281,31 +305,23 @@ export default function App() {
           allowedNew={allowedNew}
           todayBatchCount={todayBatchCount}
           learnedCount={learnedCount}
-          initial={initial}
           readoutItems={readoutItems}
           todayCard={
             <TodayCard
               plan={todayView.plan}
               stats={todayView.stats}
               onOpenCalendar={() => setScreen('calendar')}
-              onOpenMistakes={() => setScreen('mistakes')}
+              onOpenMistakes={() => openMistakes('study')}
             />
           }
           onStart={() => setSession(true)}
-          onOpenMe={() => setScreen('me')}
-          onOpenSkin={() => setSheet('skin')}
-          onOpenCalendar={() => setScreen('calendar')}
+          onOpenSettings={() => setScreen('me')}
           onImport={() => setSheet('import')}
         />
       ) : screen === 'calendar' ? (
         <CalendarScreen
           engine={scheduler.engine}
           version={scheduler.version}
-          initial={initial}
-          onBack={() => setScreen('study')}
-          onOpenMe={() => setScreen('me')}
-          onOpenSkin={() => setSheet('skin')}
-          onStartSession={() => setSession(true)}
         />
       ) : screen === 'mistakes' ? (
         <MistakesScreen
@@ -314,7 +330,7 @@ export default function App() {
           book={book}
           initial={initial}
           run={scheduler.run}
-          onBack={() => setScreen('study')}
+          onBack={() => setScreen(mistakesFrom)}
           onOpenMe={() => setScreen('me')}
         />
       ) : (
@@ -329,7 +345,6 @@ export default function App() {
           onDefaultMeaning={(hide) =>
             setStore((prev) => ({ ...prev, session: { ...prev.session, hideMeaning: hide } }))
           }
-          onBack={() => setScreen('study')}
           onUpdateProfile={updateProfile}
           onStage={changeStage}
           onBatchSize={changeBatchSize}
@@ -338,7 +353,7 @@ export default function App() {
           onDeleteCustom={() => setSheet('delete-custom')}
           onOpenSkin={() => setSheet('skin')}
           onOpenCalendar={() => setScreen('calendar')}
-          onOpenMistakes={() => setScreen('mistakes')}
+          onOpenMistakes={() => openMistakes('me')}
         />
       )}
 
@@ -347,6 +362,12 @@ export default function App() {
           按 vinyl 自己的吸底定式（.app flex 列最后一个非滚动子元素）天然贴底，不写 fixed。 */}
       {showBand ? (
         <Readouts screen={screen === 'calendar' ? 'cal' : 'me'} items={readoutItems} />
+      ) : null}
+
+      {/* 底部 Tab 栏：和读数带同为 `.app` 的非滚动子元素，天然贴底（不写 fixed）。
+          学习中（session）不渲染——作答 Dock 已经占住底部，两层层叠会互压。 */}
+      {!session ? (
+        <TabBar active={activeTab} onSelect={(tab) => setScreen(SCREEN_OF[tab])} />
       ) : null}
 
       {sheet === 'import' ? (

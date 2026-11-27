@@ -129,6 +129,90 @@ p {
   padding: 0 var(--page-x) var(--space-6);
 }
 
+/* ---------- 底部 Tab 栏（v2 第一阶段，见 docs/UI_V2_PHASE1.md） ----------- */
+
+/* `.app` 是 flex 列，本栏是最后一个非滚动子元素 → 天然贴底，绝不写 fixed
+   （`.app` 有 max-width，fixed 在宽屏会脱列）。`order: 4` 是为了压过 vinyl 的
+   「main=2 / readouts=3」沉底交换；没有它，默认 order:0 会被排到 topbar 下面。 */
+.tabbar {
+  order: 4;
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-height: var(--tabbar-h);
+  padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  /* 指甲盖：各皮肤在宽屏给内容加内边距时，栏内边距跟着对齐（bento/nocturne 同款语法） */
+  padding-inline: max(var(--space-2), calc((100% - var(--content-max)) / 2 + var(--space-4)));
+}
+
+.tabbar__btn {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 48px; /* 审计的 44px 闸：栏内每个入口都必须够大 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-md);
+  /* 非当前项用 --text-secondary 而不是 tertiary：foundry 的 tertiary 在 surface 上
+     只有 4.37:1（亮）/ 4.47:1（暗），12px 正文要 4.5，实测被审计卡住。 */
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.tabbar__label {
+  /* 标签只有 2 个汉字，天然免疫「>4 汉字必须 ≥14px」那条硬线 */
+  font-weight: 500;
+}
+
+/* 当前页：accent 文字 + 顶部 2px 指示条。颜色之外还有一条形，不靠单一颜色编码。
+   注意：这里**不能**用 color-mix —— 它算出的值是 `color(srgb …)`，审计的对比度解析器
+   只认 rgb()/rgba()，读不到就会静默跳过该项（假绿）。需要压对比度的皮肤在皮肤文件里
+   用自己的令牌覆盖（foundry 见 foundry.css §Tab）。 */
+.tabbar__btn[aria-current='page'] {
+  color: var(--accent);
+}
+
+.tabbar__btn[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 20px;
+  height: 2px;
+  margin-left: -10px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+@media (hover: hover) {
+  .tabbar__btn:hover:not([aria-current='page']) {
+    color: var(--text-secondary);
+    background: var(--row-hover);
+  }
+}
+
+.tabbar__btn:active {
+  transform: scale(0.97);
+  background: var(--surface-sunken);
+}
+
+.tabbar__btn:focus-visible {
+  outline-offset: -2px;
+}
+
 /* ---------- Top bar ------------------------------------------------------ */
 
 .topbar {
@@ -336,7 +420,7 @@ p {
 .start {
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - 56px);
+  min-height: calc(100dvh - 56px - var(--tabbar-h) - var(--space-6));
   padding-top: var(--space-5);
 }
 
@@ -750,6 +834,28 @@ p {
   margin-top: var(--space-1);
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+/* 设置页抬头（v2 第一阶段）：替代原来的「圆形头像 + 昵称输入」那块。
+   只报两件事——现在学哪本、学到哪儿；下面紧跟 `.section` 的分隔线。 */
+.me-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-5) 0 var(--space-4);
+}
+
+.me-head__stage {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+
+.me-head__meta {
+  font-size: var(--fs-small);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .section {
@@ -2436,7 +2542,7 @@ html.is-theme-switching *::after {
 
 @media (min-width: 768px) {
   .start {
-    min-height: calc(100dvh - 56px);
+    min-height: calc(100dvh - 56px - var(--tabbar-h) - var(--space-6));
   }
 
   .word-row {

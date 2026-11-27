@@ -46,7 +46,7 @@ async (page) => {
     const app = document.querySelector('.app').getBoundingClientRect();
     const low = [], small = [], out = [], outY = [], clip = [], tiny = [];
     const seen = new Set();
-    const scope = rootSel ? [root, ...root.querySelectorAll('*')] : [...document.querySelectorAll('.screen *, .topbar *, .readouts *, .sheet, .sheet *, .dialog, .dialog *')];
+    const scope = rootSel ? [root, ...root.querySelectorAll('*')] : [...document.querySelectorAll('.screen *, .topbar *, .readouts *, .tabbar *, .sheet, .sheet *, .dialog, .dialog *')];
     for (const e of scope) {
       if (e.closest('[aria-hidden="true"]') || !vis(e)) continue;
       const c = getComputedStyle(e);
@@ -113,14 +113,19 @@ async (page) => {
   };
   const go = async (kind) => {
     if (kind === 'home') return page.evaluate(() => !!document.querySelector('.start'));
-    if (kind === 'cal') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes('学习日历')); if (b) b.click(); return !!b; });
-    if (kind === 'me') return page.evaluate(() => { const b = document.querySelector('.avatar-btn'); if (b) b.click(); return !!b; });
+    // v2 第一阶段：顶部三键已删，日历 / 外观 / 我的 全改由底部 Tab 栏进入
+    if (kind === 'cal') return page.evaluate(() => { const b = document.querySelector('.tabbar [data-tab="data"]'); if (b) b.click(); return !!b; });
+    if (kind === 'me') return page.evaluate(() => { const b = document.querySelector('.tabbar [data-tab="settings"]'); if (b) b.click(); return !!b; });
     if (kind === 'mistakes' || kind === 'import' || kind === 'dialog') {
       const label = { mistakes: '错词本', import: '导入词表', dialog: '清空所有学习数据' }[kind];
       return page.evaluate((l) => { const row = [...document.querySelectorAll('.setting-row')].find((r) => (r.querySelector('.setting-row__label') || {}).textContent?.includes(l)); const b = row && row.querySelector('button'); if (b) b.click(); return !!b; }, label);
     }
-    if (kind === 'sheet') return page.evaluate(() => { const b = [...document.querySelectorAll('.icon-btn')].find((x) => (x.getAttribute('aria-label') || '').includes('外观')); if (b) b.click(); return !!b; });
-    if (kind === 'session') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes('开始背单词')); if (b) b.click(); return !!b; });
+    // 外观面板现在只从设置页的「快速切换」打开（首页调色板随三键一起删了）
+    if (kind === 'sheet') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '快速切换'); if (b) b.click(); return !!b; });
+    if (kind === 'session') {
+      // v2：首页「开始背单词」还在；日历页那个已删，别再给日历留第二条入口
+      return page.evaluate(() => { const b = document.querySelector('.start .start__actions .btn--primary, .cal-hero__actions .btn--primary'); if (b) { b.click(); return true; } return false; });
+    }
     return false;
   };
   const out = [];
@@ -130,7 +135,7 @@ async (page) => {
         for (const kind of cfg.screens) {
           await setSkin(skin, theme, w, h);
           let ok = true;
-          if (kind === 'mistakes' || kind === 'import' || kind === 'dialog') { await go('me'); await page.waitForTimeout(240); }
+          if (kind === 'mistakes' || kind === 'import' || kind === 'dialog' || kind === 'sheet') { await go('me'); await page.waitForTimeout(240); }
           ok = await go(kind);
           await page.waitForTimeout(kind === 'session' ? 420 : 260);
           if (!ok) { out.push({ skin, theme, w, kind, nav: 'FAIL' }); continue; }

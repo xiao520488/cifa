@@ -371,7 +371,7 @@
 
 /* 100dvh − 52 顶栏 − ~90 读数带 − 底部呼吸 */
 [data-skin='instrument'] .start {
-  min-height: calc(100dvh - 148px);
+  min-height: calc(100dvh - 148px - var(--tabbar-h) - var(--space-6));
   padding-top: 0;
 }
 

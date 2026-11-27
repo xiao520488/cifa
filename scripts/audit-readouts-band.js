@@ -47,7 +47,7 @@
 // bento / nocturne = false（cal/me **连隐藏节点都不许有**——按 querySelector 为 null 断言）。
 // 手抄两处必须同步；末尾用「外观面板皮肤卡数 === 8」做漂移兜底断言。
 async (page) => {
-  const SKINS = ['paper', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'desk', 'vinyl'];
+  const SKINS = ['paper', 'breeze', 'foundry', 'instrument', 'broadsheet', 'bento', 'nocturne', 'desk', 'vinyl'];
   const EXPECT = new Set(['desk', 'vinyl']);
   const KEYS = ['cijian.v1', 'cijian.scheduler.v1'];
   const BAK = '__bandbak_';
@@ -94,10 +94,11 @@ async (page) => {
 
   const go = async (kind) => {
     if (kind === 'home') return true;
-    if (kind === 'cal') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes('学习日历')); if (b) b.click(); return !!b; });
-    if (kind === 'me') return page.evaluate(() => { const b = document.querySelector('.avatar-btn'); if (b) b.click(); return !!b; });
+    // v2 第一阶段：日历 / 设置全走底部 Tab；外观面板只在设置页有入口
+    if (kind === 'cal') return page.evaluate(() => { const b = document.querySelector('.tabbar [data-tab="data"]'); if (b) b.click(); return !!b; });
+    if (kind === 'me') return page.evaluate(() => { const b = document.querySelector('.tabbar [data-tab="settings"]'); if (b) b.click(); return !!b; });
     if (kind === 'mistakes') return page.evaluate(() => { const row = [...document.querySelectorAll('.setting-row')].find((r) => (r.querySelector('.setting-row__label') || {}).textContent?.includes('错词本')); const b = row && row.querySelector('button'); if (b) b.click(); return !!b; });
-    if (kind === 'sheet') return page.evaluate(() => { const b = [...document.querySelectorAll('.icon-btn')].find((x) => (x.getAttribute('aria-label') || '').includes('外观')); if (b) b.click(); return !!b; });
+    if (kind === 'sheet') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '快速切换'); if (b) b.click(); return !!b; });
     return false;
   };
 
@@ -192,7 +193,7 @@ async (page) => {
   const run = async (skin, theme, vp, kind) => {
     const [w, h] = vp;
     await setSkin(skin, theme, w, h);
-    if (kind === 'mistakes') { await go('me'); await page.waitForTimeout(240); }
+    if (kind === 'mistakes' || kind === 'sheet') { await go('me'); await page.waitForTimeout(240); }
     const before = await snapOf();
     const ok = await go(kind);
     await page.waitForTimeout(320);
@@ -226,21 +227,26 @@ async (page) => {
     }
   }
 
-  // 反例：mistakes 屏恒无带节点（开关范围外）；sheet 浮层开在首页上，
-  // 此时带子必须是首页那块（data-readouts-screen='home'），不许冒出 cal/me 常驻带
+  // 反例：mistakes 屏恒无带节点（开关范围外）；sheet 浮层从设置页打开（v2 第一阶段：
+  // 首页调色板已删），此时带子必须仍是设置页那块（data-readouts-screen='me'），
+  // 不许退回首页那块、也不许消失——浮层不该改变常驻带的归属。
   const counter = [];
   for (const skin of SKINS) {
     const m = await run(skin, 'light', cfg.vps[0], 'mistakes');
     counter.push({ skin, kind: 'mistakes', absentOk: m.present === false });
     const s = await run(skin, 'light', cfg.vps[0], 'sheet');
-    counter.push({ skin, kind: 'sheet', notBand: s.screen === 'home' });
+    // 开在设置页上：真有两档带子的皮肤必须是 'me'；没有带子的皮肤则必须「查无节点」，
+    // 不许借浮层凭空冒出一条 me 带。
+    counter.push({ skin, kind: 'sheet', notBand: s.present === false || s.screen === 'me' });
   }
 
   // 漂移兜底：面板里皮肤卡数必须 === SKINS.length，否则说明皮肤表动过而 EXPECT 没跟
   await setSkin('paper', 'light', cfg.vps[0][0], cfg.vps[0][1]);
+  await go('me');
+  await page.waitForTimeout(200);
   await go('sheet');
   await page.waitForTimeout(280);
-  const cards = await page.evaluate(() => document.querySelectorAll('.skin-card').length);
+  const cards = await page.evaluate(() => document.querySelectorAll('.sheet .skin-card').length);
   await page.keyboard.press('Escape');
 
   // 收尾：双键还原（若中途有写入）→ 无条件删除临时备份键并断言删净（规则 3）

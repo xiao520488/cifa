@@ -11,7 +11,6 @@ import type { ReactNode } from 'react';
 import type { LevelMeta } from '../lib/types';
 import { Readouts, type ReadoutItem } from './Readouts';
 import { RollingNumber } from './RollingNumber';
-import { IconCalendar, IconPalette } from './Icons';
 
 interface StudyScreenProps {
   stageMeta: LevelMeta;
@@ -21,16 +20,14 @@ interface StudyScreenProps {
   allowedNew: number;
   todayBatchCount: number;
   learnedCount: number;
-  initial: string;
   /** 首页「今日」摘要（由调度引擎算好传进来，本组件不碰调度） */
   todayCard?: ReactNode;
   /** 读数带三项（今日/批数/已学）。由 App 顶层同一份 memo 生成，
    *  与日历 / 「我的」屏的常驻带同源——本组件不再自己格式化数字。 */
   readoutItems: ReadoutItem[];
   onStart: () => void;
-  onOpenMe: () => void;
-  onOpenSkin: () => void;
-  onOpenCalendar: () => void;
+  /** 空词库时唯一的去处：设置页（外观 / 阶段都在那儿） */
+  onOpenSettings: () => void;
   onImport: () => void;
 }
 
@@ -41,13 +38,10 @@ export function StudyScreen({
   allowedNew,
   todayBatchCount,
   learnedCount,
-  initial,
   todayCard,
   readoutItems,
   onStart,
-  onOpenMe,
-  onOpenSkin,
-  onOpenCalendar,
+  onOpenSettings,
   onImport,
 }: StudyScreenProps) {
   const empty = totalCount === 0;
@@ -70,15 +64,6 @@ export function StudyScreen({
             <span>{allowedNew > 0 ? `今日 ${allowedNew} 词` : '今日新词已发完'}</span>
           </span>
         </div>
-        <button type="button" className="icon-btn" onClick={onOpenCalendar} aria-label="打开学习日历">
-          <IconCalendar size={20} />
-        </button>
-        <button type="button" className="icon-btn" onClick={onOpenSkin} aria-label="切换外观风格">
-          <IconPalette size={20} />
-        </button>
-        <button type="button" className="avatar-btn" onClick={onOpenMe} aria-label="打开我的">
-          {initial}
-        </button>
       </header>
 
       <Readouts screen="home" items={readoutItems} />
@@ -92,8 +77,8 @@ export function StudyScreen({
               <button type="button" className="btn btn--primary" onClick={onImport}>
                 导入词表
               </button>
-              <button type="button" className="btn btn--text" onClick={onOpenMe}>
-                去「我的」切换阶段
+              <button type="button" className="btn btn--text" onClick={onOpenSettings}>
+                去「设置」切换阶段
               </button>
             </div>
           ) : (
@@ -156,13 +141,6 @@ export function StudyScreen({
                   </button>
                 </div>
                 {todayCard}
-              </div>
-              <div className="start__foot">
-                <span>进度只存在这台设备</span>
-                <span className="start__rule" aria-hidden="true" />
-                <button type="button" className="btn btn--text" onClick={onOpenMe}>
-                  换个阶段
-                </button>
               </div>
             </div>
           )}

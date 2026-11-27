@@ -281,6 +281,13 @@
   transition: background-color var(--duration-fast) var(--ease-out);
 }
 
+/* Tab 栏（v2 第一阶段）：本皮肤的 --accent #cf3714 当 12px 文字只有 4.37:1（要 4.5），
+   暗档压深到 --accent-press 又掉到 3.49 —— 只有 hover 档在明暗两档都过线
+   （亮 #bf3212 → 4.99:1，暗 #ff6a45 → 6.44:1）。指示条仍用纯 accent，不跟着走。 */
+[data-skin='foundry'] .tabbar__btn[aria-current='page'] {
+  color: var(--accent-hover);
+}
+
 [data-skin='foundry'] .avatar-btn:hover {
   transform: none;
   background: var(--accent-press);
@@ -608,7 +615,7 @@
    铭牌总成内部是固定节奏（12–24px），所以余量只落在装配体外侧，
    1082 高的桌面窗口每段约 76px；360 手机上余量≈0，内容首尾相接。 */
 [data-skin='foundry'] .start {
-  min-height: calc(100dvh - 104px);
+  min-height: calc(100dvh - 104px - var(--tabbar-h));
   padding-top: 16px;
   padding-bottom: 24px;
 }
@@ -1324,7 +1331,7 @@
   }
 
   [data-skin='foundry'] .start {
-    min-height: calc(100dvh - 112px);
+    min-height: calc(100dvh - 112px - var(--tabbar-h));
     padding-top: 32px;
     padding-bottom: 40px;
   }

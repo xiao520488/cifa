@@ -1,5 +1,19 @@
 # NOTES
 
+## 2026-11-27 · UI v2 第一阶段：底部三 Tab + 三页清理（**未提交**，等真日历那一轮一起落）
+
+- **交付**：新增 `src/components/TabBar.tsx`（`<nav aria-label="主导航">` + 三个 `[data-tab]` 按钮 + `aria-current="page"`）；`App.tsx` **没加第二个状态**，Tab 高亮由既有 `screen` 派生（`TAB_OF` 映射），错词本用 `mistakesFrom` 记来源、返回回来源屏。Tab 栏是 `.app` 最后一个非滚动子元素 → 天然贴底，**不写 fixed**；**Session 期间不渲染**（作答 Dock 已占底部）。
+- **删掉的**：首页顶栏三键（日历/外观/「词」）与 `.start__foot`；数据页 `.cal-hero__actions`（开始背单词）+ 顶栏三键；设置页 `section.profile`（头像 + 昵称输入），换成 `.me-head`（阶段名 + 已学 n / 总数），标题「我的」→「设置」。外观与阶段切换本来就在设置页，**没新造入口**。
+- **最大的坑：`.start` 的 min-height 要同时减「栏高 + `.screen` 下留白」**。只减栏高，首页仍多 32px 空滚（九套皮肤各写一遍，实测 8 套归 0、foundry 1）。`--tabbar-h` 是 **57px** 不是 56：4+48+4 内边距 + 1px 上边框，border-box 下写 56 会溢成 57。
+- **第二个坑：`color-mix()` 不能用来调文字色**。它算出的值是 `color(srgb …)`，审计的对比度解析器只认 `rgb()/rgba()` → 读不到就**静默跳过**，那是假绿。foundry 的 `--accent #cf3714` 当 12px 文字只有 4.37:1、暗档 `--accent-press` 掉到 3.49，最后用 `--accent-hover`（亮 4.99 / 暗 6.44）单独覆盖。非当前项统一用 `--text-secondary`（tertiary 在 foundry 亮档也是 4.37）。
+- **两处皮肤骨架补丁**：desk ≥768 的 `.app:has(.start)` 是 2×2 grid，Tab 栏会被自动塞进「第 3 行第 1 列」→ 显式 `grid-template-rows: auto minmax(0,1fr) auto` + `grid-column:1/-1; grid-row:3`；vinyl 用 `order` 沉底（main=2 / readouts=3），Tab 栏在基线里写死 `order:4`。
+- **门禁全绿（原始 JSON 在 `out/v2-*.json`）**：`tsc` 0；`vite build` 0；`test:scheduler` 全部通过；`audit-screens` 9 皮肤 × 2 明暗 × 3 Tab @390 = **54 点 failCount 0**；`scan-tiny` **groups 0 / hardFail 0**（扫描作用域已加 `.tabbar *`）；`audit-readouts-band` **36 点 failCount 0**（顺带补上此前漏掉的 breeze，并修好「sheet 现在从设置页打开」后失效的两条反例）。
+- **审计脚本必须跟着改，否则假绿/假红**：`audit-screens` / `scan-tiny` / `audit-readouts-band` 原先靠 `.avatar-btn` 和「外观」icon-btn 导航，删掉后直接 `nav:'FAIL'` → 全部改走 `[data-tab]`；外观面板改为「先进设置再点『快速切换』」。
+- **实测数字**：Tab 项 121–122 × 48（44 闸过）、栏高 57、390/768/1440 下 `docOvfX` 全 false、焦点环 `2px accent offset -2`、键盘 Tab 顺序「CTA → 学习日历 → 单词/数据/设置」。
+- **已知限制（本阶段不修）**：**broadsheet 首页要滚 37px**（内容本身 762px，压 min-height 无效，真修要动该皮肤垂直节奏）；无 Tab 切换动效（只有既有的 `screen-in`）；无 URL/hash，刷新回「单词」；Android 返回键仍退出 App；`.profile*` / `.start__foot` / `.cal-hero__actions` 成死代码不清理；数据页「接下来 7 天」原封未动，等第二阶段换真日历。
+- **截图**：`out/v2-{breeze,desk,vinyl}-{words,data,settings}-{light,dark}-390.png`（18 张）、`out/v2-{breeze,desk}-words-*-1440.png`、`out/v2-breeze-{words,settings}-light-{360,768,1440}.png`、`out/v2-breeze-session-390.png`（证明学习流无 Tab）、`out/v2-broadsheet-words-light-390.png`（37px 那条限制的证据）。
+- **下一步**：等用户确认第一阶段 → 第二阶段（真日历替换「接下来 7 天」）；`scripts/cfg-v2-tabs.json`、`cfg-v2-band.json` 是可复现的门禁配置，别删。
+
 ## 2026-11-27 · 第 9 套皮肤「晴空 BREEZE」+ 新装默认 · APK 1.4.3 / versionCode 8
 
 - **交付**：`src/styles/skins/breeze.css`（809 行 / 107 条规则 / 0 处 `!important`，每条选择器都带 `[data-skin='breeze']`；`tokens.css` 一个字节没改）。白卡 20r + 弥散阴影 + 亮蓝 `#2563EB`（白字 **5.17:1**；百词斩那个 `#2F6BFF` 白字只有 4.2:1，压深一档才过 AA）。学习卡：词头 `clamp(38px,11vw,54px)/700` Space Grotesk 居中、音标浅灰药丸、**一个释义一张白卡**（16px/1.75/`#334155`）。

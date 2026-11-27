@@ -299,7 +299,7 @@
 
 [data-skin='broadsheet'] .start {
   /* 满版：扣掉顶栏与 .screen 的下边距，正好一屏，不留介绍句走后的空档 */
-  min-height: calc(100dvh - var(--bs-chrome) - var(--space-6));
+  min-height: calc(100dvh - var(--bs-chrome) - var(--space-6) - var(--tabbar-h) - var(--space-6));
   padding-top: 0;
 }
 

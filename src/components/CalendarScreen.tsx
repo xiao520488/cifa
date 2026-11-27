@@ -29,17 +29,10 @@ import {
 import type { CalendarDay, Scheduler } from '../lib/scheduler';
 import { Hint } from './Hint';
 import { RollingNumber } from './RollingNumber';
-import { IconBack, IconPalette } from './Icons';
 
 interface CalendarScreenProps {
   engine: Scheduler;
   version: number;
-  initial: string;
-  onBack: () => void;
-  onOpenMe: () => void;
-  onOpenSkin: () => void;
-  /** 统一入口（v1.1）：进 Session 状态机，复习优先由流程内部保证 */
-  onStartSession: () => void;
 }
 
 /**
@@ -101,15 +94,7 @@ function DayCard({ day }: { day: CalendarDay }) {
   );
 }
 
-export function CalendarScreen({
-  engine,
-  version,
-  initial,
-  onBack,
-  onOpenMe,
-  onOpenSkin,
-  onStartSession,
-}: CalendarScreenProps) {
+export function CalendarScreen({ engine, version }: CalendarScreenProps) {
   const { plan, view, stats } = useMemo(() => {
     void version;
     return {
@@ -134,21 +119,12 @@ export function CalendarScreen({
   return (
     <>
       <header className="topbar topbar--bordered">
-        <button type="button" className="icon-btn" onClick={onBack} aria-label="返回">
-          <IconBack size={22} />
-        </button>
         <div className="study-bar__info">
           <div className="study-bar__title">学习日历</div>
           <div className="study-bar__sub">
             {formatMonthDay(today)} {weekdayLabel(today)}
           </div>
         </div>
-        <button type="button" className="icon-btn" onClick={onOpenSkin} aria-label="切换外观风格">
-          <IconPalette size={20} />
-        </button>
-        <button type="button" className="avatar-btn" onClick={onOpenMe} aria-label="打开我的">
-          {initial}
-        </button>
       </header>
 
       <main className="app__main">
@@ -205,24 +181,6 @@ export function CalendarScreen({
               </p>
             ) : null}
             <p className="cal-hero__lede">{planSummary(plan)}</p>
-
-            <div className="cal-hero__actions">
-              <button
-                type="button"
-                className="btn btn--primary btn--block btn--compact"
-                onClick={onStartSession}
-                disabled={
-                  plan.allowedNewWords === 0 &&
-                  plan.totals.dueToday === 0 &&
-                  plan.totals.overdue === 0 &&
-                  plan.longTermBatches.length === 0
-                }
-              >
-                {plan.allowedNewWords > 0 || plan.totals.dueToday > 0 || plan.totals.overdue > 0
-                  ? '开始背单词'
-                  : '今天没有要学的了'}
-              </button>
-            </div>
           </section>
 
           <section className="cal-section" aria-labelledby="cal-next-title">

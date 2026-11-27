@@ -118,7 +118,7 @@
 [data-skin='desk'] .start {
   position: relative;
   display: flex; flex-direction: column;
-  min-height: calc(100dvh - var(--ds-topbar) - var(--space-6)); /* 减顶栏与 .screen 的下留白：短内容时正好一屏 */
+  min-height: calc(100dvh - var(--ds-topbar) - var(--space-6) - var(--tabbar-h)); /* 减顶栏 / 下留白 / 底部 Tab 栏：短内容时正好一屏 */
   margin-inline: calc(-1 * var(--page-x));
   padding: var(--space-4) var(--page-x) 0 var(--ds-rail-w);
 }
@@ -274,8 +274,11 @@
 
   /* 必须用 .app:has(.start) 限定：否则日历 / 我的 / 列表页会多出一条空抽屉 */
   [data-skin='desk'] .app:has(.start) {
-    display: grid; grid-template-columns: 212px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+    display: grid; grid-template-columns: 212px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
   }
+  /* 底部 Tab 栏是 .app 的第 4 个子节点：不显式落位会被自动塞进「第 3 行第 1 列」，
+     跑到左抽屉下面去。通栏压在第 3 行，抽屉（第 2 行第 1 列）与内容列都在它上面。 */
+  [data-skin='desk'] .app:has(.start) .tabbar { grid-column: 1 / -1; grid-row: 3; }
   [data-skin='desk'] .app:has(.start) .topbar { grid-column: 1 / -1; grid-row: 1; } /* topbar 通栏（实测正常） */
   /* 读数条从顶部横条搬进左栏 = 本案「栏」这条轴的落点 */
   [data-skin='desk'] .app:has(.start) .readouts {

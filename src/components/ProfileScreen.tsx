@@ -16,7 +16,7 @@ import {
 } from '../lib/backup';
 import { bookCount, bookStats, LEVELS, levelMeta, showAllMeanings } from '../lib/words';
 import { Hint } from './Hint';
-import { IconAlert, IconBack } from './Icons';
+import { IconAlert } from './Icons';
 import { ConfirmDialog } from './Modal';
 import { Segmented } from './Segmented';
 import { SkinPicker } from './SkinPicker';
@@ -28,7 +28,6 @@ interface ProfileScreenProps {
   learnedCount: number;
   schedulerStats: SchedulerStats;
   allowance: NewWordAllowance;
-  onBack: () => void;
   onUpdateProfile: (patch: Partial<Profile>) => void;
   onStage: (stage: LevelKey) => void;
   onBatchSize: (size: number) => void;
@@ -52,7 +51,6 @@ export function ProfileScreen({
   learnedCount,
   schedulerStats,
   allowance,
-  onBack,
   onUpdateProfile,
   onStage,
   onBatchSize,
@@ -70,7 +68,6 @@ export function ProfileScreen({
   const meta = levelMeta(profile.stage);
   const total = book?.words.length ?? 0;
   const stats = useMemo(() => bookStats(book), [book]);
-  const initial = profile.name.trim().slice(0, 1) || '词';
   const showAll = showAllMeanings(profile.meaningMode, profile.stage);
   const progressPercent = total > 0 ? Math.min(100, (learnedCount / total) * 100) : 0;
 
@@ -150,37 +147,20 @@ export function ProfileScreen({
   return (
     <>
       <header className="topbar topbar--bordered">
-        <button type="button" className="icon-btn" onClick={onBack} aria-label="返回背单词">
-          <IconBack size={22} />
-        </button>
-        <h1 className="topbar__title">我的</h1>
+        <h1 className="topbar__title">设置</h1>
         <span className="topbar__spacer" />
       </header>
 
       <main className="app__main">
         <div className="screen">
-          <section className="profile">
-            <div className="avatar" aria-hidden="true">
-              {initial}
-            </div>
-            <div className="profile__body">
-              <label className="sr-only" htmlFor="profile-name">
-                昵称
-              </label>
-              <input
-                id="profile-name"
-                className="profile__name"
-                value={profile.name}
-                maxLength={12}
-                placeholder="给自己起个名字"
-                onChange={(event) => onUpdateProfile({ name: event.target.value })}
-                autoComplete="off"
-              />
-              <p className="profile__meta">
-                {meta.name} · 已学 {learnedCount} / {total} 词
-              </p>
-            </div>
-          </section>
+          {/* 头像与昵称已删（v2 第一阶段）：页首只留「现在学的是哪本 + 学到哪儿」，
+              这两行原来挂着头像那一块，位置提上来当页面抬头。 */}
+          <header className="me-head">
+            <h2 className="me-head__stage">{meta.name}</h2>
+            <p className="me-head__meta">
+              已学 {learnedCount} / {total} 词
+            </p>
+          </header>
 
           <section className="section">
             <div className="section__head">

@@ -5,7 +5,7 @@ async (page) => {
   const screens = ['home', 'cal', 'me', 'mistakes', 'sheet'];
   const SCAN = () => {
     const rows = [];
-    for (const e of document.querySelectorAll('.screen *, .topbar *, .readouts *, .sheet, .sheet *, .app__main *')) {
+    for (const e of document.querySelectorAll('.screen *, .topbar *, .readouts *, .tabbar *, .sheet, .sheet *, .app__main *')) {
       if (e.closest('[aria-hidden="true"]')) continue;
       const c = getComputedStyle(e);
       if (c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) continue;
@@ -23,10 +23,11 @@ async (page) => {
   };
   const go = async (kind) => {
     if (kind === 'home') return;
-    if (kind === 'cal') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes('学习日历')); if (b) b.click(); });
-    if (kind === 'me') return page.evaluate(() => { const b = document.querySelector('.avatar-btn'); if (b) b.click(); });
+    // v2 第一阶段：导航全走底部 Tab（顶部三键与日历页开始按钮都已删）
+    if (kind === 'cal') return page.evaluate(() => { const b = document.querySelector('.tabbar [data-tab="data"]'); if (b) b.click(); });
+    if (kind === 'me') return page.evaluate(() => { const b = document.querySelector('.tabbar [data-tab="settings"]'); if (b) b.click(); });
     if (kind === 'mistakes') return page.evaluate(() => { const row = [...document.querySelectorAll('.setting-row')].find((r) => (r.querySelector('.setting-row__label') || {}).textContent?.includes('错词本')); const b = row && row.querySelector('button'); if (b) b.click(); });
-    if (kind === 'sheet') return page.evaluate(() => { const b = [...document.querySelectorAll('.icon-btn')].find((x) => (x.getAttribute('aria-label') || '').includes('外观')); if (b) b.click(); });
+    if (kind === 'sheet') return page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '快速切换'); if (b) b.click(); });
   };
   const map = new Map();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -36,6 +37,8 @@ async (page) => {
       await page.evaluate((a) => { const s = JSON.parse(localStorage.getItem('cijian.v1') || '{}'); s.profile = Object.assign({ name: '', stage: 'cet4', batchSize: 5, meaningMode: 'auto', theme: 'light', skin: 'paper' }, s.profile, { skin: a }); localStorage.setItem('cijian.v1', JSON.stringify(s)); }, sk);
       await page.goto('http://127.0.0.1:5173/');
       await page.waitForTimeout(320);
+      // 「错词本 / 外观面板」的入口都在设置页：先进 Tab，再点行内按钮
+      if (kind === 'mistakes' || kind === 'sheet') { await go('me'); await page.waitForTimeout(240); }
       await go(kind);
       await page.waitForTimeout(kind === 'sheet' ? 300 : 260);
       const rows = await page.evaluate(SCAN);

@@ -119,6 +119,10 @@
   --screen-shift: 8px;
 
   --dock-height: 76px;
+  /* 底部 Tab 栏：实测高度 57px（4+48+4 内边距 + 1px 上边框，border-box 下 56 会溢成 57）。
+     各皮肤 `.start` 的 `min-height: calc(100dvh - …)` 必须再减这一项 + `.screen` 的下留白，
+     否则首页会多出一段「空滚」（v2 第一阶段唯一的全局高度口径）。 */
+  --tabbar-h: 57px;
 }
 
 [data-theme='dark'] {

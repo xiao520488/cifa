@@ -101,6 +101,32 @@ export function IconRepeat(props: IconProps) {
   );
 }
 
+/** 单词（底部 Tab）：一叠卡片 */
+export function IconWord(props: IconProps) {
+  return base(
+    props,
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <path d="M7.5 9h9" />
+      <path d="M7.5 12.5h9" />
+      <path d="M7.5 16h5.5" />
+    </>,
+  );
+}
+
+/** 设置（底部 Tab）：两条滑杆 */
+export function IconSliders(props: IconProps) {
+  return base(
+    props,
+    <>
+      <path d="M4 7.5h9.5" />
+      <circle cx="16.5" cy="7.5" r="2.2" />
+      <path d="M20 16.5h-9.5" />
+      <circle cx="7.5" cy="16.5" r="2.2" />
+    </>,
+  );
+}
+
 /** 新词 / 加一 */
 export function IconPlus(props: IconProps) {
   return base(props, <><path d="M12 5v14" /><path d="M5 12h14" /></>);

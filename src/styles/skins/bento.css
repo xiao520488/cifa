@@ -152,7 +152,7 @@
 /* 顶栏 60 + 读数条 34 = 94：基线 min-height 只扣顶栏，读数条开起来会多出约 38px 幽灵滚动，
    报尾「钉底」就变成卡在折线外，所以按实高扣掉（env 是刘海安全区）。 */
 [data-skin='bento'] .start {
-  padding-top: 0; justify-content: flex-start; min-height: calc(100dvh - 94px - env(safe-area-inset-top, 0px));
+  padding-top: 0; justify-content: flex-start; min-height: calc(100dvh - 94px - var(--tabbar-h) - var(--space-6) - env(safe-area-inset-top, 0px));
 }
 [data-skin='bento'] .start__body { margin-block: 0; }
 [data-skin='bento'] .start__eyebrow {
