@@ -1289,3 +1289,24 @@
 /* 详情面板的读数：报纸的细线分栏 */
 [data-skin='broadsheet'] .detail-figures { border-top: 1px solid var(--border-strong); padding-top: var(--space-3); }
 [data-skin='broadsheet'] .detail-figure dd { font-size: 22px; }
+
+/* 复习批次：方角 + 一条粗头线 + 衬线标题，像一张报纸小表 */
+[data-skin='broadsheet'] .batches {
+  border-radius: 0;
+  border-color: var(--border-strong);
+}
+
+[data-skin='broadsheet'] .batches__head {
+  border-bottom: 2px solid var(--text);
+}
+
+[data-skin='broadsheet'] .batches__title {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+[data-skin='broadsheet'] .batch-word__w {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}

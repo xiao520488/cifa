@@ -8,15 +8,22 @@
  * 历史日说「学到多少」，今天说「现在能做多少 + 为什么少」，未来日说「已排定多少 + 还会追加」。
  */
 
+import { useMemo } from 'react';
 import { explainCalendarNewWords, formatMonthDay, planSummary, weekdayLabel } from '../lib/scheduler';
 import type { CalendarDay, DailyPlan } from '../lib/scheduler';
 import { cellState } from '../lib/calendarState';
+import type { Word } from '../lib/types';
+import { ReviewBatches } from './ReviewBatches';
 
 interface DayDetailProps {
   day: CalendarDay;
   /** 今天才算的逾期口径与总结句 */
   plan: DailyPlan;
   streak: number;
+  /** 英文单词 → 词库条目（当前阶段那本）；查不到就只显示单词 */
+  index: ReadonlyMap<string, Word> | null;
+  /** 多义是否展开（跟设置里的释义详略走） */
+  showAll: boolean;
 }
 
 const STATE_TEXT: Record<string, string> = {
@@ -28,9 +35,12 @@ const STATE_TEXT: Record<string, string> = {
   today: '今天',
 };
 
-export function DayDetail({ day, plan, streak }: DayDetailProps) {
+export function DayDetail({ day, plan, streak, index, showAll }: DayDetailProps) {
   const state = cellState(day);
   const isToday = day.isToday;
+  // 历史日：那天实际答出来的词（复习 + 收口前的已知），用来把没答出来的行压暗
+  const doneWords = useMemo(() => new Set(day.doneWords), [day]);
+  const hasBatches = day.shortTermBatches.length > 0 || day.longTermBatches.length > 0;
 
   // 四个读数：新词 / 到期复习 / 逾期 / 这天状态
   const newWordValue = day.estimated
@@ -85,43 +95,30 @@ export function DayDetail({ day, plan, streak }: DayDetailProps) {
       {newWordHint ? <p className="cal-detail__hint">{newWordHint}</p> : null}
       {isToday && plan.totals.dueToday > 0 ? <p className="cal-detail__hint">{planSummary(plan)}</p> : null}
 
-      {day.shortTermBatches.length > 0 ? (
-        <>
-          <h3 className="cal-detail__sub">{day.estimated ? '已排定的复习批次' : '复习批次'}</h3>
-          <ul className="cal-detail__batches">
-            {day.shortTermBatches.map((batch) => (
-              <li key={`${day.day}-${batch.sourceDate}-${batch.daysAgo}`} className="cal-batch">
-                <span className="cal-batch__k">{batch.daysAgo} 天前</span>
-                <span className="cal-batch__v">
-                  {formatMonthDay(batch.sourceDate)} 那批 · {batch.wordCount} 词
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
+      {hasBatches ? (
+        <ReviewBatches
+          key={day.day}
+          batches={day.shortTermBatches}
+          longBatches={day.longTermBatches}
+          doneWords={doneWords}
+          showDoneMarks={day.isPast}
+          index={index}
+          showAll={showAll}
+          estimated={day.estimated}
+        />
+      ) : day.estimated ? (
+        <section className="batches is-empty" aria-label="复习批次">
+          <header className="batches__head">
+            <h3 className="batches__title">复习批次</h3>
+            <span className="batches__tag">已排定</span>
+          </header>
+          <p className="batches__empty">暂无排定的复习</p>
+        </section>
       ) : (
         <p className="cal-detail__note">
-          {day.estimated
-            ? '这一天还没排上复习：做完前面的复习才会按新的间隔排进来。'
-            : day.isPast
-              ? '那天没有到期复习。'
-              : '今天没有到期复习。'}
+          {day.isPast ? '那天没有到期复习。' : '今天没有到期复习。'}
         </p>
       )}
-
-      {day.longTermBatches.length > 0 ? (
-        <>
-          <h3 className="cal-detail__sub">长期批次</h3>
-          <ul className="cal-detail__batches">
-            {day.longTermBatches.map((batch) => (
-              <li key={`${day.day}-long-${batch.type}`} className="cal-batch">
-                <span className="cal-batch__k">{batch.type.replace('d', ' 天')}</span>
-                <span className="cal-batch__v">{batch.wordCount} 词</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
 
       {day.estimated ? null : isToday ? null : <p className="cal-detail__note">{explainCalendarNewWords(day)}</p>}
       {day.estimated && day.shortTermBatches.length > 0 ? (

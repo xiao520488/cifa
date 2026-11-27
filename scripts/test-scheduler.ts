@@ -1920,6 +1920,84 @@ function withoutRetried(record: unknown): unknown {
   eq('15.5 今天优先', cellState(day({ isToday: true, dueTotal: 0, doneTotal: 0 })), 'today');
 }
 
+// 15.6 批次词表（「复习批次」卡片要列出具体单词）：只读派生，不改 DayRecord
+{
+  const today = '2026-11-24';
+  const s = emptyState();
+  // 历史日：planSnapshot 两批 3+2，dueSnapshot 按同样的顺序拍下 —— 切片必须还原出这两批
+  s.days['2026-11-22'] = {
+    day: '2026-11-22',
+    dueSnapshot: ['exist', 'manage', 'harm', 'site', 'track'],
+    snapshotDone: true,
+    planSnapshot: [
+      { sourceDate: '2026-11-17', daysAgo: 5, wordCount: 3 },
+      { sourceDate: '2026-11-20', daysAgo: 2, wordCount: 2 },
+    ],
+    doneToday: ['exist', 'manage', 'harm', 'site'],
+    newWordLimit: 5,
+    newLearned: [],
+    accScore: 0,
+    accCount: 0,
+    retried: 0,
+    immediate: { groups: 0, cards: 0, loops: 0, skipped: 0 },
+    settled: true,
+    action: 'maintain',
+    absent: false,
+    settlement: null,
+  };
+  const past = buildCalendarRange(s, { start: '2026-11-22', end: '2026-11-22', today })[0];
+  eq('15.6 历史日批次数', past.shortTermBatches.length, 2);
+  eq('15.6 第一批词表', past.shortTermBatches[0].words.join(','), 'exist,manage,harm');
+  eq('15.6 第二批词表', past.shortTermBatches[1].words.join(','), 'site,track');
+  eq('15.6 条数之和 = 词数', past.shortTermBatches.reduce((n, b) => n + b.words.length, 0), past.dueTotal);
+  eq('15.6 已作答词表回填', past.doneWords.join(','), 'exist,manage,harm,site');
+
+  // 今天：卡片上的词表与引擎的到期批次逐词一致（昨天学的 5 个词今天到期）
+  const engine = schedulerOn('2026-11-23', 20, ['exist', 'manage', 'harm', 'site', 'track', 'point']);
+  engine.commitNewWords(['exist', 'manage', 'harm', 'site', 'track'], '2026-11-23');
+  const now = moveTo(engine, today);
+  now.commitNewWords(['point'], today);
+  const plan = now.plan(today);
+  const todayCell = now.calendarRange(today, today, today)[0];
+  eq('15.6 今天的批次带词表', todayCell.shortTermBatches.map((b) => b.words.join('/')).join('|'), plan.shortTermBatches.map((b) => b.words.join('/')).join('|'));
+  eq('15.6 今天的词表非空', todayCell.shortTermBatches.every((b) => b.words.length > 0), true);
+  eq('15.6 今天的批次词数 = 到期数', todayCell.shortTermBatches.reduce((n, b) => n + b.words.length, 0), 5);
+
+  // 未来日：今天新学的 point 明天到期，必须带词表（空批次不会出现）
+  const futureDay = addDays(today, 1);
+  const futureCell = now.calendarRange(futureDay, futureDay, today)[0];
+  eq('15.6 未来日 estimated', futureCell.estimated, true);
+  eq('15.6 未来日的词表', futureCell.shortTermBatches.map((b) => b.words.join('/')).join('|'), 'point');
+  eq('15.6 未来日每个批次都有词表', futureCell.shortTermBatches.every((b) => b.words.length === b.wordCount), true);
+}
+
+// 15.7 老记录：只有 dueSnapshot、没有 planSnapshot —— 退回一整批，不编造间隔
+{
+  const s = emptyState();
+  s.days['2026-11-20'] = {
+    day: '2026-11-20',
+    dueSnapshot: ['point', 'area'],
+    snapshotDone: true,
+    planSnapshot: [],
+    doneToday: [],
+    newWordLimit: 5,
+    newLearned: [],
+    accScore: 0,
+    accCount: 0,
+    retried: 0,
+    immediate: { groups: 0, cards: 0, loops: 0, skipped: 0 },
+    settled: true,
+    action: 'maintain',
+    absent: false,
+    settlement: null,
+  };
+  const cell = buildCalendarRange(s, { start: '2026-11-20', end: '2026-11-20', today: '2026-11-24' })[0];
+  eq('15.7 退回一整批', cell.shortTermBatches.length, 1);
+  eq('15.7 daysAgo 归零', cell.shortTermBatches[0].daysAgo, 0);
+  eq('15.7 词表就是快照', cell.shortTermBatches[0].words.join(','), 'point,area');
+  eq('15.7 到期数仍按快照', cell.dueTotal, 2);
+}
+
 // ---------------------------------------------------------------- 汇总
 
 const state: SchedulerState = emptyState();

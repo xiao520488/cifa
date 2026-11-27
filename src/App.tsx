@@ -322,6 +322,8 @@ export default function App() {
         <CalendarScreen
           engine={scheduler.engine}
           version={scheduler.version}
+          book={book}
+          showAll={showAll}
         />
       ) : screen === 'mistakes' ? (
         <MistakesScreen

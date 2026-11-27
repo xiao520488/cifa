@@ -837,3 +837,21 @@
   background: var(--surface);
 }
 [data-skin='bento'] .detail-figure dd { font-size: 20px; }
+
+/* 复习批次：整块是一张磁贴，行头加高，词表行距放松，符合拼贴的节奏 */
+[data-skin='bento'] .batches {
+  border-radius: var(--radius-lg);
+}
+
+[data-skin='bento'] .batch__head {
+  min-height: 56px;
+}
+
+[data-skin='bento'] .batch-word {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+[data-skin='bento'] .batch-word__w {
+  min-width: 96px;
+}

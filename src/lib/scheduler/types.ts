@@ -229,11 +229,22 @@ export interface DailyPlan {
   reason: string;
 }
 
+/**
+ * 日历上的一个短期批次：比落盘的 `ShortBatchJson` 多带词表。
+ *
+ * `words` 是**只读派生**：历史日从 `dueSnapshot` 按 `planSnapshot` 的条数切片还原，
+ * 今天/未来日直接取 `shortBatches()`。它不进 `DayRecord`、不落盘——快照里只有条数，
+ * 词表靠 `dueSnapshot` 本身就能还原（引擎拍快照时就是 `flatMap(words)`，顺序一致）。
+ */
+export interface CalendarBatch extends ShortBatchJson {
+  words: string[];
+}
+
 export interface CalendarDay {
   day: StudyDay;
   weekdayLabel: string;
   /** 当天批次的快照（历史日不重算；未来日是已排定的到期词） */
-  shortTermBatches: ShortBatchJson[];
+  shortTermBatches: CalendarBatch[];
   longTermBatches: LongBatch[];
   /** 计划新词（当天结算写入，未来日期为预估值） */
   newWordPlan: number;
@@ -247,6 +258,8 @@ export interface CalendarDay {
   newWordGoal: number;
   dueTotal: number;
   doneTotal: number;
+  /** 当天实际作答过的词（历史日的清单据此把没答出来的压暗） */
+  doneWords: string[];
   /** 当天没做完的到期复习 → 日历标「逾期 X 词」 */
   overdue: number;
   isToday: boolean;

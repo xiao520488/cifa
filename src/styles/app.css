@@ -1642,17 +1642,162 @@ p {
   }
 }
 
-.cal-detail__sub {
-  margin-top: var(--space-4);
+/* 复习批次：独立卡片 + 可折叠行头 + 词表。
+ * 用户在真机上反馈「只有一行小字、淹没在长文案里」，所以这一块单独成卡：
+ * 卡头给条数与词数（2 批 · 15 词），每批一行 52px 的可点行头，展开是
+ * 「英文加粗 + 释义浅色 + 单行省略」的清单（对齐百词斩的列表样式）。 */
+.batches {
+  margin-top: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.batches__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.batches__title {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.batches__tag {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
   font-size: 11px;
-  letter-spacing: 0.08em;
   color: var(--text-tertiary);
 }
 
-.cal-detail__batches {
+.batches__count {
+  margin-left: auto;
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.batches__empty {
+  padding: var(--space-4);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.batch + .batch {
+  border-top: 1px solid var(--border);
+}
+
+.batch__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4);
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.batch__head:active {
+  background: var(--row-hover);
+}
+
+.batch__head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.batch__what {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.batch__when {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.batch__num {
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.batch__chev {
   display: grid;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-tertiary);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.batch__chev[data-open] {
+  transform: rotate(180deg);
+}
+
+.batch__words {
+  padding-bottom: var(--space-1);
+}
+
+.batch-word {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+.batch-word + .batch-word {
+  border-top: 1px solid var(--border);
+}
+
+.batch-word__w {
+  flex: 0 1 auto;
+  min-width: 92px;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-word__m {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 历史日：那天没答出来的词压暗，一眼看出「还剩多少没做」 */
+.batch-word.is-missed .batch-word__w {
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.batch-word.is-missed .batch-word__m {
+  opacity: 0.7;
+}
+
+.batch__more {
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  color: var(--text-tertiary);
 }
 
 .cal-section {

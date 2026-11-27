@@ -1,5 +1,14 @@
 # NOTES
 
+## 2026-11-27 · UI v2 第三阶段：复习批次做成卡片 + 词表（真机反馈驱动）
+
+- **改了什么**：`复习批次` 从「一行 13px 小字」变成独立卡片（`ReviewBatches.tsx`）：卡头给 `N 批 · M 词`，每批一行 52px 可点行头（`11月26日 那批 / 1 天前 / 5 词 / 折叠箭头`），展开是「英文 600 加粗 + 释义 13px 浅色单行省略」的清单，默认展开第一批；历史日没答出来的词压暗（`is-missed`），未来日卡头多一个「已排定」标签、无批次时写「暂无排定的复习」。**长文案（`planSummary` / `explainCalendarNewWords`）位置一个字没动**。
+- **数据怎么来的（只读派生，不碰 storage）**：`CalendarDay` 新增 `shortTermBatches: CalendarBatch[]`（= `ShortBatchJson` + `words`）与 `doneWords: string[]`。历史日的词表**不用新字段落盘**——引擎拍快照时 `dueSnapshot = batches.flatMap(words)` 且 `planSnapshot` 顺序一致，`batchesFromRecord()` 按 `wordCount` 顺序切片就能逐批还原；老记录（只有 `dueSnapshot` 没 `planSnapshot`）退回一整批、`daysAgo=0`，不编造间隔。今天/未来日直接用 `shortBatches()` 的词。
+- **释义从哪来**：`App` 把当前阶段 `book` + `showAll` 传给 `CalendarScreen`，建 `Map<word, Word>`（`useMemo`，换书才重建）传给卡片。换过阶段的旧词查不到释义就显示 `—`，**不猜**。
+- **两个新踩的坑**：① 审计里 `document.querySelector('.cell[data-state="miss"], .cell[data-state="done"], ...')` **按文档顺序**取第一个匹配，月初的 `empty` 格会先被选中——测到的根本不是有批次的那天，改成只选 `done/partial`，另外单独一条测「empty 日不显示批次」。② foundry 深色档 `--text-tertiary` 只有 **4.47:1**（和 1242 行那条老硬下限同源），释义必须换 `--text-secondary`。
+- **门禁**：`tsc` 0、`test:scheduler` 全绿（新增 15.6 词表切片 / 15.7 老记录退回一整批）、`vite build` 0、`audit-month` **18/18 fail 0**（新增：卡片存在、条数=词数、默认展开 1 批、行高 ≥44、词重 ≥500、词/释义对比度 ≥4.5、点折叠 `aria-expanded=false` 再展开复原、未来日空态文案、empty 日无卡片）、`audit-screens` 54/54、`scan-tiny` 0。
+- **已知限制**：释义只有当前阶段词库那本（跨阶段的历史词显示 `—`）；长批次与短期批次共用同一张卡（有词表，但没做「已复习」区分）；卡片最多渲染 60 行，多的折成「还有 N 个词」；点击日期不会自动把面板滚进视野（用户需自己往下滑）。
+
 ## 2026-11-27 · 1.5.0 出包 + 真机验收（月历性能过关）
 
 - **结论：真机上翻月 / 点未来日 / 点历史日全部跟手，没有卡顿**，42 格全量推算在 5000 词库下不需要缓存，性能这条不用再动。版本 `9217c6b`（versionCode 9 / 1.5.0），产物 `out/cijian-1.5.0.apk`（1.07 MB，SHA256 `ECB1766E…406C2`）。

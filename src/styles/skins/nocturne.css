@@ -689,3 +689,14 @@
 [data-skin='nocturne'] .cell[data-state='today'] .cell__n { border-color: var(--accent); box-shadow: 0 0 10px -3px var(--accent); }
 [data-skin='nocturne'] .cell[aria-selected='true'] { background: var(--accent-weak); }
 [data-skin='nocturne'] .cal-detail { border-top-color: var(--border-strong); }
+
+/* 复习批次：夜航的卡片带一圈冷光，词表行用衬线拉丁字 */
+[data-skin='nocturne'] .batches {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 24px -14px var(--accent);
+}
+
+[data-skin='nocturne'] .batch-word__w {
+  font-family: var(--nc-latin);
+  font-weight: 500;
+}

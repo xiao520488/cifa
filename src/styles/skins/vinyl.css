@@ -1396,3 +1396,22 @@
 [data-skin='vinyl'] .cell[aria-selected='true'] .cell__n { box-shadow: 0 0 0 2px var(--accent-weak); }
 [data-skin='vinyl'] .cell__dot { display: none; }
 [data-skin='vinyl'] .cal-detail { border-top-style: dashed; }
+
+/* 复习批次：卡片也做成圆角封面，词表用等宽字体 + 虚线分轨（对齐唱片标签） */
+[data-skin='vinyl'] .batches {
+  border-radius: var(--radius-lg);
+}
+
+[data-skin='vinyl'] .batch__head {
+  min-height: 54px;
+}
+
+[data-skin='vinyl'] .batch-word + .batch-word {
+  border-top-style: dashed;
+}
+
+[data-skin='vinyl'] .batch-word__w {
+  font-family: var(--vy-mono);
+  font-weight: 500;
+  letter-spacing: 0;
+}

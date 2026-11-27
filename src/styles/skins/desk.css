@@ -672,4 +672,15 @@
 [data-skin='desk'] .cell:nth-child(7n) { border-right: 0; }
 [data-skin='desk'] .cell__n { width: 26px; height: 26px; font-size: 13px; }
 [data-skin='desk'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
+
+/* 复习批次：方角 + 等宽数字，保持「桌面便签」那套网格感 */
+[data-skin='desk'] .batches {
+  border-radius: 0;
+}
+
+[data-skin='desk'] .batches__count,
+[data-skin='desk'] .batch__what,
+[data-skin='desk'] .batch__num {
+  font-family: var(--font-mono);
+}
 [data-skin='desk'] .cell__dot { display: none; }

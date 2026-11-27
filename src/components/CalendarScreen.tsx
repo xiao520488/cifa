@@ -13,19 +13,30 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatMonthDay, weekdayLabel } from '../lib/scheduler';
 import type { Scheduler, StudyDay } from '../lib/scheduler';
 import { addMonths, monthGrid, monthOf } from '../lib/calendarState';
+import type { Word, Wordbook } from '../lib/types';
 import { DayDetail } from './DayDetail';
 import { MonthGrid } from './MonthGrid';
 
 interface CalendarScreenProps {
   engine: Scheduler;
   version: number;
+  /** 当前阶段的词库：给批次清单查释义（查不到就只显示英文） */
+  book: Wordbook | null;
+  /** 释义详略：多义是否展开 */
+  showAll: boolean;
 }
 
-export function CalendarScreen({ engine, version }: CalendarScreenProps) {
+export function CalendarScreen({ engine, version, book, showAll }: CalendarScreenProps) {
   const { plan, stats } = useMemo(() => {
     void version;
     return { plan: engine.plan(), stats: engine.stats() };
   }, [engine, version]);
+
+  // 单词 → 词库条目。换阶段换书时重建；同一本书不重复建 Map。
+  const index = useMemo<ReadonlyMap<string, Word> | null>(() => {
+    if (!book) return null;
+    return new Map(book.words.map((word) => [word.w, word]));
+  }, [book]);
 
   const today = plan.day;
   const [month, setMonth] = useState<StudyDay>(() => monthOf(today));
@@ -85,7 +96,15 @@ export function CalendarScreen({ engine, version }: CalendarScreenProps) {
             }}
           />
 
-          {current ? <DayDetail day={current} plan={plan} streak={stats.consecutiveGoodDays} /> : null}
+          {current ? (
+            <DayDetail
+              day={current}
+              plan={plan}
+              streak={stats.consecutiveGoodDays}
+              index={index}
+              showAll={showAll}
+            />
+          ) : null}
         </div>
       </main>
     </>

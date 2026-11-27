@@ -48,12 +48,12 @@ async (page) => {
         raw.v = 1;
         raw.days = Object.assign({}, raw.days, {
           [key(-2)]: {
-            dueSnapshot: ['gov', 'sys', 'sta'],
+            dueSnapshot: ['exist', 'manage', 'harm'],
             snapshotDone: true,
             planSnapshot: [{ sourceDate: key(-4), daysAgo: 2, wordCount: 3 }],
-            doneToday: ['gov', 'sys', 'sta'],
+            doneToday: ['exist', 'manage', 'harm'],
             newWordLimit: 5,
-            newLearned: ['gov', 'sys', 'sta', 'par', 'mig'],
+            newLearned: ['exist', 'manage', 'harm', 'part', 'might'],
             accScore: 3,
             accCount: 3,
             retried: 0,
@@ -64,10 +64,10 @@ async (page) => {
             settlement: null,
           },
           [key(-4)]: {
-            dueSnapshot: ['gov', 'sys'],
+            dueSnapshot: ['site', 'track'],
             snapshotDone: true,
             planSnapshot: [{ sourceDate: key(-6), daysAgo: 2, wordCount: 2 }],
-            doneToday: ['gov'],
+            doneToday: ['site'],
             newWordLimit: 5,
             newLearned: [],
             accScore: 1,
@@ -130,6 +130,33 @@ async (page) => {
       doneContrast: doneCell ? +rt(pc(getComputedStyle(doneCell.querySelector('.cell__n')).color), bgOf(doneCell.querySelector('.cell__n'))).toFixed(2) : null,
       titleContrast: title ? +rt(pc(getComputedStyle(title).color), bgOf(title)).toFixed(2) : null,
       label: (cells.find((c) => !c.dataset.out) || {}).getAttribute ? cells.find((c) => !c.dataset.out).getAttribute('aria-label') : null,
+      // 「复习批次」卡片：条数、默认展开、点击折叠、词表字号与对比度
+      batches: (() => {
+        const card = document.querySelector('.batches');
+        if (!card) return null;
+        const heads = [...card.querySelectorAll('.batch__head')];
+        const rows = [...card.querySelectorAll('.batch-word')];
+        const nums = [...card.querySelectorAll('.batch__num')].map((n) => parseInt(n.textContent, 10) || 0);
+        const w = card.querySelector('.batch-word__w');
+        const mEl = card.querySelector('.batch-word__m');
+        return {
+          count: (card.querySelector('.batches__count') || {}).textContent?.trim() || null,
+          tag: (card.querySelector('.batches__tag') || {}).textContent?.trim() || null,
+          heads: heads.length,
+          expanded: card.querySelectorAll('.batch[data-open]').length,
+          aria: heads.map((h) => h.getAttribute('aria-expanded')).join(','),
+          rows: rows.length,
+          sumNums: nums.reduce((a, b) => a + b, 0),
+          headH: heads.length ? Math.round(heads[0].getBoundingClientRect().height) : 0,
+          wordFont: w ? parseFloat(getComputedStyle(w).fontSize) : 0,
+          wordWeight: w ? parseInt(getComputedStyle(w).fontWeight, 10) : 0,
+          wordCt: w ? +rt(pc(getComputedStyle(w).color), bgOf(w)).toFixed(2) : null,
+          meaningCt: mEl ? +rt(pc(getComputedStyle(mEl).color), bgOf(mEl)).toFixed(2) : null,
+          meaningText: mEl ? (mEl.textContent || '').trim() : '',
+          empty: (card.querySelector('.batches__empty') || {}).textContent?.trim() || null,
+          ovf: card.scrollWidth > card.clientWidth + 1,
+        };
+      })(),
     };
   });
 
@@ -181,10 +208,18 @@ async (page) => {
         if (futureOk) {
           if (!f.detailTags.includes('预估')) fails.push('futureTag=' + f.detailTags.join('/'));
           if (f.detailTitle === t.detailTitle) fails.push('futureNoRefresh');
+          // 未来日没有已排定的批次时，卡片必须是「暂无排定的复习」而不是空白
+          if (!f.batches) fails.push('futureNoBatchCard');
+          else {
+            if (f.batches.empty !== '暂无排定的复习') fails.push('futureEmpty=' + f.batches.empty);
+            if (f.batches.tag !== '已排定') fails.push('futureBatchTag=' + f.batches.tag);
+          }
         }
 
         // 历史日：点完详情日期必须等于那格的日期
-        const pastSel = '.cell[data-state="miss"]:not([data-out]), .cell[data-state="done"]:not([data-out]), .cell[data-state="empty"]:not([data-out])';
+        // 注意用「有记录」的格子（done/partial）：逗号选择器按文档顺序取第一个，
+        // 月初那些 empty 格会先被选中，测到的就不是有批次的那天了。
+        const pastSel = '.cell[data-state="done"]:not([data-out]), .cell[data-state="partial"]:not([data-out])';
         const pastLabel = await page.evaluate((sel) => {
           const el = document.querySelector(sel);
           return el ? el.getAttribute('aria-label') : null;
@@ -196,6 +231,48 @@ async (page) => {
           const dayPart = pastLabel.split(' ')[0];
           if (!p.detailTitle || !p.detailTitle.startsWith(dayPart)) fails.push('pastTitle=' + p.detailTitle + '≠' + dayPart);
           if (p.detailTags.includes('预估')) fails.push('pastShowsEstimate');
+
+          // 「复习批次」：历史日必须给出具体词表，默认展开第一批，行头可点、能折回去
+          const b = p.batches;
+          if (!b || b.heads === 0) fails.push('pastNoBatches');
+          else {
+            if (b.rows === 0) fails.push('batchRows=0');
+            if (b.expanded !== 1) fails.push('batchExpanded=' + b.expanded);
+            if (b.sumNums !== b.rows) fails.push('batchNum=' + b.sumNums + '≠' + b.rows);
+            if (!b.count || !/^\d+ 批 · \d+ 词$/.test(b.count)) fails.push('batchCount=' + b.count);
+            if (b.headH < 44) fails.push('batchHeadH=' + b.headH);
+            if (b.wordFont < 15) fails.push('batchFont=' + b.wordFont);
+            if (b.wordWeight < 500) fails.push('batchWeight=' + b.wordWeight);
+            if (b.wordCt !== null && b.wordCt < 4.5) fails.push('batchCt=' + b.wordCt);
+            if (b.meaningCt !== null && b.meaningCt < 4.5) fails.push('meaningCt=' + b.meaningCt);
+            if (!b.meaningText || b.meaningText === '—') fails.push('meaningMissing');
+            if (b.ovf) fails.push('batchOvf');
+
+            await page.evaluate(() => document.querySelector('.batch__head').click());
+            await wait();
+            const c1 = await probe();
+            if (!c1.batches || c1.batches.rows !== 0) fails.push('collapse=' + (c1.batches && c1.batches.rows));
+            if (!c1.batches || !c1.batches.aria.split(',').every((v) => v === 'false')) fails.push('ariaCollapse=' + (c1.batches && c1.batches.aria));
+            await page.evaluate(() => document.querySelector('.batch__head').click());
+            await wait();
+            const c2 = await probe();
+            if (!c2.batches || c2.batches.rows !== b.rows) fails.push('reexpand=' + (c2.batches && c2.batches.rows));
+          }
+        }
+
+        // 没记录的那天：不给自己编一个批次卡片，只留一句说明
+        const emptyOk = await clickCell('.cell[data-state="empty"]:not([data-out])');
+        if (emptyOk) {
+          await wait();
+          const e = await probe();
+          if (e.batches) fails.push('emptyDayHasBatches');
+          else {
+            const note = await page.evaluate(() => {
+              const n = [...document.querySelectorAll('.cal-detail__note')].map((x) => x.textContent.trim());
+              return n.find((x) => x.startsWith('那天没有到期复习')) || null;
+            });
+            if (!note) fails.push('emptyDayNoNote');
+          }
         }
 
         // 翻月：上个月 → 今天格为 0；点「今天」回来 → 今天格恰好 1

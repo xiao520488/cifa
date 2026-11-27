@@ -18,6 +18,7 @@ import {
 } from './studyDay.ts';
 import type { StudyDay } from './studyDay.ts';
 import type {
+  CalendarBatch,
   CalendarDay,
   CalendarView,
   DailyPlan,
@@ -321,6 +322,28 @@ export interface CalendarOptions {
 }
 
 /**
+ * 从快照还原当天每个批次的词表（只读派生，见 `CalendarBatch`）。
+ *
+ * 引擎拍快照时 `dueSnapshot = batches.flatMap(words)` 且 `planSnapshot` 的条数与顺序一致，
+ * 所以按 `wordCount` 依次切片就能逐个还原。老记录只存了 `dueSnapshot`、没存 `planSnapshot`
+ * （`storage.ts` 会把这种记录当作已拍快照）时退回「一整批」，`daysAgo=0` 让 UI 不至于
+ * 编出一个假的间隔。
+ */
+function batchesFromRecord(record: DayRecord): CalendarBatch[] {
+  const due = record.dueSnapshot;
+  const snap = record.planSnapshot;
+  if (snap.length === 0) {
+    return due.length === 0 ? [] : [{ sourceDate: record.day, daysAgo: 0, wordCount: due.length, words: [...due] }];
+  }
+  let cursor = 0;
+  return snap.map((batch) => {
+    const words = due.slice(cursor, cursor + batch.wordCount);
+    cursor += batch.wordCount;
+    return { sourceDate: batch.sourceDate, daysAgo: batch.daysAgo, wordCount: batch.wordCount, words };
+  });
+}
+
+/**
  * 算单独一天。日历（`buildCalendar` / `buildCalendarRange`）与月历共用这一份，
  * 保证「同一格」在任何入口拿到的数字一模一样。
  */
@@ -334,9 +357,10 @@ export function buildOneDay(state: SchedulerState, day: StudyDay, today: StudyDa
   const dueTotal = record?.snapshotDone ? due : due || sum(short);
   const plan = record ? record.newWordLimit : plannedNewWordLimit(state, day);
   const budget = computeWordBudget(state, day);
-  const batchesForDay = record?.snapshotDone
-    ? record.planSnapshot
-    : short.map(({ sourceDate, daysAgo, wordCount }) => ({ sourceDate, daysAgo, wordCount }));
+  // 拍过快照就以快照为准：今天做完复习后 `short` 会变空，但面板要能继续显示「那天复习了哪些词」。
+  const batchesForDay: CalendarBatch[] = record?.snapshotDone
+    ? batchesFromRecord(record)
+    : short.map(({ sourceDate, daysAgo, wordCount, words }) => ({ sourceDate, daysAgo, wordCount, words }));
   const isPast = day < today;
   const isFuture = day > today;
   return {
@@ -355,6 +379,7 @@ export function buildOneDay(state: SchedulerState, day: StudyDay, today: StudyDa
     newWordGoal: state.userDailyGoal,
     dueTotal,
     doneTotal: done,
+    doneWords: record ? [...record.doneToday] : [],
     overdue: record ? Math.max(0, dueTotal - done) : 0,
     isToday: day === today,
     isPast,

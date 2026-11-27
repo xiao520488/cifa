@@ -1509,4 +1509,23 @@
 [data-skin='foundry'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
 [data-skin='foundry'] .cell[data-state='today'] .cell__n { border-color: var(--accent-hover); }
 [data-skin='foundry'] .cell[aria-current='date'] { border-color: var(--accent-hover); }
+
+/* 复习批次：方角铁牌，焦点环用更深一档的强调色（与格子同语言） */
+[data-skin='foundry'] .batches {
+  border-radius: 0;
+  border-color: var(--border-strong);
+}
+
+[data-skin='foundry'] .batch__head:focus-visible {
+  outline-color: var(--accent-hover);
+}
+
+[data-skin='foundry'] .batches__title {
+  letter-spacing: 0.1em;
+}
+
+/* 释义用 secondary：foundry 深色档的 --text-tertiary 只有 4.47:1（和 1242 行同一条硬下限） */
+[data-skin='foundry'] .batch-word__m {
+  color: var(--text-secondary);
+}
 [data-skin='foundry'] .cell__dot { display: none; }

@@ -1446,4 +1446,18 @@
 /* ------------------------------------------------------------ 月历（v2 第二阶段） */
 [data-skin='instrument'] .cell__n { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.02em; }
 [data-skin='instrument'] .cell[data-state='done'] .cell__n { background: var(--accent); color: var(--on-accent); }
+
+/* 复习批次：仪表盘的等宽读数，条数与词数都上等宽字 */
+[data-skin='instrument'] .batches__count,
+[data-skin='instrument'] .batch__what,
+[data-skin='instrument'] .batch__when,
+[data-skin='instrument'] .batch__num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin='instrument'] .batch-word__w {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
 [data-skin='instrument'] .month__grid { gap: 1px; }
