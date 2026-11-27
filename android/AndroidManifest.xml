@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.cijian.app"
-    android:versionCode="9"
-    android:versionName="1.5.0">
+    android:versionCode="10"
+    android:versionName="1.5.1">
 
     <!-- 网页资源全部来自 APK 内部的拦截器，不走网络；加这条只为兜住 WebView 的实现细节 -->
     <uses-permission android:name="android.permission.INTERNET" />

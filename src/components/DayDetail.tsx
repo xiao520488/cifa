@@ -22,8 +22,6 @@ interface DayDetailProps {
   streak: number;
   /** 英文单词 → 词库条目（当前阶段那本）；查不到就只显示单词 */
   index: ReadonlyMap<string, Word> | null;
-  /** 多义是否展开（跟设置里的释义详略走） */
-  showAll: boolean;
 }
 
 const STATE_TEXT: Record<string, string> = {
@@ -35,7 +33,7 @@ const STATE_TEXT: Record<string, string> = {
   today: '今天',
 };
 
-export function DayDetail({ day, plan, streak, index, showAll }: DayDetailProps) {
+export function DayDetail({ day, plan, streak, index }: DayDetailProps) {
   const state = cellState(day);
   const isToday = day.isToday;
   // 历史日：那天实际答出来的词（复习 + 收口前的已知），用来把没答出来的行压暗
@@ -103,7 +101,6 @@ export function DayDetail({ day, plan, streak, index, showAll }: DayDetailProps)
           doneWords={doneWords}
           showDoneMarks={day.isPast}
           index={index}
-          showAll={showAll}
           estimated={day.estimated}
         />
       ) : day.estimated ? (

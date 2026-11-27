@@ -25,8 +25,6 @@ interface ReviewBatchesProps {
   showDoneMarks: boolean;
   /** 英文单词 → 词库条目；查不到就只显示单词 */
   index: ReadonlyMap<string, Word> | null;
-  /** 多义是否展开（跟设置里的释义详略走） */
-  showAll: boolean;
   /** 未来日：批次是「已排定」而不是「已发生」 */
   estimated?: boolean;
 }
@@ -38,11 +36,13 @@ function batchKey(prefix: string, a: string | number, b: string | number): strin
   return `${prefix}:${a}:${b}`;
 }
 
-function meaningOf(word: Word | undefined, showAll: boolean): string {
-  if (!word) return '';
-  const list = word.m ?? [];
-  if (list.length === 0) return '';
-  return showAll && list.length > 1 ? `${list[0]}；${list[1]}` : list[0];
+/**
+ * 只取 `m[0]`：复习清单是用来快速扫视的，多义拼成一行再截断反而更难读
+ * （用户 2026-11-27 拍板）。查不到释义时返回空串，由调用方显示 `—`。
+ */
+function meaningOf(word: Word | undefined): string {
+  if (!word || !word.m || word.m.length === 0) return '';
+  return word.m[0];
 }
 
 function WordList({
@@ -50,13 +50,11 @@ function WordList({
   doneWords,
   showDoneMarks,
   index,
-  showAll,
 }: {
   words: string[];
   doneWords: ReadonlySet<string>;
   showDoneMarks: boolean;
   index: ReadonlyMap<string, Word> | null;
-  showAll: boolean;
 }) {
   const shown = words.slice(0, MAX_ROWS);
   const rest = words.length - shown.length;
@@ -65,7 +63,7 @@ function WordList({
       <ul className="batch__words">
         {shown.map((word) => {
           const entry = index?.get(word);
-          const meaning = meaningOf(entry, showAll);
+          const meaning = meaningOf(entry);
           // 历史日：那天没答出来的词压暗，一眼看出「学了 3 个、还剩 9 个」
           const missed = showDoneMarks && !doneWords.has(word);
           return (
@@ -91,7 +89,6 @@ export function ReviewBatches({
   doneWords,
   showDoneMarks,
   index,
-  showAll,
   estimated = false,
 }: ReviewBatchesProps) {
   const total = useMemo(
@@ -168,7 +165,6 @@ export function ReviewBatches({
                     doneWords={doneWords}
                     showDoneMarks={showDoneMarks}
                     index={index}
-                    showAll={showAll}
                   />
                 </div>
               ) : null}
@@ -194,7 +190,6 @@ export function ReviewBatches({
                     doneWords={doneWords}
                     showDoneMarks={showDoneMarks}
                     index={index}
-                    showAll={showAll}
                   />
                 </div>
               ) : null}

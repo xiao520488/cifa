@@ -1,5 +1,14 @@
 # NOTES
 
+## 2026-11-27 · 1.5.1：点日期自动滚面板 + 释义只取 m[0]（用户拍板的两点）
+
+- **自动滚**：`CalendarScreen` 里加 `wantsScroll` ref + `pickDay()`——只有「点日期」才滚，翻月/首次进入不滚（否则会把人从月历上拽走）。判据是「整块面板是否完全在 `.app__main` 里」：完全可见就不动；不可见才滚到面板顶部（留 8px）。面板比一屏高时永远不算完全可见，但滚到顶后重算位置不变 → **幂等，不会连续点日期时抖**。`prefers-reduced-motion: reduce` 时 `behavior: 'auto'` 直接就位。
+- **踩坑**：一开始用「面板顶部在舒适区内就不滚」，结果面板顶部在 400px 处也算舒适 → 真机上点日期什么都不发生，跟没做一样；改成字面意义的「整块可见」才符合需求原文。
+- **另一个发现**：滚不动不一定是 bug——内容到底时 `scrollTop` 会停在 `max`，面板顶部离容器上沿还剩 100 多 px，这是物理上限，不是算错（量 `scrollHeight - clientHeight` 即可分辨）。
+- **释义**：`meaningOf()` 固定返回 `m[0]`，`showAll` 从 `ReviewBatches` / `DayDetail` / `CalendarScreen` / `App` 四层全部删掉；列表以快速扫视为准，不再拼多义再截断。
+- **门禁**：`tsc` 0；`audit-month` **18/18 fail 0**（新增 `noAutoScroll` 断言：滚动归零后点日期，500ms 内 scrollTop 必须变化或面板已在视野内）；`audit-screens` 54/54；`vite build` 0。
+- **产物**：`out/cijian-1.5.1.apk`（versionCode 10 / 1.5.1，1.07 MB，SHA256 `2329D151…4EFE28`）。
+
 ## 2026-11-27 · UI v2 第三阶段：复习批次做成卡片 + 词表（真机反馈驱动）
 
 - **改了什么**：`复习批次` 从「一行 13px 小字」变成独立卡片（`ReviewBatches.tsx`）：卡头给 `N 批 · M 词`，每批一行 52px 可点行头（`11月26日 那批 / 1 天前 / 5 词 / 折叠箭头`），展开是「英文 600 加粗 + 释义 13px 浅色单行省略」的清单，默认展开第一批；历史日没答出来的词压暗（`is-missed`），未来日卡头多一个「已排定」标签、无批次时写「暂无排定的复习」。**长文案（`planSummary` / `explainCalendarNewWords`）位置一个字没动**。

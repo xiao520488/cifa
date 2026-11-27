@@ -9,7 +9,7 @@
  * 不重新算范围——同一份 `CalendarDay` 同时喂格子和面板，两边数字才不可能打架。
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatMonthDay, weekdayLabel } from '../lib/scheduler';
 import type { Scheduler, StudyDay } from '../lib/scheduler';
 import { addMonths, monthGrid, monthOf } from '../lib/calendarState';
@@ -22,11 +22,12 @@ interface CalendarScreenProps {
   version: number;
   /** 当前阶段的词库：给批次清单查释义（查不到就只显示英文） */
   book: Wordbook | null;
-  /** 释义详略：多义是否展开 */
-  showAll: boolean;
 }
 
-export function CalendarScreen({ engine, version, book, showAll }: CalendarScreenProps) {
+/** 面板顶部离滚动容器上沿留一点呼吸，别贴着 topbar */
+const DETAIL_OFFSET = 8;
+
+export function CalendarScreen({ engine, version, book }: CalendarScreenProps) {
   const { plan, stats } = useMemo(() => {
     void version;
     return { plan: engine.plan(), stats: engine.stats() };
@@ -41,6 +42,8 @@ export function CalendarScreen({ engine, version, book, showAll }: CalendarScree
   const today = plan.day;
   const [month, setMonth] = useState<StudyDay>(() => monthOf(today));
   const [selected, setSelected] = useState<StudyDay>(today);
+  /** 只有「点了日期」才滚：翻月/首次进入不滚，否则会把人从月历上拽走 */
+  const wantsScroll = useRef(false);
 
   const grid = useMemo(() => monthGrid(month), [month]);
   const days = useMemo(() => {
@@ -57,6 +60,32 @@ export function CalendarScreen({ engine, version, book, showAll }: CalendarScree
     setSelected(grid.cells.find((cell) => cell.inMonth)?.day ?? today);
   }, [byDay, grid, selected, today]);
 
+  /**
+   * 点日期后把详情面板滚进视野（用户 2026-11-27 拍板：只在「没完全在可视区」时滚）。
+   *
+   * 判据是字面意义的「整块可见」：顶部在容器内、底部也在容器内才不动。
+   * 面板比一屏还高时永远算不上完全可见，但滚到顶之后 `scrollTop` 再算一遍是同一个值，
+   * 所以连续点日期不会抖（幂等）。尊重 `prefers-reduced-motion`：开启时直接跳。
+   */
+  useEffect(() => {
+    if (!wantsScroll.current) return;
+    wantsScroll.current = false;
+    const id = window.requestAnimationFrame(() => {
+      const main = document.querySelector('.app__main');
+      const detail = document.querySelector('.cal-detail');
+      if (!main || !detail) return;
+      const box = main.getBoundingClientRect();
+      const rect = detail.getBoundingClientRect();
+      if (rect.top >= box.top - 1 && rect.top <= box.bottom && rect.bottom <= box.bottom) return;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      main.scrollTo({
+        top: main.scrollTop + (rect.top - box.top) - DETAIL_OFFSET,
+        behavior: reduce ? 'auto' : 'smooth',
+      });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [selected]);
+
   const current = byDay.get(selected);
 
   const goMonth = (delta: number) => {
@@ -64,6 +93,12 @@ export function CalendarScreen({ engine, version, book, showAll }: CalendarScree
     setMonth(next);
     // 本月含今天就选今天，否则选 1 号：翻月后总得有个合理的默认落点
     setSelected(next === monthOf(today) ? today : next);
+  };
+
+  const pickDay = (day: StudyDay) => {
+    if (day === selected) return;
+    wantsScroll.current = true;
+    setSelected(day);
   };
 
   return (
@@ -86,7 +121,7 @@ export function CalendarScreen({ engine, version, book, showAll }: CalendarScree
             selected={selected}
             byDay={byDay}
             onSelect={(day, inMonth) => {
-              if (inMonth) setSelected(day);
+              if (inMonth) pickDay(day);
             }}
             onPrev={() => goMonth(-1)}
             onNext={() => goMonth(1)}
@@ -102,7 +137,6 @@ export function CalendarScreen({ engine, version, book, showAll }: CalendarScree
               plan={plan}
               streak={stats.consecutiveGoodDays}
               index={index}
-              showAll={showAll}
             />
           ) : null}
         </div>

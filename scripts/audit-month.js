@@ -225,7 +225,27 @@ async (page) => {
           return el ? el.getAttribute('aria-label') : null;
         }, pastSel);
         if (pastLabel) {
+          // 点日期时面板若不在可视区，必须自动滚进来（用户 2026-11-27 拍板）：
+          // 先归零滚动位置，再点，500ms 内应该看到 scrollTop 变了或面板已在视野内。
+          await page.evaluate(() => {
+            const main = document.querySelector('.app__main');
+            if (main) main.scrollTop = 0;
+          });
+          await page.waitForTimeout(120);
           await clickCell(pastSel);
+          await page.waitForTimeout(700);
+          const sc = await page.evaluate(() => {
+            const main = document.querySelector('.app__main');
+            const detail = document.querySelector('.cal-detail');
+            const m = main.getBoundingClientRect();
+            const r = detail.getBoundingClientRect();
+            return {
+              scrollTop: Math.round(main.scrollTop),
+              top: Math.round(r.top - m.top),
+              fullyVisible: r.top >= m.top - 1 && r.bottom <= m.bottom,
+            };
+          });
+          if (!sc.fullyVisible && sc.scrollTop === 0 && sc.top > 80) fails.push('noAutoScroll=' + sc.top);
           await wait();
           const p = await probe();
           const dayPart = pastLabel.split(' ')[0];

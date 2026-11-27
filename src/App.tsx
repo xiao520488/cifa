@@ -323,7 +323,6 @@ export default function App() {
           engine={scheduler.engine}
           version={scheduler.version}
           book={book}
-          showAll={showAll}
         />
       ) : screen === 'mistakes' ? (
         <MistakesScreen
